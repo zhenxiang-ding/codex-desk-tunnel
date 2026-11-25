@@ -51,6 +51,65 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 新开 CMD，按上面的命令进入项目并执行 `ccdt login`。没有保存过服务时，按提示输入 VPS 显示的连接信息，再运行 `ccdt`。
 
+### 隧道如何通过 SSH 操作 Windows 项目
+
+连接时，Windows 客户端主动连到部署汇总里的 WSS 地址（直连示例 `wss://vps.example.net:8788/ws`），在本机回环地址启动随包的 OpenSSH，并为这次连接生成临时密钥。服务端通过这条隧道把 SSH 命令送回 Windows。Windows 无需开放公网 22 端口，断开后客户端会清理临时密钥。[上游架构说明](docs/architecture.md)
+
+选择本机项目并打开 **Codex 终端** 后，服务端会为该会话配置 SSH 别名。`device` 指向当前项目所在电脑，可供 SSH、SCP 和 SFTP 使用；`device-pwsh` 在该电脑运行 PowerShell 脚本。如果 Windows 客户端检测到 Git Bash，还会提供 `device-bash`。要验证连接，可以让 Codex 执行 `ssh device hostname`，把返回值与 Windows CMD 中 `hostname` 的输出对照。这些别名在隧道会话里生效。[会话 SSH 配置](docs/native-runtime.md)
+
+## 在 OpenAI Codex 桌面端添加 SSH 连接（可选）
+
+如果想用 **OpenAI Codex 桌面端打开 VPS 上的项目**，在桌面端进入 **设置 → 连接 → SSH**，打开 **添加 SSH 连接**。这个入口登录 VPS 宿主机。上面一键安装的 Codex CLI 位于 Docker 容器内；桌面端直连宿主机后，看到的是该 SSH 用户可访问的远程目录。要让 VPS 上的 Codex 操作 `E:\Codex_default`，使用上面的 **Codex Desk Tunnel → 打开 Codex 终端** 或 `ccdt` 即可。
+
+![OpenAI Codex 桌面端的添加 SSH 连接窗口，包含主机名、SSH 端口和身份文件路径](docs/images/codex-desktop-add-ssh.png)
+
+| 窗口字段 | 填写示例 |
+| --- | --- |
+| 显示名称 | `我的 Ubuntu VPS`，方便自己辨认。 |
+| 主机名 | `ubuntu@vps.example.net`，换成平时 SSH 登录用的用户名和公网 IP 或域名。这里只填 SSH 主机，`wss://…/ws` 地址用于 Desk Tunnel。 |
+| SSH 端口（可选） | 使用默认 SSH 端口时留空或填 `22`。平时用 `ssh -p 2222` 登录就填 `2222`。Desk Tunnel 默认的 `8788` 提供 WSS 服务。 |
+| 身份文件 / 身份文件路径 | 选择 **身份文件**，填 Windows 本机用于登录这台 VPS 的**私钥**完整路径，例如 `C:\Users\你的用户名\.ssh\id_ed25519`。对应的 `.pub` 公钥应已登记在 VPS 登录账号的 `~/.ssh/authorized_keys` 中。 |
+
+先在 Windows **PowerShell** 用相同的主机名、端口和私钥验证。替换下面的示例值；如果已有能登录 VPS 的密钥，直接使用原路径。
+
+```powershell
+ssh -o IdentitiesOnly=yes -i "$env:USERPROFILE\.ssh\id_ed25519" -p 22 ubuntu@vps.example.net hostname
+```
+
+命令应输出 **VPS 的主机名**。首次连接时，请对照云控制台或管理员提供的 SSH 主机指纹。如果命令提示 `Permission denied (publickey)`，核对用户名、私钥路径和该账号已登记的公钥。Desk Tunnel 部署汇总里的服务凭据和 TLS 证书指纹用于 WSS 连接。
+
+桌面端会通过 SSH 在远程用户的登录 shell 中启动 Codex。请用刚才的 SSH 用户登录 **VPS 宿主机**，运行下面两条检查。若提示找不到命令，先按 [Codex CLI 安装说明](https://developers.openai.com/codex/cli/)为该用户安装 Codex，并确保登录 shell 的 `PATH` 能找到它。若尚未登录，在同一用户下运行 `codex login --device-auth` 完成授权。容器里的 `sudo codex-desk-tunnel login` 只负责隧道会话的账号。[OpenAI 远程 SSH 连接说明](https://learn.chatgpt.com/docs/remote-connections#connect-to-an-ssh-host)
+
+```bash
+codex --version
+codex login status
+```
+
+确认登录状态后，在桌面端点 **保存**，连接主机并选择 VPS 上的项目目录。
+
+<details>
+<summary>还没有 VPS 登录密钥，或希望在 Windows 保存 SSH 配置</summary>
+
+在 PowerShell 中用一个新的文件名创建专用密钥。如果文件已存在，请复用已有密钥或另选名称。私钥留在 Windows，将以下命令显示的**公钥**通过云控制台或已有的 VPS 登录方式加入目标账号的 `~/.ssh/authorized_keys`，保留文件中已有的公钥。
+
+```powershell
+ssh-keygen -t ed25519 -f "$env:USERPROFILE\.ssh\codex_vps"
+Get-Content "$env:USERPROFILE\.ssh\codex_vps.pub"
+```
+
+可在 Windows 的 `%USERPROFILE%\.ssh\config` 中追加以下配置，替换主机、用户名、端口和密钥路径，然后用 `ssh codex-vps hostname` 验证。在上图选择身份文件时，填与 `IdentityFile` 对应的 Windows 完整路径。
+
+```sshconfig
+Host codex-vps
+    HostName vps.example.net
+    User ubuntu
+    Port 22
+    IdentityFile ~/.ssh/codex_vps
+    IdentitiesOnly yes
+```
+
+</details>
+
 ## 从源码构建
 
 自行编译时，在 Windows x64 上准备 Git、Node.js 24 和 PowerShell 7，首次获取源码时运行：
