@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline';
 import { terminalStatuses } from '@cc-desk-tunnel/protocol';
 import { Follow, catchUp, findSession } from './agent.mjs';
 
-// `ccdt acp`: Claude Code on the service as an agent of the Agent Client Protocol (agentclientprotocol.com), over
+// `cxdt acp`: Claude Code on the service as an agent of the Agent Client Protocol (agentclientprotocol.com), over
 // standard input and output, for the editors and agents that speak it (Zed, JetBrains, acpx…). It is a translation of
 // the service's own conversation, as the desktop client shows it: an ACP session is a session of the service, whose
 // approvals and history every window shows too; whichever answers an approval first decides it.
@@ -161,7 +161,7 @@ export async function serveAcp(context, { input = process.stdin, output = proces
   // A request to the client, such as for permission; its answer resolves it.
   const ask = (method, params) =>
     new Promise((resolve, reject) => {
-      const id = `ccdt-${nextId++}`;
+      const id = `cxdt-${nextId++}`;
       asked.set(id, { resolve, reject });
       write({ id, method, params });
     });
@@ -403,7 +403,7 @@ export async function serveAcp(context, { input = process.stdin, output = proces
   const ignored = (servers) => {
     if (servers?.length)
       context.err(
-        `ccdt acp 暂不连接客户端传来的 MCP 服务（${servers.map((server) => server.name).join('、')}）。`,
+        `cxdt acp 暂不连接客户端传来的 MCP 服务（${servers.map((server) => server.name).join('、')}）。`,
       );
   };
 
@@ -437,7 +437,7 @@ export async function serveAcp(context, { input = process.stdin, output = proces
         sessionCapabilities: { close: {} },
       },
       authMethods: [],
-      agentInfo: { name: 'ccdt', title: 'CC Desk Tunnel', version: context.version },
+      agentInfo: { name: 'cxdt', title: 'CC Desk Tunnel', version: context.version },
     }),
     async 'session/new'({ cwd, mcpServers }) {
       ignored(mcpServers);

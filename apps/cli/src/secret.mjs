@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
-const SERVICE = 'CC Desk Tunnel CLI';
+const SERVICE = 'Codex Desk Tunnel CLI';
 // A store that waits on something, such as a dialog to unlock it, is given up after a while.
 const run = (file, args, input) =>
   execFileSync(file, args, {
@@ -35,7 +35,7 @@ const dpapi = (method, value) =>
 // keychain on macOS, the Secret Service (GNOME Keyring, KWallet) on Linux. A store that is there may not work: the
 // Secret Service needs a desktop session, which a server reached over SSH does not have, and the keychain may be
 // locked to a login over SSH. Then, as where there is no store, the token is kept in the settings file, which only
-// this account can read; `CCDT_TOKEN` avoids keeping it at all.
+// this account can read; `CXDT_TOKEN` avoids keeping it at all.
 export function protect(server, token, platform = process.platform) {
   try {
     const kept = store(server, token, platform);

@@ -11,7 +11,7 @@ const terminal = pathToFileURL(join(import.meta.dirname, '../src/terminal.mjs'))
 const secret = pathToFileURL(join(import.meta.dirname, '../src/secret.mjs')).href;
 
 // What only a real terminal shows, on Linux and macOS: keys arrive as they are typed, Ctrl+C among them as a key for
-// Claude Code rather than a signal that ends ccdt, and a change of the window's size is passed on. The terminal shown
+// Claude Code rather than a signal that ends cxdt, and a change of the window's size is passed on. The terminal shown
 // is a stand-in service's. Windows' console was checked end to end instead.
 test(
   'in a real terminal, keys go through raw and a resize is passed on',
@@ -27,7 +27,7 @@ test(
             0o755,
           );
         } catch {}
-    const directory = mkdtempSync(join(tmpdir(), 'ccdt-tty-'));
+    const directory = mkdtempSync(join(tmpdir(), 'cxdt-tty-'));
     t.after(() => rmSync(directory, { recursive: true, force: true }));
     const sent = join(directory, 'sent.jsonl');
     const script = join(directory, 'shown.mjs');
@@ -69,7 +69,7 @@ process.stdout.write('DONE ' + result.how + '\\r\\n');
         await new Promise((r) => setTimeout(r, 100));
       assert.match(screen, pattern);
     };
-    // READY is on the screen before ccdt has sent anything: until it does, there is no file of what it sent.
+    // READY is on the screen before cxdt has sent anything: until it does, there is no file of what it sent.
     const sentOf = () => {
       let text;
       try {
@@ -103,23 +103,23 @@ process.stdout.write('DONE ' + result.how + '\\r\\n');
   },
 );
 
-// `ccdt config` in a terminal, without a service to reach: this computer's settings are gone through with the arrow
+// `cxdt config` in a terminal, without a service to reach: this computer's settings are gone through with the arrow
 // keys, a wait typed in and kept.
 test(
-  'in a real terminal, ccdt config changes a setting typed in',
+  'in a real terminal, cxdt config changes a setting typed in',
   { skip: process.platform === 'win32' },
   async (t) => {
     const pty = require('node-pty');
-    const directory = mkdtempSync(join(tmpdir(), 'ccdt-config-'));
+    const directory = mkdtempSync(join(tmpdir(), 'cxdt-config-'));
     t.after(() => rmSync(directory, { recursive: true, force: true }));
     const child = pty.spawn(
       process.execPath,
-      [join(import.meta.dirname, '../bin/ccdt.mjs'), 'config'],
+      [join(import.meta.dirname, '../bin/cxdt.mjs'), 'config'],
       {
         cols: 110,
         rows: 20,
         cwd: directory,
-        env: { ...process.env, CCDT_CONFIG_DIR: directory, CCDT_TOKEN: '' },
+        env: { ...process.env, CXDT_CONFIG_DIR: directory, CXDT_TOKEN: '' },
         name: 'xterm-256color',
       },
     );
@@ -133,7 +133,7 @@ test(
         await new Promise((r) => setTimeout(r, 100));
       assert.match(screen, pattern);
     };
-    await until(/ccdt 设置/);
+    await until(/cxdt 设置/);
     assert.match(screen, /只能改本机的设置/);
     child.write('\x1b[B');
     await new Promise((r) => setTimeout(r, 200));
@@ -160,7 +160,7 @@ test(
   },
   async () => {
     const { protect, reveal, discard } = await import(secret);
-    const server = `wss://ccdt-test-${process.pid}.invalid/ws`;
+    const server = `wss://cxdt-test-${process.pid}.invalid/ws`;
     const kept = protect(server, 'keychain-token');
     try {
       assert.deepEqual(kept, { store: 'keychain' });

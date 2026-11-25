@@ -1,8 +1,8 @@
 // Where the project lives, shown as a small link on the sign-in page and in the connection menu.
 // Nothing is shown while the address is empty.
 export const project = {
-  name: 'cc-desk-tunnel',
-  url: 'https://github.com/sun168567/cc-desk-tunnel',
+  name: 'codex-desk-tunnel',
+  url: 'https://github.com/zhenxiang-ding/codex-desk-tunnel',
 };
 
 export const openProject = () =>

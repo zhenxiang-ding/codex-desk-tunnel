@@ -105,7 +105,7 @@ contextBridge.exposeInMainWorld('desktop', {
     return () => ipcRenderer.removeListener('update:progress', listener);
   },
   upgradeService: (config) => ipcRenderer.invoke('service:upgrade', config),
-  openInCcdt: (request) => ipcRenderer.invoke('ccdt:open', request),
+  openInCxdt: (request) => ipcRenderer.invoke('cxdt:open', request),
   onServiceUpgrade: (callback) => {
     const listener = (_event, update) => callback(update);
     ipcRenderer.on('service:upgrade-progress', listener);

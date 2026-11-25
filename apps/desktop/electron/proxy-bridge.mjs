@@ -276,7 +276,7 @@ export async function openProxyBridge(
           leaving = true;
           return;
         }
-        // A connection whose computer has its execution channel by another, `ccdt online`, asks for none.
+        // A connection whose computer has its execution channel by another, `cxdt online`, asks for none.
         if (message.type === 'auth') {
           message.tunnel = config.tunnel !== false;
           token = String(message.token);

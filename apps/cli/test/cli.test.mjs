@@ -28,19 +28,19 @@ import { download, install } from '../src/upgrade.mjs';
 
 test('settings live where each system keeps them, beside the desktop client’s', () => {
   assert.deepEqual(directories({ APPDATA: 'C:\\A' }, 'win32', 'C:\\H'), {
-    cli: join('C:\\A', 'ccdt'),
+    cli: join('C:\\A', 'cxdt'),
     desktop: join('C:\\A', 'CC Desk Tunnel'),
   });
   assert.equal(
     directories({}, 'darwin', '/h').cli,
-    join('/h', 'Library', 'Application Support', 'ccdt'),
+    join('/h', 'Library', 'Application Support', 'cxdt'),
   );
   assert.equal(directories({}, 'linux', '/h').desktop, join('/h', '.config', 'CC Desk Tunnel'));
-  assert.equal(directories({ CCDT_CONFIG_DIR: '/c' }, 'linux', '/h').cli, '/c');
+  assert.equal(directories({ CXDT_CONFIG_DIR: '/c' }, 'linux', '/h').cli, '/c');
 });
 
-test('the desktop client’s device ID is the computer’s; without one ccdt keeps its own', (t) => {
-  const root = mkdtempSync(join(tmpdir(), 'ccdt-config-'));
+test('the desktop client’s device ID is the computer’s; without one cxdt keeps its own', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'cxdt-config-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const paths = { cli: join(root, 'cli'), desktop: join(root, 'desktop') };
   const own = new Config(paths).device();
@@ -186,8 +186,8 @@ test('a lost connection, a terminal taken elsewhere and output left behind end t
   assert.deepEqual(await three, { how: 'stalled' });
 });
 
-test('ccdt login offers the services the desktop client signs in to, by their names or addresses, without their tokens', (t) => {
-  const root = mkdtempSync(join(tmpdir(), 'ccdt-logins-'));
+test('cxdt login offers the services the desktop client signs in to, by their names or addresses, without their tokens', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'cxdt-logins-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const paths = { cli: join(root, 'cli'), desktop: join(root, 'desktop') };
   mkdirSync(join(paths.desktop, 'connections', 'abcdefgh'), { recursive: true });
@@ -227,7 +227,7 @@ test('ccdt login offers the services the desktop client signs in to, by their na
 
 // Three services signed in to, the desktop client calling one of them 公司.
 function signedIn(t) {
-  const root = mkdtempSync(join(tmpdir(), 'ccdt-servers-'));
+  const root = mkdtempSync(join(tmpdir(), 'cxdt-servers-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const paths = { cli: join(root, 'cli'), desktop: join(root, 'desktop') };
   mkdirSync(paths.cli, { recursive: true });
@@ -240,7 +240,7 @@ function signedIn(t) {
     join(paths.desktop, 'shared', 'connections.json'),
     JSON.stringify([{ id: '', name: '公司' }]),
   );
-  // Written by a ccdt before services said when they were last used.
+  // Written by a cxdt before services said when they were last used.
   writeFileSync(
     join(paths.cli, 'config.json'),
     JSON.stringify({
@@ -266,7 +266,7 @@ test('a service is named by its address, the desktop client’s name for it or i
   assert.deepEqual(urls('osaka'), []);
 });
 
-test('the service connected to last is the one used when none is named, whatever another ccdt wrote meanwhile', (t) => {
+test('the service connected to last is the one used when none is named, whatever another cxdt wrote meanwhile', (t) => {
   const paths = signedIn(t);
   const config = new Config(paths);
   assert.equal(config.server().url, 'wss://tokyo.example.net/ws');
@@ -275,7 +275,7 @@ test('the service connected to last is the one used when none is named, whatever
   config.use('wss://tunnel.example.com/ws');
   const read = new Config(paths);
   assert.equal(read.server().url, 'wss://tunnel.example.com/ws');
-  assert.ok(read.find('osaka').length, 'a service another ccdt signed in to meanwhile is kept');
+  assert.ok(read.find('osaka').length, 'a service another cxdt signed in to meanwhile is kept');
   assert.ok(read.find('tunnel')[0].usedAt);
   read.use('wss://tokyo-2.example.net/ws', false);
   const chosen = new Config(paths);
@@ -285,29 +285,29 @@ test('the service connected to last is the one used when none is named, whatever
 
 test('naming a service none or several answer, or choosing one away from a terminal, stops before connecting', (t) => {
   const paths = signedIn(t);
-  const ccdt = (...args) =>
-    spawnSync(process.execPath, ['apps/cli/bin/ccdt.mjs', ...args], {
+  const cxdt = (...args) =>
+    spawnSync(process.execPath, ['apps/cli/bin/cxdt.mjs', ...args], {
       encoding: 'utf8',
       input: '',
-      env: { ...process.env, CCDT_CONFIG_DIR: paths.cli, APPDATA: join(paths.desktop, '..') },
+      env: { ...process.env, CXDT_CONFIG_DIR: paths.cli, APPDATA: join(paths.desktop, '..') },
     });
-  const none = ccdt('sessions', '--server', 'osaka');
+  const none = cxdt('sessions', '--server', 'osaka');
   assert.equal(none.status, 1);
   assert.match(none.stderr, /没有登录过 osaka/);
-  assert.match(ccdt('sessions', '--server', 'tokyo').stderr, /有几个服务端都符合 tokyo/);
-  assert.match(ccdt('-s').stderr, /选服务端需要在终端里运行/);
-  const listed = ccdt('server');
+  assert.match(cxdt('sessions', '--server', 'tokyo').stderr, /有几个服务端都符合 tokyo/);
+  assert.match(cxdt('-s').stderr, /选服务端需要在终端里运行/);
+  const listed = cxdt('server');
   assert.equal(listed.status, 0);
   assert.match(listed.stderr, /tokyo\.example\.net .*（当前）/);
 });
 
 test('upgrading with no service saved says to log in, rather than failing inside the upgrade', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ccdt-upgrade-cli-'));
+  const root = mkdtempSync(join(tmpdir(), 'cxdt-upgrade-cli-'));
   try {
-    const result = spawnSync(process.execPath, ['apps/cli/bin/ccdt.mjs', 'upgrade'], {
+    const result = spawnSync(process.execPath, ['apps/cli/bin/cxdt.mjs', 'upgrade'], {
       encoding: 'utf8',
       input: '',
-      env: { ...process.env, CCDT_CONFIG_DIR: join(root, 'cli'), APPDATA: join(root, 'appdata') },
+      env: { ...process.env, CXDT_CONFIG_DIR: join(root, 'cli'), APPDATA: join(root, 'appdata') },
     });
     assert.equal(result.status, 1);
     assert.match(result.stderr + result.stdout, /还没有登录服务端/);
@@ -318,23 +318,23 @@ test('upgrading with no service saved says to log in, rather than failing inside
 });
 
 test('a token handed over by the desktop client is saved without connecting to check it', () => {
-  const root = mkdtempSync(join(tmpdir(), 'ccdt-handover-'));
+  const root = mkdtempSync(join(tmpdir(), 'cxdt-handover-'));
   try {
-    const ccdt = (args, input = '') =>
-      spawnSync(process.execPath, ['apps/cli/bin/ccdt.mjs', ...args], {
+    const cxdt = (args, input = '') =>
+      spawnSync(process.execPath, ['apps/cli/bin/cxdt.mjs', ...args], {
         encoding: 'utf8',
         input,
-        env: { ...process.env, CCDT_CONFIG_DIR: join(root, 'cli'), APPDATA: join(root, 'appdata') },
+        env: { ...process.env, CXDT_CONFIG_DIR: join(root, 'cli'), APPDATA: join(root, 'appdata') },
       });
     // An address that resolves nowhere: connecting to it could only fail.
-    const login = ccdt(
+    const login = cxdt(
       ['login', 'wss://nowhere.invalid/ws', '--token-stdin', '--no-verify', '--no-save'],
       's'.repeat(32),
     );
     assert.equal(login.status, 0, login.stderr);
     assert.match(login.stderr, /已登录 wss:\/\/nowhere\.invalid\/ws/);
     assert.doesNotMatch(login.stderr, /正在验证/);
-    assert.match(ccdt(['server']).stderr, /nowhere\.invalid/);
+    assert.match(cxdt(['server']).stderr, /nowhere\.invalid/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -361,7 +361,7 @@ test(
     skip: process.platform === 'win32',
   },
   (t) => {
-    const directory = mkdtempSync(join(tmpdir(), 'ccdt-secret-'));
+    const directory = mkdtempSync(join(tmpdir(), 'cxdt-secret-'));
     const path = process.env.PATH;
     t.after(() => {
       process.env.PATH = path;
@@ -395,16 +395,16 @@ test('a list entry is cut to the terminal, Chinese taking two columns and colour
   assert.equal(fit('ab\x1b[2mcdef\x1b[0m', 5), 'ab\x1b[2mcd\x1b[0m…');
 });
 
-test('each system has the ccdt package of its own name on the release page', () => {
-  assert.equal(packageName('0.3.9', 'win32-x64'), 'ccdt-0.3.9-windows-x64.zip');
-  assert.equal(packageName('0.3.9', 'darwin-arm64'), 'ccdt-0.3.9-mac-arm64.tar.gz');
-  assert.equal(packageName('0.3.9', 'linux-arm64'), 'ccdt-0.3.9-linux-arm64.tar.gz');
+test('each system has the cxdt package of its own name on the release page', () => {
+  assert.equal(packageName('0.3.9', 'win32-x64'), 'cxdt-0.3.9-windows-x64.zip');
+  assert.equal(packageName('0.3.9', 'darwin-arm64'), 'cxdt-0.3.9-mac-arm64.tar.gz');
+  assert.equal(packageName('0.3.9', 'linux-arm64'), 'cxdt-0.3.9-linux-arm64.tar.gz');
   assert.equal(packageName('0.3.9', 'win32-arm64'), undefined);
 });
 
 test("a downloaded package is used only when it matches the release's checksum", async () => {
   const body = Buffer.from('package');
-  const name = 'ccdt-0.3.9-linux-x64.tar.gz';
+  const name = 'cxdt-0.3.9-linux-x64.tar.gz';
   const sum = createHash('sha256').update(body).digest('hex');
   const asked = [];
   const release =
@@ -423,7 +423,10 @@ test("a downloaded package is used only when it matches the release's checksum",
   });
   assert.equal(fetched.name, name);
   assert.deepEqual(fetched.body, body);
-  assert.match(asked[0], /\/releases\/download\/v0\.3\.9\/SHA256SUMS$/);
+  assert.equal(
+    asked[0],
+    'https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/codex-v0.3.9/SHA256SUMS',
+  );
   await assert.rejects(
     download('0.3.9', { system: 'linux-x64', get: release(`${sum}  ${name}\n`, 'tampered') }),
     /校验不符/,
@@ -439,42 +442,42 @@ test("a downloaded package is used only when it matches the release's checksum",
 });
 
 test('the package is put in place by the install script it carries', (t) => {
-  const root = mkdtempSync(join(tmpdir(), 'ccdt-upgrade-test-'));
+  const root = mkdtempSync(join(tmpdir(), 'cxdt-upgrade-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const marker = join(root, 'installed');
-  mkdirSync(join(root, 'ccdt'));
+  mkdirSync(join(root, 'cxdt'));
   const windows = process.platform === 'win32';
   const tar = windows
     ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe')
     : 'tar';
-  const name = windows ? 'ccdt.zip' : 'ccdt.tar.gz';
+  const name = windows ? 'cxdt.zip' : 'cxdt.tar.gz';
   // A stand-in for the script, which tells how it was run.
   if (windows)
     writeFileSync(
-      join(root, 'ccdt', 'install.ps1'),
+      join(root, 'cxdt', 'install.ps1'),
       `Set-Content -LiteralPath '${marker.replaceAll("'", "''")}' -Value ran`,
     );
   else {
-    writeFileSync(join(root, 'ccdt', 'install.sh'), `#!/bin/sh\necho ran > '${marker}'\n`);
-    chmodSync(join(root, 'ccdt', 'install.sh'), 0o755);
+    writeFileSync(join(root, 'cxdt', 'install.sh'), `#!/bin/sh\necho ran > '${marker}'\n`);
+    chmodSync(join(root, 'cxdt', 'install.sh'), 0o755);
   }
   execFileSync(
     tar,
     windows
-      ? ['-a', '-cf', join(root, name), '-C', root, 'ccdt']
-      : ['-czf', join(root, name), '-C', root, 'ccdt'],
+      ? ['-a', '-cf', join(root, name), '-C', root, 'cxdt']
+      : ['-czf', join(root, name), '-C', root, 'cxdt'],
   );
   install({ name, body: readFileSync(join(root, name)) });
   assert.equal(readFileSync(marker, 'utf8').trim(), 'ran');
   // A script that fails says so.
-  if (windows) writeFileSync(join(root, 'ccdt', 'install.ps1'), "throw 'in use'");
-  else writeFileSync(join(root, 'ccdt', 'install.sh'), "#!/bin/sh\necho 'in use' >&2\nexit 1\n");
+  if (windows) writeFileSync(join(root, 'cxdt', 'install.ps1'), "throw 'in use'");
+  else writeFileSync(join(root, 'cxdt', 'install.sh'), "#!/bin/sh\necho 'in use' >&2\nexit 1\n");
   rmSync(join(root, name));
   execFileSync(
     tar,
     windows
-      ? ['-a', '-cf', join(root, name), '-C', root, 'ccdt']
-      : ['-czf', join(root, name), '-C', root, 'ccdt'],
+      ? ['-a', '-cf', join(root, name), '-C', root, 'cxdt']
+      : ['-czf', join(root, name), '-C', root, 'cxdt'],
   );
   assert.throws(
     () => install({ name, body: readFileSync(join(root, name)) }),
@@ -482,8 +485,8 @@ test('the package is put in place by the install script it carries', (t) => {
   );
 });
 
-test('ccdt’s settings: its own waits, the service’s and Claude Code’s with the desktop client’s words', async (t) => {
-  const root = mkdtempSync(join(tmpdir(), 'ccdt-settings-'));
+test('cxdt’s settings: its own waits, the service’s and Claude Code’s with the desktop client’s words', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'cxdt-settings-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const config = new Config({ cli: join(root, 'cli'), desktop: join(root, 'desktop') });
   const remote = {
@@ -534,7 +537,7 @@ test('ccdt’s settings: its own waits, the service’s and Claude Code’s with
   assert.throws(() => parse(named('connection.ssh'), '3'), /5–600/);
   assert.throws(() => parse(named('compaction.afterMinutes'), '42'), /可选/);
   assert.throws(() => parse(named('cli.instructions'), 'x'), /\/memory/);
-  // ccdt keeps its waits; the rest goes to the service as the desktop client sends it.
+  // cxdt keeps its waits; the rest goes to the service as the desktop client sends it.
   const requests = [];
   const service = { request: async (command) => (requests.push(command), { type: 'response' }) };
   await save(named('connection.connect'), 30, { config, service });
@@ -558,7 +561,7 @@ test('ccdt’s settings: its own waits, the service’s and Claude Code’s with
   );
 });
 
-test('ccdt offers the shell Claude should prefer on Windows, Git Bash once the computer has it', async () => {
+test('cxdt offers the shell Claude should prefer on Windows, Git Bash once the computer has it', async () => {
   const here = { id: 'x', name: 'pc', ready: true, shells: ['pwsh', 'bash'] };
   const shell = (device) =>
     entries({ here: device }).find((entry) => entry.name === 'device.shell');
@@ -632,7 +635,7 @@ async function online(connect) {
   return { said, marked, stop: () => stop(), done };
 }
 
-test('ccdt online stays online without a terminal, signing in again after a loss until it is stopped', async () => {
+test('cxdt online stays online without a terminal, signing in again after a loss until it is stopped', async () => {
   const given = [standIn(), standIn()];
   const asked = [];
   const run = await online(async (again) => {
@@ -654,11 +657,11 @@ test('ccdt online stays online without a terminal, signing in again after a loss
   assert.equal(await run.done, 0);
   assert.equal(given[1].ended, true);
   assert.equal(run.said.length, 3);
-  // Said online while it was, for the windows of ccdt to use its channel.
+  // Said online while it was, for the windows of cxdt to use its channel.
   assert.deepEqual(run.marked, [true, false, true, false]);
 });
 
-test('ccdt online ends on a refused token, and where the channel does not get ready', async () => {
+test('cxdt online ends on a refused token, and where the channel does not get ready', async () => {
   const lost = standIn();
   const refused = await online(async (again) => {
     if (!again) return lost;
@@ -673,9 +676,9 @@ test('ccdt online ends on a refused token, and where the channel does not get re
   assert.equal(stuck.ended, true);
 });
 
-test('a window of ccdt uses the channel of ccdt online while that runs, for the same service alone', async (t) => {
+test('a window of cxdt uses the channel of cxdt online while that runs, for the same service alone', async (t) => {
   const { markOnline, onlineAt } = await import('../src/online.mjs');
-  const directory = mkdtempSync(join(tmpdir(), 'ccdt-online-'));
+  const directory = mkdtempSync(join(tmpdir(), 'cxdt-online-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const path = join(directory, 'online.json');
   const url = 'wss://example.invalid/ws';

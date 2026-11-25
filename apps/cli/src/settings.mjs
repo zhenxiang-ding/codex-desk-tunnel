@@ -7,9 +7,9 @@ import {
   waitRange,
 } from '../../desktop/src/setting-fields.ts';
 
-// The settings ccdt changes, with the desktop client's words and choices: how this computer connects, which ccdt
+// The settings cxdt changes, with the desktop client's words and choices: how this computer connects, which cxdt
 // keeps for itself, and the service's own and Claude Code's, which the service keeps for every client. Each has a
-// name for `ccdt config <name> <value>`. What a terminal does not lend itself to is listed as not here yet, with
+// name for `cxdt config <name> <value>`. What a terminal does not lend itself to is listed as not here yet, with
 // where to set it meanwhile.
 
 const ON = ['on', 'true', 'yes', '1', '开', '开启'];
@@ -17,7 +17,7 @@ const OFF = ['off', 'false', 'no', '0', '关', '关闭'];
 const DEFAULT = ['default', 'unset', '默认', ''];
 const onOff = (value) => (value ? '开启' : '关闭');
 
-// The service's settings that ccdt shows; one that cannot be read is left out, with why.
+// The service's settings that cxdt shows; one that cannot be read is left out, with why.
 export async function readRemote(service) {
   const read = async (type) => {
     try {
@@ -36,7 +36,7 @@ export async function readRemote(service) {
   return { compaction, cli, web, here };
 }
 
-// Every setting with its current value. `waits` are ccdt's own, in seconds, a missing one taking the default.
+// Every setting with its current value. `waits` are cxdt's own, in seconds, a missing one taking the default.
 export function entries({ waits = {}, compaction, cli, web, here } = {}) {
   const list = waitFields.map(({ step, title, detail }) => ({
     name: `connection.${step}`,
@@ -176,7 +176,7 @@ export function parse(entry, text) {
   const word = String(text).trim();
   const lower = word.toLowerCase();
   if (entry.kind === 'pending')
-    throw new Error(`${entry.title}暂不支持在 ccdt 里设置：${entry.where}`);
+    throw new Error(`${entry.title}暂不支持在 cxdt 里设置：${entry.where}`);
   if (entry.kind !== 'switch' && DEFAULT.includes(lower)) return null;
   if (entry.kind === 'switch' || entry.kind === 'toggle') {
     if (ON.includes(lower)) return true;
@@ -205,7 +205,7 @@ export function parse(entry, text) {
   return entry.read(word);
 }
 
-// Keeps a value: ccdt's own in its configuration, the service's by asking it, as the desktop client does.
+// Keeps a value: cxdt's own in its configuration, the service's by asking it, as the desktop client does.
 export async function save(entry, value, { config, service }) {
   const [scope, key] = [
     entry.name.slice(0, entry.name.indexOf('.')),

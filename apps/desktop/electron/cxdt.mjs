@@ -5,12 +5,12 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir, userInfo } from 'node:os';
 import { delimiter, join, posix } from 'node:path';
 
-// A session opened in ccdt, the terminal client, from the desktop client: ccdt is a program of its own, spoken to
+// A session opened in cxdt, the terminal client, from the desktop client: cxdt is a program of its own, spoken to
 // through its command line alone. It is signed in to the service this window is connected to, with the token the
 // window holds, then opens the session in a terminal window of the system's.
 
-// Where ccdt is: the one this client carries (`own`), which is of its release; else on the PATH, else where its install
-// script puts it, as a client started before ccdt was installed has the PATH from before.
+// Where cxdt is: the one this client carries (`own`), which is of its release; else on the PATH, else where its install
+// script puts it, as a client started before cxdt was installed has the PATH from before.
 export function locate(
   { platform = process.platform, env = process.env, home = homedir(), own } = {},
   exists = existsSync,
@@ -18,23 +18,23 @@ export function locate(
   if (own && exists(own)) return own;
   const windows = platform === 'win32';
   const installed = windows
-    ? join(env.LOCALAPPDATA ?? join(home, 'AppData', 'Local'), 'Programs', 'ccdt')
+    ? join(env.LOCALAPPDATA ?? join(home, 'AppData', 'Local'), 'Programs', 'cxdt')
     : join(home, '.local', 'bin');
   return [...(env.PATH ?? env.Path ?? '').split(windows ? ';' : delimiter), installed]
     .filter(Boolean)
-    .map((directory) => join(directory, windows ? 'ccdt.cmd' : 'ccdt'))
+    .map((directory) => join(directory, windows ? 'cxdt.cmd' : 'cxdt'))
     .find((file) => exists(file));
 }
 
-// The ccdt a macOS or Linux client carries (`own`) becomes the user's `ccdt`: ~/.local/bin/ccdt, where ccdt's own
-// install script links it (apps/cli/install/install.sh). A client installed takes the place of a ccdt installed on its
-// own there, as the Windows installer puts its ccdt ahead of that one on the PATH: the link goes to this one when it
-// goes to a ccdt package or to nothing that is left; a file or a link of the user's own is left alone. A Mac client
+// The cxdt a macOS or Linux client carries (`own`) becomes the user's `cxdt`: ~/.local/bin/cxdt, where cxdt's own
+// install script links it (apps/cli/install/install.sh). A client installed takes the place of a cxdt installed on its
+// own there, as the Windows installer puts its cxdt ahead of that one on the PATH: the link goes to this one when it
+// goes to a cxdt package or to nothing that is left; a file or a link of the user's own is left alone. A Mac client
 // runs from a place of the moment when started from its disk image or from where it was downloaded, and links
-// nothing then: it is in the Applications folder that it stays. There the mark of the download goes from the ccdt it
+// nothing then: it is in the Applications folder that it stays. There the mark of the download goes from the cxdt it
 // carries, as the install script takes it from its own, lest the system refuse its Node when started from a terminal.
 // ~/.local/bin goes on the PATH as that script puts it there, once, for the shells started from then on.
-export function linkCcdt(
+export function linkCxdt(
   {
     platform = process.platform,
     home = homedir(),
@@ -63,7 +63,7 @@ export function linkCcdt(
       });
     } catch {}
   const bin = join(home, '.local', 'bin');
-  const link = join(bin, 'ccdt');
+  const link = join(bin, 'cxdt');
   let current;
   try {
     current = fs.lstatSync(link);
@@ -71,11 +71,11 @@ export function linkCcdt(
   if (current && !current.isSymbolicLink()) return { linked: false, reason: 'taken', path: link };
   if (current) {
     const target = resolve(bin, fs.readlinkSync(link));
-    const ccdtPackage = [
-      `${sep}.local${sep}share${sep}ccdt${sep}`,
-      `${sep}resources${sep}ccdt${sep}`,
-    ].some((part) => target.includes(part) && target.endsWith(join('bin', 'ccdt')));
-    if (target !== own && !ccdtPackage && fs.existsSync(target))
+    const cxdtPackage = [
+      `${sep}.local${sep}share${sep}cxdt${sep}`,
+      `${sep}resources${sep}cxdt${sep}`,
+    ].some((part) => target.includes(part) && target.endsWith(join('bin', 'cxdt')));
+    if (target !== own && !cxdtPackage && fs.existsSync(target))
       return { linked: false, reason: 'taken', path: link };
   }
   if (!current || resolve(bin, fs.readlinkSync(link)) !== own) {
@@ -102,7 +102,7 @@ export function linkCcdt(
     try {
       text = fs.readFileSync(rc, 'utf8');
     } catch {}
-    if (!text.includes(line)) fs.appendFileSync(rc, `\n# ccdt\n${line}\n`);
+    if (!text.includes(line)) fs.appendFileSync(rc, `\n# cxdt\n${line}\n`);
   }
   return { linked: true, path: link };
 }
@@ -120,15 +120,15 @@ function windowsCommand(env, line) {
   };
 }
 
-// ccdt run without a window, its output read: `input` goes to its standard input.
-function run(ccdt, args, system, input) {
+// cxdt run without a window, its output read: `input` goes to its standard input.
+function run(cxdt, args, system, input) {
   const {
     file,
     args: list,
     options,
   } = system.platform === 'win32'
-    ? windowsCommand(system.env, [ccdt, ...args].map(quoted).join(' '))
-    : { file: ccdt, args, options: {} };
+    ? windowsCommand(system.env, [cxdt, ...args].map(quoted).join(' '))
+    : { file: cxdt, args, options: {} };
   return new Promise((resolve, reject) => {
     const child = execFile(
       file,
@@ -137,25 +137,25 @@ function run(ccdt, args, system, input) {
       (error, stdout, stderr) => {
         if (!error) return resolve(stdout);
         const said = stderr.trim().split('\n').at(-1);
-        reject(new Error(said ? `ccdt：${said}` : `ccdt 没有运行成功：${error.message}`));
+        reject(new Error(said ? `cxdt：${said}` : `cxdt 没有运行成功：${error.message}`));
       },
     );
-    // ccdt may end before it reads, as `--version` does, which closes the pipe: how it ended tells the outcome.
+    // cxdt may end before it reads, as `--version` does, which closes the pipe: how it ended tells the outcome.
     child.stdin.on('error', () => {});
     child.stdin.end(input);
   });
 }
 
-// A terminal window of the system's running ccdt with `args` in `cwd`. Should ccdt end with an error, the window
+// A terminal window of the system's running cxdt with `args` in `cwd`. Should cxdt end with an error, the window
 // waits for a key, for what it said to be read.
-export function terminalCommand({ platform, env }, ccdt, args, cwd, exists = existsSync) {
+export function terminalCommand({ platform, env }, cxdt, args, cwd, exists = existsSync) {
   if (platform === 'win32')
-    return windowsCommand(env, `${[ccdt, ...args].map(quoted).join(' ')} || pause`);
-  const script = `cd ${shellQuoted(cwd)} && ${[ccdt, ...args].map(shellQuoted).join(' ')} || read -r _`;
+    return windowsCommand(env, `${[cxdt, ...args].map(quoted).join(' ')} || pause`);
+  const script = `cd ${shellQuoted(cwd)} && ${[cxdt, ...args].map(shellQuoted).join(' ')} || read -r _`;
   // A .command file is Terminal's to run, which asks for no permission as telling Terminal what to do would. It
   // holds no token, and is gone once read.
   if (platform === 'darwin') {
-    const path = join(tmpdir(), `ccdt-open-${randomUUID()}.command`);
+    const path = join(tmpdir(), `cxdt-open-${randomUUID()}.command`);
     return {
       file: 'open',
       args: ['-a', 'Terminal', path],
@@ -179,7 +179,7 @@ export function terminalCommand({ platform, env }, ccdt, args, cwd, exists = exi
       .find((path) => exists(path));
     if (file) return { file, args: [flag, 'sh', '-c', script], options: {} };
   }
-  throw new Error('没有找到可以打开的终端程序：请在终端里运行 ccdt open。');
+  throw new Error('没有找到可以打开的终端程序：请在终端里运行 cxdt open。');
 }
 
 function launch({ file, args, options, script }, system, cwd) {
@@ -203,7 +203,7 @@ function launch({ file, args, options, script }, system, cwd) {
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// `missing` when ccdt is not installed, `outdated` when it is not of this client's release, which is the service's;
+// `missing` when cxdt is not installed, `outdated` when it is not of this client's release, which is the service's;
 // the window then says how to install it. Anything else that goes wrong is thrown, in words for the user.
 export async function openSession(
   { url, fingerprint, token, sessionId, projectPath },
@@ -214,17 +214,17 @@ export async function openSession(
     !/^wss?:\/\/[^\s"'%^&|<>`$\\]+$/.test(url) ||
     !/^[0-9A-Fa-f:]*$/.test(fingerprint ?? '')
   )
-    throw new Error('这个连接的地址不能交给 ccdt。');
+    throw new Error('这个连接的地址不能交给 cxdt。');
   const system = { platform, env, home, own };
-  const ccdt = locate(system);
-  if (!ccdt) return { status: 'missing' };
-  const installed = (await run(ccdt, ['--version'], system)).trim().replace(/^ccdt\s+/, '');
+  const cxdt = locate(system);
+  if (!cxdt) return { status: 'missing' };
+  const installed = (await run(cxdt, ['--version'], system)).trim().replace(/^cxdt\s+/, '');
   if (installed !== version) return { status: 'outdated', installed };
-  // The window's token reaches ccdt on its standard input, never on a command line, and is saved there for ccdt to
-  // open the session with, and for ccdt run here later. It is in use by this window's connection, so ccdt is not
+  // The window's token reaches cxdt on its standard input, never on a command line, and is saved there for cxdt to
+  // open the session with, and for cxdt run here later. It is in use by this window's connection, so cxdt is not
   // made to connect only to check it.
   await run(
-    ccdt,
+    cxdt,
     [
       'login',
       url,
@@ -237,7 +237,7 @@ export async function openSession(
   );
   const cwd = projectPath && existsSync(projectPath) ? projectPath : home;
   await launch(
-    terminalCommand(system, ccdt, ['open', sessionId, '--server', url], cwd),
+    terminalCommand(system, cxdt, ['open', sessionId, '--server', url], cwd),
     system,
     cwd,
   );

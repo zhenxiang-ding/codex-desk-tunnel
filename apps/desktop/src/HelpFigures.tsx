@@ -84,7 +84,7 @@ export default function Figure({
           </div>
           <pre>
             <span className="t-dim">PS D:\work\web-app&gt; </span>
-            <span className="t-cmd">ccdt</span>
+            <span className="t-cmd">cxdt</span>
             {'\n'}
             <span className="t-dim">项目 web-app · 会话「修复登录页」</span>
             {'\n\n'}
@@ -109,8 +109,8 @@ export default function Figure({
               <small>Codex、Gemini CLI、Zed……</small>
             </div>
             <div className="fig-arrow">
-              <code>ccdt -p</code>
-              <code>ccdt acp</code>
+              <code>cxdt -p</code>
+              <code>cxdt acp</code>
               <ArrowRight />
             </div>
             <div className="fig-box accent">
@@ -175,7 +175,7 @@ export default function Figure({
           </div>
           <div className="fig-quota-row">
             <span>
-              <SquareTerminal /> ccdt
+              <SquareTerminal /> cxdt
             </span>
             <div className="fig-quota-bar">
               <i className="lean" style={{ width: '42%' }} />

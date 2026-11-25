@@ -94,7 +94,7 @@ export default function SettingsPanel({ client }: { client: ProxyClient }) {
   return (
     <Page
       title="CLI 设置"
-      intro="服务器上 Claude Code 自己的设置，所有会话和 ccdt 共用，从下一次运行起生效。“默认”即不写入，由 CLI 决定。"
+      intro="服务器上 Claude Code 自己的设置，所有会话和 cxdt 共用，从下一次运行起生效。“默认”即不写入，由 CLI 决定。"
     >
       {failure && (
         <p className="error-text" role="alert">

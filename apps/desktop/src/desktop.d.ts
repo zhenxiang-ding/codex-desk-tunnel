@@ -194,9 +194,9 @@ declare global {
         // Upgrades even while sessions are at work (see FORCED_UPGRADE_SINCE).
         force?: boolean;
       }) => Promise<{ version?: string; error?: string; code?: string }>;
-      // Opens the session in ccdt, the terminal client, signed in to this window's service with its token; says
-      // instead when ccdt is not installed, or not of this client's release.
-      openInCcdt: (request: {
+      // Opens the session in cxdt, the terminal client, signed in to this window's service with its token; says
+      // instead when cxdt is not installed, or not of this client's release.
+      openInCxdt: (request: {
         url: string;
         fingerprint: string;
         token: string;

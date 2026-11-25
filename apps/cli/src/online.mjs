@@ -2,10 +2,10 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 
-// `ccdt online`: this computer stays online for Claude's commands without a terminal, as it is while a terminal of
-// ccdt is open; on a server without a screen it runs in the background. A lost connection is signed in again, at
+// `cxdt online`: this computer stays online for Claude's commands without a terminal, as it is while a terminal of
+// cxdt is open; on a server without a screen it runs in the background. A lost connection is signed in again, at
 // growing intervals up to a minute, until `stop` resolves; a refused token or another release ends it, as they
-// would end any other connection of ccdt. Each change is said on a line of its own, with the time, for a log.
+// would end any other connection of cxdt. Each change is said on a line of its own, with the time, for a log.
 // While it is online it says so by `mark` (see `markOnline`).
 export async function stayOnline({
   connect,
@@ -55,13 +55,13 @@ export async function stayOnline({
   }
 }
 
-// Where `ccdt online` says it is online for the service at `url`: a file with its process and the service. Another
-// ccdt of this computer for that service then opens no execution channel of its own (see `onlineAt`).
+// Where `cxdt online` says it is online for the service at `url`: a file with its process and the service. Another
+// cxdt of this computer for that service then opens no execution channel of its own (see `onlineAt`).
 export function markOnline(path, url, pid = process.pid) {
   return (on) => {
     if (on) writeFileSync(path, JSON.stringify({ pid, url }), { mode: 0o600 });
     else {
-      // Only its own: another `ccdt online` may have written it since.
+      // Only its own: another `cxdt online` may have written it since.
       try {
         if (JSON.parse(readFileSync(path, 'utf8')).pid !== pid) return;
       } catch {
@@ -71,7 +71,7 @@ export function markOnline(path, url, pid = process.pid) {
     }
   };
 }
-// Whether a `ccdt online` that is still running said it is online for the service at `url`.
+// Whether a `cxdt online` that is still running said it is online for the service at `url`.
 export function onlineAt(path, url) {
   try {
     const said = JSON.parse(readFileSync(path, 'utf8'));

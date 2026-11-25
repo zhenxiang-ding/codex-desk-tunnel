@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { TerminalActivity } from '@cc-desk-tunnel/protocol';
 import type { TaskProgress } from './client.ts';
 
-// A session a terminal of `ccdt` holds, as its CLI's hooks report what it is doing.
+// A session a terminal of `cxdt` holds, as its CLI's hooks report what it is doing.
 export function terminalState(activity?: TerminalActivity) {
   if (activity === 'working') return '终端运行中';
   if (activity === 'waiting') return '终端等你确认';

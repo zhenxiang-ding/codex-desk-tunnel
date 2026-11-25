@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Where ccdt keeps its settings, and where the desktop client keeps the settings of the computer. The two share the
+// Where cxdt keeps its settings, and where the desktop client keeps the settings of the computer. The two share the
 // computer's device ID, so that the service takes them for the same computer.
 export function directories(env = process.env, platform = process.platform, home = homedir()) {
   const base =
@@ -14,7 +14,7 @@ export function directories(env = process.env, platform = process.platform, home
       : platform === 'darwin'
         ? join(home, 'Library', 'Application Support')
         : (env.XDG_CONFIG_HOME ?? join(home, '.config'));
-  return { cli: env.CCDT_CONFIG_DIR ?? join(base, 'ccdt'), desktop: join(base, 'CC Desk Tunnel') };
+  return { cli: env.CXDT_CONFIG_DIR ?? join(base, 'cxdt'), desktop: join(base, 'CC Desk Tunnel') };
 }
 
 function readJson(path) {
@@ -47,7 +47,7 @@ export function serviceKey(url) {
 }
 export const sameService = (a, b) =>
   typeof a === 'string' && typeof b === 'string' && serviceKey(a) === serviceKey(b);
-// A service as ccdt calls it where the desktop client has no name for it.
+// A service as cxdt calls it where the desktop client has no name for it.
 export const hostOf = (url) => {
   try {
     return new URL(url).host;
@@ -58,7 +58,7 @@ export const hostOf = (url) => {
 
 // `servers` are the services signed in to, by address, each with when it was last connected to (`usedAt`); `current`
 // is the one used when none is named: the one connected to last. `waits` are the seconds each step of connecting may
-// take where they are not the defaults (see `ccdt config`).
+// take where they are not the defaults (see `cxdt config`).
 export class Config {
   constructor(paths = directories()) {
     this.paths = paths;
@@ -107,7 +107,7 @@ export class Config {
     this.current = server.url;
     this.save();
   }
-  // The service becomes the one used when none is named; `connected` also says it was used now. Another ccdt may
+  // The service becomes the one used when none is named; `connected` also says it was used now. Another cxdt may
   // have changed the file since this one read it, so it is read again first.
   use(url, connected = true) {
     const fresh = new Config(this.paths);
@@ -124,7 +124,7 @@ export class Config {
     if (sameService(this.current, url)) this.current = this.servers.at(-1)?.url;
     this.save();
   }
-  // The services the desktop client signs in to, one a connection, for `ccdt login` to offer: the address, the
+  // The services the desktop client signs in to, one a connection, for `cxdt login` to offer: the address, the
   // certificate pin and the name the user gave the connection, else the address. Its saved tokens are encrypted
   // for the desktop program alone and are not read. Earlier desktop versions called the first one "主连接".
   desktopLogins() {
@@ -162,7 +162,7 @@ export class Config {
       (login, index) => logins.findIndex((other) => sameService(other.url, login.url)) === index,
     );
   }
-  // The desktop client's ID for this computer when it is installed; ccdt's own otherwise.
+  // The desktop client's ID for this computer when it is installed; cxdt's own otherwise.
   device() {
     const desktop = readJson(join(this.paths.desktop, 'settings.json')).deviceId;
     if (typeof desktop === 'string' && uuid.test(desktop)) return desktop;

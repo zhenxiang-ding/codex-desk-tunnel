@@ -825,7 +825,7 @@ export const commandSchema = z.discriminatedUnion('type', [
       ...request,
       sessionId: id,
       runtime: z.literal('codex').optional(),
-      // Sent by ccdt before 0.3.10, when a terminal could also be one apart from the session's conversation. Every
+      // Sent by cxdt before 0.3.10, when a terminal could also be one apart from the session's conversation. Every
       // terminal continues it now, and what it adds is recorded in the session; the field is let through, unread.
       continueSession: z.boolean().optional(),
       cols: z.number().int().min(20).max(400),

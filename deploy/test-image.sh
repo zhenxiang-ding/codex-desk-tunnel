@@ -7,7 +7,7 @@ ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE="${PROXY_TEST_IMAGE:-cc-desk-tunnel:local}"
 TEMP="$(mktemp -d)"
 export PROXY_DEPLOY_CONFIG="$TEMP/deploy.env"
-registry="ccdt-registry-$$"
+registry="cxdt-registry-$$"
 manage() { bash "$ROOT/deploy/manage.sh" "$@"; }
 cleanup() {
   manage uninstall >/dev/null 2>&1 || true

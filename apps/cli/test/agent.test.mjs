@@ -32,7 +32,7 @@ const token = 'agent-test-' + randomUUID();
 const here = process.platform === 'win32' ? 'D:\\工作\\agent' : '/work/agent';
 
 async function fixture(t, stepMs = 2) {
-  const directory = mkdtempSync(join(tmpdir(), 'ccdt-agent-test-'));
+  const directory = mkdtempSync(join(tmpdir(), 'cxdt-agent-test-'));
   const server = createProxyServer({ token, dataDir: directory, stepMs });
   const url = (await server.listen(0)).replace('http', 'ws') + '/ws';
   const deviceId = randomUUID();
@@ -42,7 +42,7 @@ async function fixture(t, stepMs = 2) {
     await server.close();
     rmSync(directory, { recursive: true, force: true });
   });
-  // A connection of this computer as ccdt makes it, straight to the service: no execution channel is needed for a
+  // A connection of this computer as cxdt makes it, straight to the service: no execution channel is needed for a
   // simulated run.
   async function connect() {
     const service = new Service();
@@ -78,7 +78,7 @@ async function fixture(t, stepMs = 2) {
   return { connect, run, send };
 }
 
-test('ccdt -p starts a session of this directory, waits for the turn and prints the reply', async (t) => {
+test('cxdt -p starts a session of this directory, waits for the turn and prints the reply', async (t) => {
   const f = await fixture(t);
   const a = f.run();
   assert.equal(await printTask(a.context, { 'output-format': 'json' }, '看一下项目'), EXIT.done);
@@ -113,7 +113,7 @@ test('ccdt -p starts a session of this directory, waits for the turn and prints 
   const d = f.run();
   assert.equal(await printTask(d.context, { bg: true }, '后台做'), EXIT.done);
   assert.match(d.out[0], /^[0-9a-f-]{36}$/);
-  assert.match(d.err.join('\n'), /ccdt wait/);
+  assert.match(d.err.join('\n'), /cxdt wait/);
 });
 
 test('a tool approval stops the wait for the caller, whose approval goes on to the next stop', async (t) => {
@@ -131,8 +131,8 @@ test('a tool approval stops the wait for the caller, whose approval goes on to t
     { kind: 'tool', tool: 'PowerShell', input: 'Get-Location' },
   );
   // What to do next is said in words.
-  assert.match(next(stopped), /批准：ccdt approve \S+；拒绝：ccdt deny/);
-  assert.match(next(stopped), /回复后 ccdt 接着等/);
+  assert.match(next(stopped), /批准：cxdt approve \S+；拒绝：cxdt deny/);
+  assert.match(next(stopped), /回复后 cxdt 接着等/);
   const seen = f.run();
   assert.equal(await status(seen.context, { json: true }, id), EXIT.needsYou);
   assert.equal(seen.json().state, 'awaiting_approval');
@@ -194,7 +194,7 @@ test('a turn is stopped, a wait gives up at its timeout, and logs tell what happ
   const timed = f.run();
   assert.equal(await wait(timed.context, { json: true, timeout: '0.2' }, id), EXIT.running);
   assert.equal(timed.json().state, 'running');
-  assert.match(next(timed.json()), /ccdt tell/);
+  assert.match(next(timed.json()), /cxdt tell/);
   assert.equal(await stop(f.run().context, {}, id), EXIT.done);
   const stopped = f.run();
   assert.equal(await wait(stopped.context, { json: true }, id), EXIT.cancelled);
@@ -303,12 +303,12 @@ test('events that come while the page of history is read are applied after it, i
   assert.equal(followed.reply(), '好了');
 });
 
-// An ACP client of ccdt acp over a pair of pipes: what it is sent, and its answers to requests for permission.
+// An ACP client of cxdt acp over a pair of pipes: what it is sent, and its answers to requests for permission.
 function acpClient(f, choose) {
   const input = new PassThrough();
   const output = new PassThrough();
   const { context } = f.run();
-  // The connections ccdt acp makes, to say to it what the service would.
+  // The connections cxdt acp makes, to say to it what the service would.
   const made = [];
   const connect = context.connect;
   context.connect = async () => {
@@ -356,7 +356,7 @@ function acpClient(f, choose) {
   };
 }
 
-test('ccdt acp: a session of this directory, its reply streamed, and a tool put to the client and allowed', async (t) => {
+test('cxdt acp: a session of this directory, its reply streamed, and a tool put to the client and allowed', async (t) => {
   const f = await fixture(t);
   const asked = [];
   const client = acpClient(f, (params) => {
@@ -422,7 +422,7 @@ test('ccdt acp: a session of this directory, its reply streamed, and a tool put 
   assert.equal(await client.served, 0);
 });
 
-test('ccdt acp: a loaded session replays the newest page of its history', async (t) => {
+test('cxdt acp: a loaded session replays the newest page of its history', async (t) => {
   const f = await fixture(t);
   const client = acpClient(f, () => ({ outcome: 'cancelled' }));
   await client.request('initialize', { protocolVersion: 1 });
@@ -450,14 +450,14 @@ test('ccdt acp: a loaded session replays the newest page of its history', async 
   );
   assert.equal(
     (await loader.request('session/load', { sessionId: 'nope', cwd: here })).error.message,
-    '没有会话 nope：ccdt sessions --all --json 列出全部会话。',
+    '没有会话 nope：cxdt sessions --all --json 列出全部会话。',
   );
   client.end();
   loader.end();
   await Promise.all([client.served, loader.served]);
 });
 
-test('ccdt acp: the models Claude Code offers are chosen in the client, with how hard the one chosen reasons', async (t) => {
+test('cxdt acp: the models Claude Code offers are chosen in the client, with how hard the one chosen reasons', async (t) => {
   const f = await fixture(t);
   const client = acpClient(f, () => ({ outcome: 'cancelled' }));
   await client.request('initialize', { protocolVersion: 1, clientCapabilities: {} });

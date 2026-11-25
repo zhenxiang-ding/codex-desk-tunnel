@@ -94,7 +94,7 @@ import Sidebar from './Sidebar.tsx';
 import TitleBar from './TitleBar.tsx';
 import type { BarMenu } from './TitleBar.tsx';
 import IdleReminder from './IdleReminder.tsx';
-import { CcdtDialog } from './CcdtDialog.tsx';
+import { CxdtDialog } from './CxdtDialog.tsx';
 import { SetupTokenDialog } from './SetupTokenDialog.tsx';
 import { IconButton, Menu } from './ui.tsx';
 import type { MenuItem, MenuPosition } from './ui.tsx';
@@ -268,8 +268,8 @@ export function App({
   useEffect(() => {
     void window.desktop?.version().then(setVersion);
   }, []);
-  // Opening a session in ccdt found it not installed (`{}`), or of another release (`installed`).
-  const [ccdtNeeded, setCcdtNeeded] = useState<{ installed?: string } | null>(null);
+  // Opening a session in cxdt found it not installed (`{}`), or of another release (`installed`).
+  const [cxdtNeeded, setCxdtNeeded] = useState<{ installed?: string } | null>(null);
   const [codexSession, setCodexSession] = useState<Session | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
@@ -951,10 +951,10 @@ export function App({
       section = 'general';
     visit({ page, section, sessionId: client.state.selectedId });
   };
-  // The session in ccdt, signed in as this window is; the window says how to install ccdt where it is missing.
-  async function openInCcdt(session: Session) {
+  // The session in cxdt, signed in as this window is; the window says how to install cxdt where it is missing.
+  async function openInCxdt(session: Session) {
     await act(async () => {
-      const opened = await window.desktop!.openInCcdt({
+      const opened = await window.desktop!.openInCxdt({
         url: form.url,
         fingerprint: form.fingerprint,
         token: form.token,
@@ -962,7 +962,7 @@ export function App({
         projectPath: onThis(session) ? session.projectPath : undefined,
       });
       if (opened.status !== 'opened')
-        setCcdtNeeded(opened.status === 'outdated' ? { installed: opened.installed } : {});
+        setCxdtNeeded(opened.status === 'outdated' ? { installed: opened.installed } : {});
     });
   }
   // `quota`: asked for on the account page, which reads the plan quota anew.
@@ -1278,12 +1278,12 @@ export function App({
               run: () => setCodexSession(session),
             },
             {
-              label: '用 ccdt 打开',
+              label: '用 cxdt 打开',
               icon: <SquareTerminal />,
-              // ccdt takes over a terminal of its own left on the session; a chat run has to end first.
+              // cxdt takes over a terminal of its own left on the session; a chat run has to end first.
               disabled: !idle || (!!session.activeRun && session.activeRun.surface !== 'terminal'),
               run: () => {
-                void openInCcdt(session);
+                void openInCxdt(session);
               },
             },
           ]
@@ -2310,11 +2310,11 @@ export function App({
           />
         </Suspense>
       )}
-      {ccdtNeeded && (
-        <CcdtDialog
-          installed={ccdtNeeded.installed}
+      {cxdtNeeded && (
+        <CxdtDialog
+          installed={cxdtNeeded.installed}
           version={version}
-          close={() => setCcdtNeeded(null)}
+          close={() => setCxdtNeeded(null)}
         />
       )}
       {notesDialog}

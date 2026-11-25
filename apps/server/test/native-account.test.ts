@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { readNativeSettings, updateNativeSettings } from '../src/native-settings.ts';
 
 test('setup token uses the CLI user settings, stays private and is removed without changing other settings', (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'ccdt-account-'));
+  const directory = mkdtempSync(join(tmpdir(), 'cxdt-account-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const path = join(directory, 'settings.json');
   configureSetupToken(null, path);

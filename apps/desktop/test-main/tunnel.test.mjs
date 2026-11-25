@@ -588,7 +588,7 @@ test(
   },
 );
 
-// `ccdt online` carries the computer's commands; a window of ccdt then signs in without a channel of its own.
+// `cxdt online` carries the computer's commands; a window of cxdt then signs in without a channel of its own.
 test(
   'a connection without an execution channel runs its computer’s sessions by another connection’s',
   windows(),

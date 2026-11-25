@@ -518,7 +518,7 @@ export function createProxyServer(options: ServerOptions) {
     const place = session.device ?? device!;
     const seat = seats.get(place.id);
     if (place.id === device?.id) {
-      // Any connection of this computer may carry its commands: `ccdt online` does for a terminal of ccdt.
+      // Any connection of this computer may carry its commands: `cxdt online` does for a terminal of cxdt.
       if (options.claude && !(seat?.door?.ready && seat.door.ssh))
         throw new DomainError(
           'execution_offline',
@@ -1726,7 +1726,7 @@ export function createProxyServer(options: ServerOptions) {
         } catch {
           throw new DomainError(
             'settings_failed',
-            '原生设置文件无法读取或写入；请在 ccdt 里用 /config 检查。',
+            '原生设置文件无法读取或写入；请在 cxdt 里用 /config 检查。',
           );
         }
         return undefined;
@@ -1921,7 +1921,7 @@ export function createProxyServer(options: ServerOptions) {
         return command.sessionId;
     }
     if (terminals.has(command.sessionId))
-      throw new DomainError('native_busy', '这个会话在 ccdt 里开着，请先退出终端再操作它。');
+      throw new DomainError('native_busy', '这个会话在 cxdt 里开着，请先退出终端再操作它。');
     if (
       updates?.installing &&
       (command.type === 'message.send' || command.type === 'session.compact')

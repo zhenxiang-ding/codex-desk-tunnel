@@ -57,7 +57,7 @@ for (const file of files) {
   // its characters swallow the quotes after them. A script run as a file and holding anything but ASCII starts with a
   // BOM; the one piped to iex does not, as there the BOM is taken for part of the first command.
   if (file.endsWith('.ps1')) {
-    const piped = file === 'deploy/install-ccdt.ps1';
+    const piped = file === 'deploy/install-cxdt.ps1';
     if (piped && content.startsWith('\uFEFF')) errors.push('经 iex 运行的脚本不能带 BOM：' + file);
     if (!piped && !content.startsWith('\uFEFF') && /[^\x00-\x7F]/.test(content))
       errors.push('含非 ASCII 字符的 PowerShell 脚本应以 UTF-8 BOM 开头：' + file);

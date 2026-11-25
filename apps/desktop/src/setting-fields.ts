@@ -1,6 +1,6 @@
 import type { DeviceShell, NativeSettings } from '@cc-desk-tunnel/protocol';
 
-// Settings described once for every client that shows them: the desktop and browser pages, and ccdt in a terminal.
+// Settings described once for every client that shows them: the desktop and browser pages, and cxdt in a terminal.
 // Nothing here draws; each client shows the same choices with the same words in its own way. A detail is one short
 // line; what takes more words, and how settings work together, is in the help, at the place `help` names
 // (an article of help-content.ts, or `article#heading`).
@@ -136,7 +136,7 @@ export const cliSettingGroups = (
         key: 'fileCheckpointingEnabled',
         kind: 'toggle',
         title: '文件检查点',
-        detail: '编辑前留快照，供 /rewind 撤回；只在 ccdt 里有用',
+        detail: '编辑前留快照，供 /rewind 撤回；只在 cxdt 里有用',
         help: 'permissions#checkpoints',
         unset: '默认（开启）',
       },
@@ -186,7 +186,7 @@ export const cliSettingGroups = (
         key: 'autoContinueAtUsageLimit',
         kind: 'toggle',
         title: '额度用尽后自动继续',
-        detail: '等额度重置后接着做；只在 ccdt 里有用',
+        detail: '等额度重置后接着做；只在 cxdt 里有用',
         help: 'unattended#limit',
         unset: '默认（开启）',
       },
@@ -235,7 +235,7 @@ export const cliSettingGroups = (
         key: 'askUserQuestionTimeout',
         kind: 'choice',
         title: '提问无人回答时',
-        detail: '提问等多久后自己继续；只在 ccdt 里有用',
+        detail: '提问等多久后自己继续；只在 cxdt 里有用',
         help: 'unattended#question',
         unset: '默认（一直等）',
         options: [

@@ -145,10 +145,10 @@ test('context names the hosts of the device as plain SSH aliases without inventi
     /the project directory is "device:\/\/nas\/share\/x"/,
   );
   assert.match(prompt, /CC_DESK_TUNNEL_SCHEDULES/);
-  // ccdt's device has no file of scheduled prompts, and the same words hold for it.
+  // cxdt's device has no file of scheduled prompts, and the same words hold for it.
   assert.match(
     prompt,
-    /Where that variable is empty the device is connected by ccdt, which sends none/,
+    /Where that variable is empty the device is connected by cxdt, which sends none/,
   );
   // Nothing of the device's own layout: where its programs and the client's files are is the device's to know.
   assert.doesNotMatch(prompt, /pwsh\.exe|APPDATA/);

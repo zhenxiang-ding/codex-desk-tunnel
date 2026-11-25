@@ -615,18 +615,18 @@ handle('service:upgrade', async (event, config) => {
     (error) => ({ error: error.message, code: error.code }),
   );
 });
-// The ccdt this client's package carries.
-const ownCcdt = () =>
+// The cxdt this client's package carries.
+const ownCxdt = () =>
   app.isPackaged
     ? path.join(
         process.resourcesPath,
-        'ccdt',
-        process.platform === 'win32' ? 'ccdt.cmd' : path.join('bin', 'ccdt'),
+        'cxdt',
+        process.platform === 'win32' ? 'cxdt.cmd' : path.join('bin', 'cxdt'),
       )
     : undefined;
-handle('ccdt:open', async (_event, request) => {
-  const { openSession } = await import(pathToFileURL(path.join(__dirname, 'ccdt.mjs')).href);
-  return openSession(request, { version: app.getVersion(), own: ownCcdt() });
+handle('cxdt:open', async (_event, request) => {
+  const { openSession } = await import(pathToFileURL(path.join(__dirname, 'cxdt.mjs')).href);
+  return openSession(request, { version: app.getVersion(), own: ownCxdt() });
 });
 // The service token is kept only when the user asks, encrypted for the current account of the system (DPAPI on
 // Windows, the login keychain on macOS) with the key of the profile all processes share. The address is kept from
@@ -1395,22 +1395,22 @@ app.whenReady().then(async () => {
     return app.exit(0);
   log(`Client ${app.getVersion()} started.`);
   for (const problem of startProblems) log(`Profile upkeep failed: ${problem.message}`);
-  // On macOS and Linux the ccdt this client carries becomes the user's ccdt (see linkCcdt); the Windows installer
+  // On macOS and Linux the cxdt this client carries becomes the user's cxdt (see linkCxdt); the Windows installer
   // puts it on the PATH instead.
   if (app.isPackaged && process.platform !== 'win32')
-    import(pathToFileURL(path.join(__dirname, 'ccdt.mjs')).href)
-      .then(({ linkCcdt }) => {
-        const result = linkCcdt({
-          own: ownCcdt(),
+    import(pathToFileURL(path.join(__dirname, 'cxdt.mjs')).href)
+      .then(({ linkCxdt }) => {
+        const result = linkCxdt({
+          own: ownCxdt(),
           application: path.resolve(process.resourcesPath, '..', '..'),
         });
         log(
           result.linked
-            ? `ccdt command: ${result.path}`
-            : `ccdt command not linked (${result.reason}${result.path ? `: ${result.path}` : ''})`,
+            ? `cxdt command: ${result.path}`
+            : `cxdt command not linked (${result.reason}${result.path ? `: ${result.path}` : ''})`,
         );
       })
-      .catch((error) => log(`ccdt command not linked: ${error.message}`));
+      .catch((error) => log(`cxdt command not linked: ${error.message}`));
   setInterval(takeShared, 2000);
   // Shortcuts are the page's, where the user can change them or turn them off; Electron's default menu would
   // add its own on top (zoom, reload, close). A run from source keeps reload and the developer tools.

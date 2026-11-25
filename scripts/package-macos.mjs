@@ -5,18 +5,18 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build as electronBuild, Platform, Arch } from 'electron-builder';
 import {
-  ccdtResource,
-  checkCcdt,
+  cxdtResource,
+  checkCxdt,
   posixService,
-  stageCcdt,
+  stageCxdt,
   stageDesktop,
 } from './package-desktop.mjs';
 
 // Builds the macOS package: a disk image to install from and a ZIP of the same application. It is not signed
 // with a Developer ID and not notarized, so macOS asks the user to allow it on first start (see docs/macos.md),
 // and it cannot upgrade itself. It carries no OpenSSH or shell of its own: the SSH service runs inside the
-// program, with the user's shell and the system's sftp-server. It carries ccdt, as its own package has it, which the
-// client links into ~/.local/bin when it starts from the Applications folder (apps/desktop/electron/ccdt.mjs).
+// program, with the user's shell and the system's sftp-server. It carries cxdt, as its own package has it, which the
+// client links into ~/.local/bin when it starts from the Applications folder (apps/desktop/electron/cxdt.mjs).
 const root = fileURLToPath(new URL('..', import.meta.url));
 const args = process.argv.slice(2);
 if (
@@ -39,9 +39,9 @@ await stageDesktop(root, app, {
   ...posixService,
 });
 const version = JSON.parse(readFileSync(join(root, 'apps/desktop/package.json'), 'utf8')).version;
-const ccdt = join(root, `.local/macos-package/${architecture}/ccdt`);
-rmSync(ccdt, { recursive: true, force: true });
-await stageCcdt(root, ccdt, { version, desktop: true, arch: architecture });
+const cxdt = join(root, `.local/macos-package/${architecture}/cxdt`);
+rmSync(cxdt, { recursive: true, force: true });
+await stageCxdt(root, cxdt, { version, desktop: true, arch: architecture });
 const electron = JSON.parse(readFileSync(join(root, 'node_modules/electron/package.json'), 'utf8'));
 const electronDist = join(root, 'node_modules/electron/dist');
 const useInstalledElectron =
@@ -63,7 +63,7 @@ const results = await electronBuild({
     npmRebuild: false,
     asar: true,
     files: ['package.json', 'electron/**', 'dist/**', 'node_modules/**'],
-    extraResources: [ccdtResource(ccdt)],
+    extraResources: [cxdtResource(cxdt)],
     // Electron ships its notices beside Electron.app. Preserve those for the target architecture
     // before electron-builder renames the bundle and removes the standalone files.
     afterExtract({ appOutDir }) {
@@ -104,9 +104,9 @@ const results = await electronBuild({
   },
 });
 execFileSync('codesign', ['--verify', '--deep', '--strict', bundle], { stdio: 'inherit' });
-// A package of this machine's architecture is started, offline, before it counts as built, and so is its ccdt.
+// A package of this machine's architecture is started, offline, before it counts as built, and so is its cxdt.
 if (architecture === process.arch)
-  checkCcdt(join(bundle, 'Contents/Resources/ccdt/bin/ccdt'), version);
+  checkCxdt(join(bundle, 'Contents/Resources/cxdt/bin/cxdt'), version);
 if (architecture === process.arch)
   execFileSync(process.execPath, [join(root, 'scripts/smoke-posix-package.mjs'), bundle], {
     cwd: root,

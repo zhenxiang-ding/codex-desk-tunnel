@@ -8,7 +8,7 @@ import { _electron } from '@playwright/test';
 // Starts a packaged macOS or Linux application offline, with a profile of its own: the main process, the
 // preload and the page have to come up, and the SSH service has to start from the packaged files alone and
 // run a script the way the service sends one. The package's own program serves as the Node that checks the
-// latter. The ccdt it carries has to become the user's ccdt, of a home of its own here, unless it is a Mac application
+// latter. The cxdt it carries has to become the user's cxdt, of a home of its own here, unless it is a Mac application
 // started from outside the Applications folder, which links nothing. Takes the application (the .app of macOS, the
 // program file of Linux) and further arguments for it.
 const mac = process.platform === 'darwin';
@@ -107,20 +107,20 @@ try {
     },
   );
   assert.deepEqual(errors, []);
-  const ccdt = join(dirname(archive), 'ccdt', 'bin', 'ccdt');
-  const link = join(home, '.local', 'bin', 'ccdt');
+  const cxdt = join(dirname(archive), 'cxdt', 'bin', 'cxdt');
+  const link = join(home, '.local', 'bin', 'cxdt');
   const installed = !mac || /^\/Applications\//.test(resolve(process.argv[2]));
   for (let waited = 0; installed && !existsSync(link) && waited < 10_000; waited += 200)
     await delay(200);
   if (installed) {
-    assert.equal(readlinkSync(link), ccdt);
+    assert.equal(readlinkSync(link), cxdt);
     const version = await application.evaluate(({ app }) => app.getVersion());
     assert.equal(
       execFileSync(link, ['--version'], {
         encoding: 'utf8',
-        env: { ...env, CCDT_CONFIG_DIR: home },
+        env: { ...env, CXDT_CONFIG_DIR: home },
       }).trim(),
-      `ccdt ${version}`,
+      `cxdt ${version}`,
     );
   } else assert.equal(existsSync(link), false);
   // A picture of the window as the system draws it, for whoever reviews a build without a Mac at hand.
@@ -151,7 +151,7 @@ try {
   // A connection's own process starts only once its sign-in succeeds, so offline there is none to open here; with a
   // service, the Windows package test (apps/desktop/test/package.spec.ts) checks one window to a connection.
   console.log(
-    `PASS: the packaged client starts offline and its SSH service runs a script; ${installed ? "its ccdt is the user's ccdt" : 'it links no ccdt from outside the Applications folder'}.`,
+    `PASS: the packaged client starts offline and its SSH service runs a script; ${installed ? "its cxdt is the user's cxdt" : 'it links no cxdt from outside the Applications folder'}.`,
   );
 } finally {
   // The sign-in window may have gone already.

@@ -7,14 +7,14 @@ import { PROTOCOL_VERSION } from '@cc-desk-tunnel/protocol';
 import type { Session } from '@cc-desk-tunnel/protocol';
 import { connectionArgs, connectionWindow, screenshots } from './helpers.ts';
 
-const folder = resolve(screenshots, 'ccdt-open');
+const folder = resolve(screenshots, 'cxdt-open');
 mkdirSync(folder, { recursive: true });
 
-// A ccdt that says it is of the release in `version`, keeps what it was given in `log` and opens nothing.
+// A cxdt that says it is of the release in `version`, keeps what it was given in `log` and opens nothing.
 const fake = `import { appendFileSync, readFileSync } from 'node:fs';
 const here = import.meta.dirname;
 const args = process.argv.slice(2);
-if (args[0] === '--version') console.log('ccdt ' + readFileSync(here + '/version', 'utf8').trim());
+if (args[0] === '--version') console.log('cxdt ' + readFileSync(here + '/version', 'utf8').trim());
 else {
   let input = '';
   if (args[0] === 'login') for await (const chunk of process.stdin) input += chunk;
@@ -22,16 +22,16 @@ else {
 }
 `;
 
-test('a session opens in ccdt signed in as the window is, or the window says how to install it', async () => {
+test('a session opens in cxdt signed in as the window is, or the window says how to install it', async () => {
   test.skip(process.platform !== 'win32', 'Windows desktop test');
   test.slow();
-  mkdirSync(resolve('.local/ccdt-open-test'), { recursive: true });
-  const root = mkdtempSync(resolve('.local/ccdt-open-test/run-'));
+  mkdirSync(resolve('.local/cxdt-open-test'), { recursive: true });
+  const root = mkdtempSync(resolve('.local/cxdt-open-test/run-'));
   const bin = resolve(root, 'bin');
   const project = resolve(root, '项目');
   mkdirSync(bin);
   mkdirSync(project);
-  const token = 'test-only-ccdt-token-with-enough-length';
+  const token = 'test-only-cxdt-token-with-enough-length';
   const session: Session = {
     id: randomUUID(),
     title: '终端里接着聊',
@@ -78,11 +78,11 @@ test('a session opens in ccdt signed in as the window is, or the window says how
   const url = `ws://127.0.0.1:${(server.address() as { port: number }).port}/ws`;
   const env: Record<string, string> = {};
   // The search path is named Path or PATH, as the shell that started the tests has it: whatever its case, it is
-  // replaced, or the ccdt installed on this computer is found and signed in to this test's service.
+  // replaced, or the cxdt installed on this computer is found and signed in to this test's service.
   for (const [name, value] of Object.entries(process.env))
     if (value !== undefined && name !== 'ELECTRON_RUN_AS_NODE' && name.toUpperCase() !== 'PATH')
       env[name] = value;
-  // ccdt is looked for only here: on this PATH and in this install folder, which holds none.
+  // cxdt is looked for only here: on this PATH and in this install folder, which holds none.
   env.Path = `${bin};${process.env.SystemRoot}\\System32`;
   env.LOCALAPPDATA = resolve(root, 'local');
   const application = await _electron.launch({
@@ -100,15 +100,15 @@ test('a session opens in ccdt signed in as the window is, or the window says how
     const row = page.locator('.session-row').filter({ hasText: session.title });
     const open = async () => {
       await row.click({ button: 'right' });
-      await page.getByRole('menuitem', { name: '用 ccdt 打开', exact: true }).click();
+      await page.getByRole('menuitem', { name: '用 cxdt 打开', exact: true }).click();
     };
     const dialog = page.getByRole('dialog');
 
     // Not installed: the line that installs the service's release, and where it is explained.
     await open();
-    await expect(dialog.getByRole('heading')).toHaveText('安装 ccdt');
+    await expect(dialog.getByRole('heading')).toHaveText('安装 cxdt');
     await expect(dialog.locator('pre')).toHaveText(
-      `$env:CCDT_VERSION = '${version}'; irm https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/main/deploy/install-ccdt.ps1 | iex`,
+      `$env:CXDT_VERSION = '${version}'; irm https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install-cxdt.ps1 | iex`,
     );
     await expect(dialog.getByRole('button', { name: '安装说明' })).toBeVisible();
     await page.screenshot({ path: resolve(folder, '01-未安装.png') });
@@ -116,11 +116,11 @@ test('a session opens in ccdt signed in as the window is, or the window says how
 
     // Another release: the same line, as an update.
     writeFileSync(resolve(bin, 'fake.mjs'), fake);
-    writeFileSync(resolve(bin, 'ccdt.cmd'), `@"${process.execPath}" "%~dp0fake.mjs" %*\r\n`);
+    writeFileSync(resolve(bin, 'cxdt.cmd'), `@"${process.execPath}" "%~dp0fake.mjs" %*\r\n`);
     writeFileSync(resolve(bin, 'version'), '0.0.1');
     await open();
-    await expect(dialog.getByRole('heading')).toHaveText('更新 ccdt');
-    await expect(dialog).toContainText(`这台电脑上的 ccdt 是 0.0.1，要与服务端同为 ${version}`);
+    await expect(dialog.getByRole('heading')).toHaveText('更新 cxdt');
+    await expect(dialog).toContainText(`这台电脑上的 cxdt 是 0.0.1，要与服务端同为 ${version}`);
     await page.screenshot({ path: resolve(folder, '02-版本不同.png') });
     await dialog.getByRole('button', { name: '知道了' }).click();
 

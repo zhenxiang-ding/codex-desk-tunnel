@@ -37,7 +37,7 @@ export function proxyFor(url, env = process.env) {
 // it; `lost` tells a fault on the way from an end asked for.
 export class Service extends EventEmitter {
   // Without `tunnel` the connection opens no execution channel: commands reach this computer by another of its
-  // connections, `ccdt online`'s, or this one is for no session at all.
+  // connections, `cxdt online`'s, or this one is for no session at all.
   static async connect({
     url,
     fingerprint,
@@ -166,9 +166,9 @@ export class Service extends EventEmitter {
       this.on('message', check);
     });
   }
-  // ccdt never tells the service it is leaving (`leave`). When ccdt is this computer's last connection, a leave ends
+  // cxdt never tells the service it is leaving (`leave`). When cxdt is this computer's last connection, a leave ends
   // all the service keeps of this computer's while it is away, such as a desktop run waiting for the desktop client
-  // to reconnect, or the terminal of another ccdt window that lost its connection. The terminal ccdt shows is ended
+  // to reconnect, or the terminal of another cxdt window that lost its connection. The terminal cxdt shows is ended
   // by asking for it (`terminal.close`); anything else is kept for the usual while, as after a fault on the way.
   end(lost) {
     if (this.ended) return;

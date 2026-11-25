@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 // Describes the files of a release, which the `package` workflow has gathered in one directory: release.json
 // is what programs read, SHA256SUMS the same hashes for `sha256sum -c`. A release has exactly these files: the
-// desktop packages, the server bundle and the ccdt packages; one missing or one too many stops it.
+// desktop packages, the server bundle and the cxdt packages; one missing or one too many stops it.
 const root = fileURLToPath(new URL('..', import.meta.url));
 const directory = resolve(process.argv[2] ?? 'artifacts/release');
 const version = JSON.parse(readFileSync(join(root, 'apps/desktop/package.json'), 'utf8')).version;
@@ -16,11 +16,11 @@ export const releaseFiles = (version) => [
   `CC-Desk-Tunnel-${version}-linux-amd64.deb`,
   `CC-Desk-Tunnel-${version}-mac-arm64.dmg`,
   `CC-Desk-Tunnel-${version}-mac-x64.dmg`,
-  `ccdt-${version}-windows-x64.zip`,
-  `ccdt-${version}-linux-x64.tar.gz`,
-  `ccdt-${version}-linux-arm64.tar.gz`,
-  `ccdt-${version}-mac-arm64.tar.gz`,
-  `ccdt-${version}-mac-x64.tar.gz`,
+  `cxdt-${version}-windows-x64.zip`,
+  `cxdt-${version}-linux-x64.tar.gz`,
+  `cxdt-${version}-linux-arm64.tar.gz`,
+  `cxdt-${version}-mac-arm64.tar.gz`,
+  `cxdt-${version}-mac-x64.tar.gz`,
 ];
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

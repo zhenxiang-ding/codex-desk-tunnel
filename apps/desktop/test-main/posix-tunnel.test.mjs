@@ -177,7 +177,7 @@ test('closing the client ends what its commands were running', posix, async (t) 
   }
 });
 
-// A window that lets its connection go as soon as the bridge says it closed, as ccdt does, is still told why it was
+// A window that lets its connection go as soon as the bridge says it closed, as cxdt does, is still told why it was
 // given up, here a computer without an SFTP server. Cut at once, the reason was lost with the socket's buffer.
 test(
   'a connection given up tells the window why before it ends',

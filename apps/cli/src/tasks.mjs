@@ -1,7 +1,7 @@
 import { basename } from 'node:path';
 import { EXIT, Follow, exitOf, findSession, follow, said, subscribe } from './agent.mjs';
 
-// The commands of ccdt for programs and other agents: `ccdt -p` as `claude -p` is written, and the commands that
+// The commands of cxdt for programs and other agents: `cxdt -p` as `claude -p` is written, and the commands that
 // follow a session afterwards. `context` brings what main.mjs knows: how to sign in, and how to make sure this
 // computer's execution channel is there for a run on it.
 
@@ -25,9 +25,9 @@ export function next(result) {
           : `Claude 请求批准${approval.safetyCheck ? '（Claude Code 安全检查）' : ''}：${approval.tool} ${clip(typeof approval.input === 'string' ? approval.input : JSON.stringify(approval.input))}`,
         approval.reason && `原因：${approval.reason}`,
         approval.kind === 'plan'
-          ? `批准：ccdt approve ${id} [--mode auto|acceptEdits|default]；要它改计划：ccdt deny ${id} "意见"`
-          : `批准：ccdt approve ${id}；拒绝：ccdt deny ${id}`,
-        `回复后 ccdt 接着等到它再停下。也可以在图形客户端里处理。`,
+          ? `批准：cxdt approve ${id} [--mode auto|acceptEdits|default]；要它改计划：cxdt deny ${id} "意见"`
+          : `批准：cxdt approve ${id}；拒绝：cxdt deny ${id}`,
+        `回复后 cxdt 接着等到它再停下。也可以在图形客户端里处理。`,
       ]
         .filter(Boolean)
         .join('\n');
@@ -38,13 +38,13 @@ export function next(result) {
           (item, index) =>
             `${index + 1}. ${item.question}${item.options.length ? `（可选：${item.options.join(' / ')}${item.multiSelect ? '，可多选，用逗号隔开' : ''}）` : ''}`,
         ),
-        `回答：ccdt answer ${id} "第 1 题的答案" ["第 2 题的答案" …]；不答：ccdt deny ${id}`,
-        `回复后 ccdt 接着等到它再停下。`,
+        `回答：cxdt answer ${id} "第 1 题的答案" ["第 2 题的答案" …]；不答：cxdt deny ${id}`,
+        `回复后 cxdt 接着等到它再停下。`,
       ].join('\n');
     case 'background':
-      return `这一轮已结束，Claude 启动的后台任务还在运行，结束后它会自动接着做：ccdt wait ${id} 等到那时。`;
+      return `这一轮已结束，Claude 启动的后台任务还在运行，结束后它会自动接着做：cxdt wait ${id} 等到那时。`;
     case 'running':
-      return `还在运行：ccdt wait ${id} 接着等，ccdt status ${id} 看进度，ccdt tell ${id} "补充" 追加指示。`;
+      return `还在运行：cxdt wait ${id} 接着等，cxdt status ${id} 看进度，cxdt tell ${id} "补充" 追加指示。`;
     case 'failed':
       return `运行失败${result.errors?.length ? `：${result.errors.join('；')}` : '。'}`;
     case 'cancelled':
@@ -94,8 +94,8 @@ export function streamer(context) {
   };
 }
 
-// Said where a run on this computer goes on after ccdt has let go of its connection.
-const UNCARRIED = 'Claude 在这台电脑上执行命令要靠它的连接：保持图形客户端或 ccdt online 开着。';
+// Said where a run on this computer goes on after cxdt has let go of its connection.
+const UNCARRIED = 'Claude 在这台电脑上执行命令要靠它的连接：保持图形客户端或 cxdt online 开着。';
 
 // Follows the run to where it stops, signing in again after a lost connection, and prints the result.
 async function await_(
@@ -160,12 +160,12 @@ async function configure(service, session, values) {
   });
 }
 
-// `ccdt -p "task"`: a new session of this directory's project (or -c the latest, -r <ID> a given one) is sent the
+// `cxdt -p "task"`: a new session of this directory's project (or -c the latest, -r <ID> a given one) is sent the
 // task, and the reply printed once Claude's turn ends or it waits on someone. `--bg` sends it and returns at once.
 export async function printTask(context, values, prompt) {
   const format = formatOf(values);
   const text = prompt.trim();
-  if (!text) throw said('要写任务内容：ccdt -p "任务"，或从标准输入传入。');
+  if (!text) throw said('要写任务内容：cxdt -p "任务"，或从标准输入传入。');
   let service = await context.connect();
   const all = [...service.sessions.values()];
   let session;
@@ -196,7 +196,7 @@ export async function printTask(context, values, prompt) {
     if (format === 'text') context.out(session.id);
     else context.out(JSON.stringify(result));
     context.err(
-      `已发出。ccdt wait ${short(session.id)} 等结果，ccdt status ${short(session.id)} 看进度。${context.carried(session) ? '' : `\n${UNCARRIED}`}`,
+      `已发出。cxdt wait ${short(session.id)} 等结果，cxdt status ${short(session.id)} 看进度。${context.carried(session) ? '' : `\n${UNCARRIED}`}`,
     );
     return EXIT.done;
   }
@@ -221,7 +221,7 @@ function state(session, stop) {
   return run ? 'running' : 'idle';
 }
 
-// `ccdt status <ID>`: what the session is doing now and what it waits on.
+// `cxdt status <ID>`: what the session is doing now and what it waits on.
 export async function status(context, values, ref) {
   const { service, session } = await opened(context, ref);
   const followed = new Follow(session.id);
@@ -266,7 +266,7 @@ export async function status(context, values, ref) {
       background: '这一轮已结束，后台任务还在运行',
       awaiting_approval: '等待批准',
       awaiting_answer: '等待回答',
-      terminal: '在 ccdt 终端里打开着',
+      terminal: '在 cxdt 终端里打开着',
     };
     context.out(
       [
@@ -282,10 +282,10 @@ export async function status(context, values, ref) {
   return stop ? exitOf(stop.state) : EXIT.done;
 }
 
-// `ccdt tell <ID> "…"`: a message to the session. While Claude works it joins the turn under way, which is how
+// `cxdt tell <ID> "…"`: a message to the session. While Claude works it joins the turn under way, which is how
 // a run is steered; otherwise it starts the next turn.
 export async function tell(context, values, ref, text) {
-  if (!text.trim()) throw said('要写追加的内容：ccdt tell <会话> "内容"。');
+  if (!text.trim()) throw said('要写追加的内容：cxdt tell <会话> "内容"。');
   let { service, session } = await opened(context, ref, true);
   // Whether it joins a turn under way, as the session was before it was sent.
   const running = !!session.activeRun;
@@ -295,17 +295,17 @@ export async function tell(context, values, ref, text) {
   if (values.json)
     context.out(JSON.stringify({ session_id: session.id, sent: true, joined: running }));
   context.err(
-    `${running ? '已追加到正在进行的这一轮。' : '已发出。'}ccdt wait ${short(session.id)} 等结果。${running || context.carried(session) ? '' : `\n${UNCARRIED}`}`,
+    `${running ? '已追加到正在进行的这一轮。' : '已发出。'}cxdt wait ${short(session.id)} 等结果。${running || context.carried(session) ? '' : `\n${UNCARRIED}`}`,
   );
   return EXIT.done;
 }
 
-// `ccdt wait <ID>`: until Claude's turn ends, it waits on someone, or the run ends. Waiting begun while only
+// `cxdt wait <ID>`: until Claude's turn ends, it waits on someone, or the run ends. Waiting begun while only
 // background tasks run waits for what comes after them.
 export async function wait(context, values, ref) {
   let { service, session } = await opened(context, ref, true);
   const run = session.activeRun;
-  if (run?.surface === 'terminal') throw said('这个会话在 ccdt 终端里打开着，在那里继续。');
+  if (run?.surface === 'terminal') throw said('这个会话在 cxdt 终端里打开着，在那里继续。');
   service = await context.keep(service, session);
   return await await_(context, service, session, undefined, {
     format: formatOf(values),
@@ -314,7 +314,7 @@ export async function wait(context, values, ref) {
   });
 }
 
-// `ccdt stop <ID>`: ends the turn under way, as the stop button does.
+// `cxdt stop <ID>`: ends the turn under way, as the stop button does.
 export async function stop(context, values, ref) {
   const { service, session } = await opened(context, ref);
   const run = session.activeRun;
@@ -341,12 +341,12 @@ async function waitingOn(context, ref, bg) {
     (snapshot?.session ?? session).activeRun?.status === 'awaiting_approval' && followed.pending();
   if (!approval) {
     await context.release(service);
-    throw said('这个会话现在没有等待批准或回答的请求：ccdt status 看它在做什么。');
+    throw said('这个会话现在没有等待批准或回答的请求：cxdt status 看它在做什么。');
   }
   return { service, session, approval };
 }
 
-// The answer sent, and Claude followed to where it stops next, as `ccdt -p` does: what it goes on to run on this
+// The answer sent, and Claude followed to where it stops next, as `cxdt -p` does: what it goes on to run on this
 // computer needs the channel up before the answer lets it. `--bg` sends the answer alone.
 async function reply(context, values, service, session, approval, answer) {
   if (!values.bg) service = await context.keep(service, session);
@@ -367,17 +367,17 @@ async function reply(context, values, service, session, approval, answer) {
   if (values.json || formatOf(values) !== 'text')
     context.out(JSON.stringify({ session_id: session.id, answered: true }));
   context.err(
-    `已回复。ccdt wait ${short(session.id)} 等它接着做。${context.carried(session) ? '' : `\n${UNCARRIED}`}`,
+    `已回复。cxdt wait ${short(session.id)} 等它接着做。${context.carried(session) ? '' : `\n${UNCARRIED}`}`,
   );
   return EXIT.done;
 }
 
-// `ccdt approve <ID>`: allows the tool or the plan Claude waits on, as the button in the window does.
+// `cxdt approve <ID>`: allows the tool or the plan Claude waits on, as the button in the window does.
 export async function approve(context, values, ref) {
   const { service, session, approval } = await waitingOn(context, ref, values.bg);
   if (approval.kind === 'question') {
     await context.release(service);
-    throw said(`Claude 在提问，不是请求批准：用 ccdt answer ${short(session.id)} "答案"。`);
+    throw said(`Claude 在提问，不是请求批准：用 cxdt answer ${short(session.id)} "答案"。`);
   }
   if (values.mode && !['auto', 'acceptEdits', 'default'].includes(values.mode))
     throw said('--mode 只能是 auto、acceptEdits 或 default。');
@@ -387,7 +387,7 @@ export async function approve(context, values, ref) {
   });
 }
 
-// `ccdt deny <ID> [reason]`: refuses it; for a plan the reason is what Claude plans further by. A question is
+// `cxdt deny <ID> [reason]`: refuses it; for a plan the reason is what Claude plans further by. A question is
 // left unanswered.
 export async function deny(context, values, ref, reason) {
   const { service, session, approval } = await waitingOn(context, ref, values.bg);
@@ -397,12 +397,12 @@ export async function deny(context, values, ref, reason) {
   });
 }
 
-// `ccdt answer <ID> <answer>…`: one answer per question, in their order; several choices joined with commas.
+// `cxdt answer <ID> <answer>…`: one answer per question, in their order; several choices joined with commas.
 export async function answer(context, values, ref, answers) {
   const { service, session, approval } = await waitingOn(context, ref, values.bg);
   if (approval.kind !== 'question') {
     await context.release(service);
-    throw said(`Claude 在请求批准，不是提问：用 ccdt approve ${short(session.id)} 或 ccdt deny。`);
+    throw said(`Claude 在请求批准，不是提问：用 cxdt approve ${short(session.id)} 或 cxdt deny。`);
   }
   if (answers.length !== approval.questions.length) {
     await context.release(service);
@@ -418,7 +418,7 @@ export async function answer(context, values, ref, answers) {
   });
 }
 
-// `ccdt logs <ID>`: what the session said and did lately, from the newest page of its history.
+// `cxdt logs <ID>`: what the session said and did lately, from the newest page of its history.
 export async function logs(context, values, ref) {
   const { service, session } = await opened(context, ref);
   const snapshot = await subscribe(service, session.id);

@@ -4641,14 +4641,14 @@ dialog:has(.web-settings-form) {
 .web-proxy-trust > pre {
   margin-top: 10px;
 }
-/* The one line that installs ccdt, wrapped to the dialog rather than scrolled. */
-dialog:has(.ccdt-dialog) {
+/* The one line that installs cxdt, wrapped to the dialog rather than scrolled. */
+dialog:has(.cxdt-dialog) {
   width: min(600px, calc(100vw - 32px));
 }
-.ccdt-dialog p {
+.cxdt-dialog p {
   margin: 0;
 }
-.ccdt-dialog pre {
+.cxdt-dialog pre {
   margin: 0;
   padding: 10px 96px 10px 12px;
   border-radius: var(--radius-s);

@@ -50,7 +50,7 @@ export async function pick(
   output = process.stderr,
   { at: first = 0, hint = '↑↓ 选择 · Enter 打开 · Esc 取消', clear = false } = {},
 ) {
-  if (!input.isTTY) throw new Error('选择会话需要在终端里运行；也可以用 ccdt open <会话 ID>。');
+  if (!input.isTTY) throw new Error('选择会话需要在终端里运行；也可以用 cxdt open <会话 ID>。');
   let at = Math.min(first, entries.length - 1);
   const window = Math.max(3, Math.min(entries.length, (output.rows || 24) - 4));
   let drawn = 0;

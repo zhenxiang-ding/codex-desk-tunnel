@@ -154,7 +154,7 @@ export const articles: Article[] = [
         items: [
           {
             title: '登录 Claude 账号',
-            text: '服务端登录一次，所有电脑、浏览器和 `ccdt` 共用。',
+            text: '服务端登录一次，所有电脑、浏览器和 `cxdt` 共用。',
             action: { label: '账号与额度', target: { settings: 'account' } },
           },
           {
@@ -204,7 +204,7 @@ export const articles: Article[] = [
       {
         kind: 'list',
         items: [
-          '**项目**：左栏“项目”旁点 + 添加，可以改名。在 `ccdt` 里开会话，也会把那个文件夹登记为项目。',
+          '**项目**：左栏“项目”旁点 + 添加，可以改名。在 `cxdt` 里开会话，也会把那个文件夹登记为项目。',
           '**普通会话**：点“新建会话”得到，不属于项目，列在“最近”。工作目录默认在“文档\\CC Desk Tunnel”下，可在[常规](settings:general)里更换。',
         ],
       },
@@ -213,7 +213,7 @@ export const articles: Article[] = [
         since: '0.3.19',
         news: '项目由服务端保存，各端看到同一份',
         items: [
-          '**各端同一份项目**：项目由服务端登记，每台电脑、浏览器和 `ccdt` 看到的一样，离线电脑的项目也在；改名各端一致。',
+          '**各端同一份项目**：项目由服务端登记，每台电脑、浏览器和 `cxdt` 看到的一样，离线电脑的项目也在；改名各端一致。',
           '**移除项目**：只是不再列为项目。文件夹、会话和项目记忆都不动，其中的会话变成普通会话；再添加同一个文件夹，就都回来了。',
         ],
       },
@@ -228,10 +228,10 @@ export const articles: Article[] = [
         kind: 'callout',
         tone: 'tip',
         title: '右键会话',
-        text: '置顶、重命名、导出 Markdown、用 `ccdt` 打开，都在会话的右键菜单（或 ⋯）里。',
+        text: '置顶、重命名、导出 Markdown、用 `cxdt` 打开，都在会话的右键菜单（或 ⋯）里。',
       },
     ],
-    related: ['devices', 'conversation', 'ccdt'],
+    related: ['devices', 'conversation', 'cxdt'],
     words: '项目 文件夹 分叉 编辑重发 置顶 重命名 导出 移除 普通会话 最近',
   },
   {
@@ -393,7 +393,7 @@ export const articles: Article[] = [
       {
         kind: 'list',
         items: [
-          '**接入**：在另一台电脑上装图形客户端，登录同一个服务端。没有图形界面的机器用 [ccdt online](#always-online)。',
+          '**接入**：在另一台电脑上装图形客户端，登录同一个服务端。没有图形界面的机器用 [cxdt online](#always-online)。',
           '**那台离线时**：会话只能查看，可以接到本机继续，或分叉到本机。',
         ],
       },
@@ -414,7 +414,7 @@ export const articles: Article[] = [
       {
         kind: 'list',
         items: [
-          '**在那台电脑上添加**：在它的客户端里添加项目，或在它的项目文件夹里运行一次 `ccdt`。之后这里就能在它的项目里开会话。',
+          '**在那台电脑上添加**：在它的客户端里添加项目，或在它的项目文件夹里运行一次 `cxdt`。之后这里就能在它的项目里开会话。',
           '**不建项目，直接让 Claude 过去做**：在这台电脑的任何会话里说出那台电脑的名字。',
         ],
       },
@@ -461,7 +461,7 @@ export const articles: Article[] = [
         items: [
           '你提到别的电脑时它才过去；没说时，命令都在会话自己的那台电脑上执行。',
           '在那边只做你要求的事，改动前先问你。',
-          '那台电脑要在线：图形客户端开着（收在托盘也算），或运行着 `ccdt online`。',
+          '那台电脑要在线：图形客户端开着（收在托盘也算），或运行着 `cxdt online`。',
           '名字写出能区分的一段就行。不确定时问它“现在哪些电脑在线”。',
         ],
       },
@@ -474,26 +474,26 @@ export const articles: Article[] = [
     group: 'devices',
     title: '无界面的机器保持在线',
     icon: Wifi,
-    lead: 'NAS、服务器、树莓派这类没有图形界面的机器，用 ccdt online 一直在线，Claude 随时能过去。',
+    lead: 'NAS、服务器、树莓派这类没有图形界面的机器，用 cxdt online 一直在线，Claude 随时能过去。',
     since: '0.3.19',
     blocks: [
       {
         kind: 'steps',
         items: [
-          { title: '在那台机器上安装 ccdt', text: '只为当前用户安装，不需要管理员权限。' },
-          { title: '登录', text: '运行 `ccdt login`，填服务地址、证书指纹和服务凭据。' },
-          { title: '保持在线', text: '运行 `ccdt online`，断线自动重连，Ctrl+C 结束。' },
+          { title: '在那台机器上安装 cxdt', text: '只为当前用户安装，不需要管理员权限。' },
+          { title: '登录', text: '运行 `cxdt login`，填服务地址、证书指纹和服务凭据。' },
+          { title: '保持在线', text: '运行 `cxdt online`，断线自动重连，Ctrl+C 结束。' },
         ],
       },
       {
         kind: 'code',
         label: 'Linux、macOS 安装',
-        text: 'curl -fsSL https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/main/deploy/install-ccdt.sh | sh',
+        text: 'curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install-cxdt.sh | sh',
       },
       {
         kind: 'code',
         label: '放到后台运行',
-        text: 'nohup ccdt online >> ~/ccdt-online.log 2>&1 &',
+        text: 'nohup cxdt online >> ~/cxdt-online.log 2>&1 &',
       },
       {
         kind: 'p',
@@ -511,8 +511,8 @@ export const articles: Article[] = [
         text: '客户端开着（包括收在托盘）时就在线。',
       },
     ],
-    related: ['remote-ops', 'ccdt'],
-    words: 'ccdt online 在线 NAS 服务器 树莓派 后台 systemd 无界面 headless',
+    related: ['remote-ops', 'cxdt'],
+    words: 'cxdt online 在线 NAS 服务器 树莓派 后台 systemd 无界面 headless',
   },
   {
     id: 'browser',
@@ -547,14 +547,14 @@ export const articles: Article[] = [
 
   // 终端与 agent
   {
-    id: 'ccdt',
+    id: 'cxdt',
     group: 'agents',
-    title: '终端客户端 ccdt',
+    title: '终端客户端 cxdt',
     icon: SquareTerminal,
     lead: '在自己的终端里用原版 Claude Code，和这里共用同一批会话。',
     blocks: [
       { kind: 'figure', name: 'terminal' },
-      { kind: 'heading', text: '推荐用法：在 ccdt 里干活，在客户端里看' },
+      { kind: 'heading', text: '推荐用法：在 cxdt 里干活，在客户端里看' },
       {
         kind: 'steps',
         items: [
@@ -564,11 +564,11 @@ export const articles: Article[] = [
             action: { label: '添加项目', target: { doing: 'addProject' } },
           },
           {
-            title: '会话右键“用 ccdt 打开”',
+            title: '会话右键“用 cxdt 打开”',
             text: '直接在终端里接着这个会话，不用再登录。',
           },
           {
-            title: '一边在 ccdt 里做，一边在客户端里看',
+            title: '一边在 cxdt 里做，一边在客户端里看',
             text: '终端里的请求更省 5 小时额度；客户端同步显示它做了什么，折叠排版更好读。',
           },
         ],
@@ -584,25 +584,25 @@ export const articles: Article[] = [
         kind: 'table',
         head: ['命令', '作用'],
         rows: [
-          ['`ccdt`', '在项目文件夹里运行：接着最近的会话，没有就新建'],
-          ['`ccdt -r`', '从这个项目的会话里选一个'],
-          ['`ccdt new`', '新建会话'],
-          ['`ccdt usage`', '额度与调用统计'],
-          ['`ccdt config`', '查看和修改设置'],
-          ['`ccdt upgrade`', '升级服务端和 ccdt'],
+          ['`cxdt`', '在项目文件夹里运行：接着最近的会话，没有就新建'],
+          ['`cxdt -r`', '从这个项目的会话里选一个'],
+          ['`cxdt new`', '新建会话'],
+          ['`cxdt usage`', '额度与调用统计'],
+          ['`cxdt config`', '查看和修改设置'],
+          ['`cxdt upgrade`', '升级服务端和 cxdt'],
         ],
       },
       {
         kind: 'list',
         since: '0.3.19',
-        news: '图形客户端自带 ccdt',
+        news: '图形客户端自带 cxdt',
         items: [
-          '**已经装好了**：图形客户端自带 `ccdt`，随它升级，新开一个终端窗口就能用。macOS 要先把应用放进“应用程序”打开一次。',
+          '**已经装好了**：图形客户端自带 `cxdt`，随它升级，新开一个终端窗口就能用。macOS 要先把应用放进“应用程序”打开一次。',
         ],
       },
     ],
     related: ['quota', 'agents', 'always-online'],
-    words: 'ccdt 终端 命令行 CLI 原版 terminal 额度 省',
+    words: 'cxdt 终端 命令行 CLI 原版 terminal 额度 省',
   },
   {
     id: 'agents',
@@ -626,46 +626,46 @@ export const articles: Article[] = [
       { kind: 'heading', text: '让其他 agent 调用 Claude' },
       {
         kind: 'p',
-        text: '其他 agent 或脚本在电脑上运行 `ccdt -p`，写法与 `claude -p` 相同。派出的任务就是普通会话，这里看得到、能插话、能审批。',
+        text: '其他 agent 或脚本在电脑上运行 `cxdt -p`，写法与 `claude -p` 相同。派出的任务就是普通会话，这里看得到、能插话、能审批。',
       },
-      { kind: 'code', label: '派发', text: 'ccdt -p "修复登录页的报错" --output-format json' },
+      { kind: 'code', label: '派发', text: 'cxdt -p "修复登录页的报错" --output-format json' },
       {
         kind: 'table',
         head: ['跟进', '作用'],
         rows: [
-          ['`ccdt status <会话>`', '在做什么、在等什么'],
-          ['`ccdt tell <会话> "…"`', '中途追加指示'],
-          ['`ccdt wait <会话>`', '等到这一轮结束'],
-          ['`ccdt approve` · `deny`', 'Claude 要批准时（退出码 2），由调用方回答'],
+          ['`cxdt status <会话>`', '在做什么、在等什么'],
+          ['`cxdt tell <会话> "…"`', '中途追加指示'],
+          ['`cxdt wait <会话>`', '等到这一轮结束'],
+          ['`cxdt approve` · `deny`', 'Claude 要批准时（退出码 2），由调用方回答'],
         ],
       },
       {
         kind: 'callout',
         tone: 'tip',
         title: '把用法交给你的 agent',
-        text: '告诉它“运行 `ccdt help agents`，按里面的说明把任务交给 Claude”。那是写给模型看的完整说明。',
+        text: '告诉它“运行 `cxdt help agents`，按里面的说明把任务交给 Claude”。那是写给模型看的完整说明。',
       },
     ],
-    related: ['acp', 'ccdt'],
-    words: 'agent Codex Gemini 脚本 ccdt -p 派发 自动化 退出码',
+    related: ['acp', 'cxdt'],
+    words: 'agent Codex Gemini 脚本 cxdt -p 派发 自动化 退出码',
   },
   {
     id: 'acp',
     group: 'agents',
     title: '在编辑器里用（ACP）',
     icon: Plug,
-    lead: 'Zed、JetBrains、acpx 等支持 ACP 的工具，把 ccdt acp 配成 agent，就能在编辑器里用服务端上的 Claude。',
+    lead: 'Zed、JetBrains、acpx 等支持 ACP 的工具，把 cxdt acp 配成 agent，就能在编辑器里用服务端上的 Claude。',
     since: '0.3.19',
     blocks: [
       {
         kind: 'code',
         label: 'Zed：settings.json',
-        text: '{ "agent_servers": { "CC Desk Tunnel": { "type": "custom", "command": "ccdt", "args": ["acp"] } } }',
+        text: '{ "agent_servers": { "CC Desk Tunnel": { "type": "custom", "command": "cxdt", "args": ["acp"] } } }',
       },
       {
         kind: 'code',
         label: 'acpx：项目里的 .acpxrc.json',
-        text: '{ "agents": { "ccdt": { "argv": ["ccdt", "acp"] } } }',
+        text: '{ "agents": { "cxdt": { "argv": ["cxdt", "acp"] } } }',
       },
       {
         kind: 'list',
@@ -683,7 +683,7 @@ export const articles: Article[] = [
         text: '要用另一台电脑，在那台电脑上的编辑器里接入；或者载入它已有的会话。',
       },
     ],
-    related: ['agents', 'ccdt'],
+    related: ['agents', 'cxdt'],
     words: 'ACP Zed JetBrains acpx 编辑器 IDE',
   },
 
@@ -699,7 +699,7 @@ export const articles: Article[] = [
       {
         kind: 'list',
         items: [
-          '**5 小时额度紧张时用 `ccdt`**：图形客户端经官方 Agent SDK 运行。据社区实测，同样的用量，计入 5 小时额度的比例约为交互式 CLI 的两倍；每周额度不受影响。见 [ccdt 的推荐用法](#ccdt)。',
+          '**5 小时额度紧张时用 `cxdt`**：图形客户端经官方 Agent SDK 运行。据社区实测，同样的用量，计入 5 小时额度的比例约为交互式 CLI 的两倍；每周额度不受影响。见 [cxdt 的推荐用法](#cxdt)。',
           '**输入框旁显示额度**：在[外观](settings:appearance)里打开。',
           '**快速模式不走套餐额度**：订阅账号开了它，直接从额外用量扣费，见[快速模式](#model-settings#fast)。',
           '**调用日志**：每次请求的模型、Token 和等价费用；金额按 API 价格估算，不是账单。',
@@ -708,7 +708,7 @@ export const articles: Article[] = [
       },
       settingsOf('account', '账号与额度'),
     ],
-    related: ['ccdt', 'context', 'model-settings'],
+    related: ['cxdt', 'context', 'model-settings'],
     words: '额度 用量 5 小时 每周 限额 费用 token 调用日志 省',
   },
   {
@@ -716,14 +716,14 @@ export const articles: Article[] = [
     group: 'account',
     title: 'Claude 账号',
     icon: UserRound,
-    lead: '账号登录在服务端，所有电脑、浏览器和 ccdt 共用。',
+    lead: '账号登录在服务端，所有电脑、浏览器和 cxdt 共用。',
     blocks: [
       {
         kind: 'list',
         items: [
           '**普通登录**：打开官方授权页，把页面给出的代码粘贴回来。',
           '**Setup token**：由服务端生成，或粘贴已有的；这种方式可能看不到邮箱、订阅类型和完整额度。',
-          '**退出登录**：移除服务端保存的令牌，保留会话记录。在 `ccdt` 里执行官方的 `/logout` 不会移除它。',
+          '**退出登录**：移除服务端保存的令牌，保留会话记录。在 `cxdt` 里执行官方的 `/logout` 不会移除它。',
         ],
       },
       {
@@ -776,10 +776,10 @@ export const articles: Article[] = [
         rows: [
           ['**本机**', '只影响这台电脑上的这个客户端'],
           ['**服务端**', '连到这个服务端的所有电脑（Shell 只对这台电脑）'],
-          ['**Claude Code**', '服务器上 Claude Code 自己的设置，所有会话和 `ccdt` 共用'],
+          ['**Claude Code**', '服务器上 Claude Code 自己的设置，所有会话和 `cxdt` 共用'],
         ],
       },
-      { kind: 'heading', text: '有几项 CLI 设置只在 ccdt 里起作用', id: 'cli' },
+      { kind: 'heading', text: '有几项 CLI 设置只在 cxdt 里起作用', id: 'cli' },
       {
         kind: 'p',
         text: 'CLI 设置和 Claude Code 的 `/config` 是同一份，从下一次运行起生效。其中几项是官方终端界面的功能，图形客户端里的会话用不上：',
@@ -797,7 +797,7 @@ export const articles: Article[] = [
       settingsOf('claude', '打开 CLI 设置'),
     ],
     related: ['context', 'unattended', 'model-settings'],
-    words: '设置 选项 配置 本机 服务端 Claude Code CLI config 默认 ccdt',
+    words: '设置 选项 配置 本机 服务端 Claude Code CLI config 默认 cxdt',
   },
   // 依据：prompt-caching、settings-reference#idlecompaction、settings-reference#autocompactwindow
   {
@@ -859,7 +859,7 @@ export const articles: Article[] = [
           '**上下文至少**：小会话就算全价重读也不贵，不值得压缩。',
           '**压缩是一次真实请求**，计入额度，摘要也会丢掉细节。离开一会儿就回来的，用不着它。',
           '**关掉时**，快过期时在会话里提醒你，压不压你来定。已经过期的长会话，先切到便宜些的模型再压缩，或者干脆新开一个。',
-          '`ccdt` 里的会话由 Claude Code 自己压缩：开关和上下文大小用这里的，时间固定在约 54 分钟。',
+          '`cxdt` 里的会话由 Claude Code 自己压缩：开关和上下文大小用这里的，时间固定在约 54 分钟。',
         ],
       },
       { kind: 'heading', text: '上下文快满时的压缩', id: 'window' },
@@ -872,7 +872,7 @@ export const articles: Article[] = [
         items: [
           '**自动压缩窗口**：上下文到多大就压缩，最小 10 万。设小一些，每轮重读的少，更省、Claude 也更专注；代价是更常压缩、丢细节。1M 上下文的模型可以设在 30 万～50 万，免得会话越聊越贵。',
           '**提前准备压缩摘要**：后台先把摘要算好，到压缩时少等一会儿。',
-          '**关掉“自动压缩上下文”**，上下文满了只能手动压缩或新开会话；`ccdt` 里的空闲压缩也随之关闭。',
+          '**关掉“自动压缩上下文”**，上下文满了只能手动压缩或新开会话；`cxdt` 里的空闲压缩也随之关闭。',
         ],
       },
       {
@@ -931,7 +931,7 @@ export const articles: Article[] = [
         items: [
           '[CLI 设置](settings:claude)里打开后，要你批准的调用不再等你，立即拒绝；Claude 知道被拒，会换个做法，或者在最后告诉你。',
           '**和自动审批一起用**：允许规则和自动审批照常先判断，自动审批放行它认为安全的，剩下的才被拒绝。手动审批下几乎什么都做不成。',
-          '**对所有会话生效**，包括 `ccdt`。任务跑完记得关掉，不然你在旁边时它也不会再问你。',
+          '**对所有会话生效**，包括 `cxdt`。任务跑完记得关掉，不然你在旁边时它也不会再问你。',
         ],
       },
       { kind: 'heading', text: 'Claude 提问', id: 'question' },
@@ -949,7 +949,7 @@ export const articles: Article[] = [
       },
       {
         kind: 'p',
-        text: '`ccdt` 里还可以用 CLI 设置“提问无人回答时”：过一会儿带着已选的选项自己继续。',
+        text: '`cxdt` 里还可以用 CLI 设置“提问无人回答时”：过一会儿带着已选的选项自己继续。',
       },
       { kind: 'heading', text: '额度用尽', id: 'limit' },
       {
@@ -962,7 +962,7 @@ export const articles: Article[] = [
       },
       {
         kind: 'p',
-        text: '重置时间在[账号与额度](settings:account)里看。`ccdt` 里不用这样做：CLI 设置“额度用尽后自动继续”默认开，终端会等到重置后接着做。',
+        text: '重置时间在[账号与额度](settings:account)里看。`cxdt` 里不用这样做：CLI 设置“额度用尽后自动继续”默认开，终端会等到重置后接着做。',
       },
       { kind: 'heading', text: '一套可靠的搭配', id: 'recipe' },
       {
@@ -1019,7 +1019,7 @@ export const articles: Article[] = [
         items: [
           '**备用模型**：主模型过载或不可用时，按顺序换下一个，把这一轮做完；下一条消息又先试主模型。不填时只重试主模型，还不行就报错。',
           '最多 3 个，用逗号分开，比如 `sonnet, haiku`。换过去的那一轮没有缓存，会贵一些。',
-          '**触发安全拦截时换模型**：Claude Code 的安全检查偶尔会拦下一条请求，默认换一个模型继续。关掉后，图形客户端里这一轮出错结束；`ccdt` 里会暂停，让你选换模型还是改提示词。',
+          '**触发安全拦截时换模型**：Claude Code 的安全检查偶尔会拦下一条请求，默认换一个模型继续。关掉后，图形客户端里这一轮出错结束；`cxdt` 里会暂停，让你选换模型还是改提示词。',
         ],
       },
       settingsOf('claude', '打开 CLI 设置'),
@@ -1174,7 +1174,7 @@ export const articles: Article[] = [
       { kind: 'heading', text: '文件检查点', id: 'checkpoints' },
       {
         kind: 'p',
-        text: '编辑前留快照，供 `/rewind` 撤回。只在 `ccdt` 里有用，也只覆盖服务器上用编辑工具改的文件。你电脑上的项目用 Git 管理更可靠。',
+        text: '编辑前留快照，供 `/rewind` 撤回。只在 `cxdt` 里有用，也只覆盖服务器上用编辑工具改的文件。你电脑上的项目用 Git 管理更可靠。',
       },
       {
         kind: 'callout',
@@ -1215,7 +1215,7 @@ export const articles: Article[] = [
     group: 'care',
     title: '升级',
     icon: Download,
-    lead: '客户端、ccdt 和服务端要同一版本；在客户端里点一下就能升级，不用登录服务器。',
+    lead: '客户端、cxdt 和服务端要同一版本；在客户端里点一下就能升级，不用登录服务器。',
     blocks: [
       {
         kind: 'steps',
@@ -1234,7 +1234,7 @@ export const articles: Article[] = [
       },
       {
         kind: 'list',
-        items: ['自带的 `ccdt` 随图形客户端升级；单独安装的运行 `ccdt upgrade`。'],
+        items: ['自带的 `cxdt` 随图形客户端升级；单独安装的运行 `cxdt upgrade`。'],
       },
     ],
     related: ['background', 'troubleshoot'],
@@ -1324,7 +1324,7 @@ export const articles: Article[] = [
           {
             q: '5 小时额度掉得很快？',
             a: [
-              '图形客户端经 Agent SDK 运行，计入 5 小时额度约为交互式 CLI 的两倍。长任务放到 `ccdt` 里做。见[额度与用量](#quota)。',
+              '图形客户端经 Agent SDK 运行，计入 5 小时额度约为交互式 CLI 的两倍。长任务放到 `cxdt` 里做。见[额度与用量](#quota)。',
             ],
           },
           {

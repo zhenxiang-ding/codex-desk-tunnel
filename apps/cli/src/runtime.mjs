@@ -2,9 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Where ccdt runs from. A package (scripts/package-cli.mjs) holds ccdt.mjs with `vendor/` beside it: on Windows the
+// Where cxdt runs from. A package (scripts/package-cli.mjs) holds cxdt.mjs with `vendor/` beside it: on Windows the
 // OpenSSH and PowerShell that the SSH service for Claude's commands is made of, as the desktop installer bundles
-// them. The ccdt the desktop client carries is in its resources, beside the client's own `vendor/`. From the source
+// them. The cxdt the desktop client carries is in its resources, beside the client's own `vendor/`. From the source
 // tree they are the ones prepared for the desktop client.
 const here = fileURLToPath(new URL('.', import.meta.url));
 const vendor =
@@ -12,37 +12,37 @@ const vendor =
   fileURLToPath(new URL('../../desktop/vendor/', import.meta.url));
 
 export const components = (env = process.env) => ({
-  openssh: env.CCDT_OPENSSH_DIR ?? join(vendor, 'openssh'),
+  openssh: env.CXDT_OPENSSH_DIR ?? join(vendor, 'openssh'),
   powershell:
-    env.CCDT_POWERSHELL ??
+    env.CXDT_POWERSHELL ??
     (existsSync(join(vendor, 'pwsh', 'pwsh.exe')) ? join(vendor, 'pwsh', 'pwsh.exe') : 'pwsh.exe'),
 });
 
-// Started from Git Bash (GIT_BASH_LAUNCHER in scripts/package-desktop.mjs), ccdt has its arguments as written, which
-// those variables asked MSYS2 for. They would reach all ccdt starts, its SSH service and through it Claude's commands,
+// Started from Git Bash (GIT_BASH_LAUNCHER in scripts/package-desktop.mjs), cxdt has its arguments as written, which
+// those variables asked MSYS2 for. They would reach all cxdt starts, its SSH service and through it Claude's commands,
 // whose Git Bash has to turn paths as it always does: they go before anything is started.
 export function argumentsAsWritten(env = process.env) {
-  if (!env.CCDT_ARGUMENTS_AS_WRITTEN) return;
-  for (const name of ['CCDT_ARGUMENTS_AS_WRITTEN', 'MSYS_NO_PATHCONV', 'MSYS2_ARG_CONV_EXCL'])
+  if (!env.CXDT_ARGUMENTS_AS_WRITTEN) return;
+  for (const name of ['CXDT_ARGUMENTS_AS_WRITTEN', 'MSYS_NO_PATHCONV', 'MSYS2_ARG_CONV_EXCL'])
     delete env[name];
 }
 
-// The release ccdt belongs to, which is the one of the service it speaks to: the package writes it in.
+// The release cxdt belongs to, which is the one of the service it speaks to: the package writes it in.
 export const version =
-  typeof __CCDT_VERSION__ === 'string'
-    ? __CCDT_VERSION__
+  typeof __CXDT_VERSION__ === 'string'
+    ? __CXDT_VERSION__
     : JSON.parse(readFileSync(new URL('../../desktop/package.json', import.meta.url), 'utf8'))
         .version;
 
-// ccdt runs from a package (scripts/package-cli.mjs), which it can replace with another release's, rather than from
+// cxdt runs from a package (scripts/package-cli.mjs), which it can replace with another release's, rather than from
 // the source tree.
-export const bundled = typeof __CCDT_VERSION__ === 'string';
+export const bundled = typeof __CXDT_VERSION__ === 'string';
 
-// The ccdt the desktop client carries, which the client's updates replace (scripts/package-windows.mjs and the
+// The cxdt the desktop client carries, which the client's updates replace (scripts/package-windows.mjs and the
 // macOS and Linux ones).
-export const desktop = typeof __CCDT_DESKTOP__ === 'boolean' && __CCDT_DESKTOP__;
+export const desktop = typeof __CXDT_DESKTOP__ === 'boolean' && __CXDT_DESKTOP__;
 
-// The name of the ccdt package of a release for a system, as the release page has it; undefined for a system there
+// The name of the cxdt package of a release for a system, as the release page has it; undefined for a system there
 // is none for.
 const SYSTEMS = {
   'win32-x64': 'windows-x64',
@@ -53,8 +53,8 @@ const SYSTEMS = {
 };
 export const packageName = (release, system = `${process.platform}-${process.arch}`) => {
   const name = SYSTEMS[system];
-  return name && `ccdt-${release}-${name}.${name.startsWith('windows') ? 'zip' : 'tar.gz'}`;
+  return name && `cxdt-${release}-${name}.${name.startsWith('windows') ? 'zip' : 'tar.gz'}`;
 };
 
 export const releasePage = (release) =>
-  `https://github.com/sun168567/cc-desk-tunnel/releases/tag/v${release}`;
+  `https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/tag/codex-v${release}`;

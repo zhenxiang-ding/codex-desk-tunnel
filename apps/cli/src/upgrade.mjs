@@ -5,21 +5,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { packageName } from './runtime.mjs';
 
-const RELEASES = 'https://github.com/sun168567/cc-desk-tunnel/releases/download';
-// The first release whose install script replaces a ccdt while it runs; an earlier one's would leave it half removed.
+const RELEASES = 'https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download';
+// The first release whose install script replaces a cxdt while it runs; an earlier one's would leave it half removed.
 export const FIRST_UPGRADABLE = '0.3.9';
 
-// The ccdt package of a release for this system, checked against the release's SHA256SUMS as the server bundle is.
+// The cxdt package of a release for this system, checked against the release's SHA256SUMS as the server bundle is.
 export async function download(release, { system, get = fetch } = {}) {
   const name = packageName(release, system);
   if (!name)
     throw new Error(
-      `没有这个系统（${system ?? `${process.platform}-${process.arch}`}）的 ccdt 包。`,
+      `没有这个系统（${system ?? `${process.platform}-${process.arch}`}）的 cxdt 包。`,
     );
   const fetched = async (file) => {
     let response;
     try {
-      response = await get(`${RELEASES}/v${release}/${file}`, {
+      response = await get(`${RELEASES}/codex-v${release}/${file}`, {
         signal: AbortSignal.timeout(300_000),
       });
     } catch (error) {
@@ -43,10 +43,10 @@ export async function download(release, { system, get = fetch } = {}) {
 }
 
 // Puts the downloaded package in place with the install script it carries, as installing it by hand does. On Windows
-// the script moves the folder of the running ccdt aside before copying, which Windows allows while its files are in
+// the script moves the folder of the running cxdt aside before copying, which Windows allows while its files are in
 // use.
 export function install({ name, body }, { windows = process.platform === 'win32' } = {}) {
-  const folder = mkdtempSync(join(tmpdir(), 'ccdt-upgrade-'));
+  const folder = mkdtempSync(join(tmpdir(), 'cxdt-upgrade-'));
   try {
     const archive = join(folder, name);
     writeFileSync(archive, body);
@@ -65,11 +65,11 @@ export function install({ name, body }, { windows = process.platform === 'win32'
             '-ExecutionPolicy',
             'Bypass',
             '-File',
-            join(folder, 'ccdt', 'install.ps1'),
+            join(folder, 'cxdt', 'install.ps1'),
           ],
           { stdio: 'pipe', windowsHide: true },
         );
-      else execFileSync('sh', [join(folder, 'ccdt', 'install.sh')], { stdio: 'pipe' });
+      else execFileSync('sh', [join(folder, 'cxdt', 'install.sh')], { stdio: 'pipe' });
     } catch (error) {
       throw new Error(`新版本没有装上：${String(error.stderr ?? error.message).trim()}`);
     }

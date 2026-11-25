@@ -4,9 +4,9 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
-  "description": "ccdt: the official Claude Code terminal of a CC Desk Tunnel service, in your own terminal",
+  "description": "cxdt: open the Codex Desk Tunnel terminal for a local project",
   "bin": {
-    "ccdt": "bin/ccdt.mjs"
+    "cxdt": "bin/cxdt.mjs"
   },
   "dependencies": {
     "@cc-desk-tunnel/protocol": "0.0.0",

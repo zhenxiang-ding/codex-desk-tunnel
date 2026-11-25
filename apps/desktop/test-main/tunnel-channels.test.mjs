@@ -212,7 +212,7 @@ test('closing ends every channel and its local connection; a local service that 
   await f.until(() => f.arrivals[2]?.closed, 'the channel without a local service to end');
 });
 
-// ccdt ends when nothing is left to do: a channel closed from here leaves nothing behind that would keep it running.
+// cxdt ends when nothing is left to do: a channel closed from here leaves nothing behind that would keep it running.
 test('a program ends at once after closing its channels', () => {
   const script = `
     import { createServer } from 'node:net';

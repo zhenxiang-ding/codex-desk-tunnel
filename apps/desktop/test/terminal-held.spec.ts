@@ -12,7 +12,7 @@ mkdirSync(folder, { recursive: true });
 const shot = (page: Page, name: string) =>
   page.screenshot({ path: resolve(folder, `${name}.png`) });
 
-test('a session a terminal of ccdt holds says what the terminal does, and takes no message here', async ({
+test('a session a terminal of cxdt holds says what the terminal does, and takes no message here', async ({
   page,
 }) => {
   const connectionId = randomUUID();

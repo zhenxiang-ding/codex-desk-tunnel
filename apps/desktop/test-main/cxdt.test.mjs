@@ -13,9 +13,9 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { linkCcdt, locate, openSession, terminalCommand } from '../electron/ccdt.mjs';
+import { linkCxdt, locate, openSession, terminalCommand } from '../electron/cxdt.mjs';
 
-test('ccdt is the client’s own, else looked for on the PATH, then where its install script puts it', () => {
+test('cxdt is the client’s own, else looked for on the PATH, then where its install script puts it', () => {
   const windows = {
     platform: 'win32',
     env: { Path: 'C:\\tools;C:\\other', LOCALAPPDATA: 'C:\\L' },
@@ -24,39 +24,40 @@ test('ccdt is the client’s own, else looked for on the PATH, then where its in
     (...files) =>
     (file) =>
       files.includes(file);
+  assert.equal(locate(windows, found(join('C:\\tools', 'ccdt.cmd'))), undefined);
   assert.equal(
     locate(
       windows,
-      found(join('C:\\other', 'ccdt.cmd'), join('C:\\L', 'Programs', 'ccdt', 'ccdt.cmd')),
+      found(join('C:\\other', 'cxdt.cmd'), join('C:\\L', 'Programs', 'cxdt', 'cxdt.cmd')),
     ),
-    join('C:\\other', 'ccdt.cmd'),
+    join('C:\\other', 'cxdt.cmd'),
   );
   assert.equal(
-    locate(windows, found(join('C:\\L', 'Programs', 'ccdt', 'ccdt.cmd'))),
-    join('C:\\L', 'Programs', 'ccdt', 'ccdt.cmd'),
+    locate(windows, found(join('C:\\L', 'Programs', 'cxdt', 'cxdt.cmd'))),
+    join('C:\\L', 'Programs', 'cxdt', 'cxdt.cmd'),
   );
   // A Mac's programs started from the Dock do not have ~/.local/bin on their PATH.
   const mac = { platform: 'darwin', env: { PATH: '/usr/bin:/bin' }, home: '/Users/me' };
   assert.equal(
-    locate(mac, found(join('/Users/me', '.local', 'bin', 'ccdt'))),
-    join('/Users/me', '.local', 'bin', 'ccdt'),
+    locate(mac, found(join('/Users/me', '.local', 'bin', 'cxdt'))),
+    join('/Users/me', '.local', 'bin', 'cxdt'),
   );
   assert.equal(locate(mac, found()), undefined);
   // The one the client carries comes first: it is of the client's release, whatever else is installed.
-  const own = join('C:\\Program Files\\CC Desk Tunnel', 'resources', 'ccdt', 'ccdt.cmd');
-  assert.equal(locate({ ...windows, own }, found(own, join('C:\\other', 'ccdt.cmd'))), own);
+  const own = join('C:\\Program Files\\CC Desk Tunnel', 'resources', 'cxdt', 'cxdt.cmd');
+  assert.equal(locate({ ...windows, own }, found(own, join('C:\\other', 'cxdt.cmd'))), own);
   // A client that carries none, run from the source tree, looks further.
   assert.equal(
-    locate({ ...windows, own }, found(join('C:\\other', 'ccdt.cmd'))),
-    join('C:\\other', 'ccdt.cmd'),
+    locate({ ...windows, own }, found(join('C:\\other', 'cxdt.cmd'))),
+    join('C:\\other', 'cxdt.cmd'),
   );
 });
 
-test('the terminal window runs ccdt quoted for the shell that reads it, and waits on an error', () => {
+test('the terminal window runs cxdt quoted for the shell that reads it, and waits on an error', () => {
   const args = ['open', '11111111-2222-4333-8444-555555555555', '--server', 'wss://a.test/ws'];
   const windows = terminalCommand(
     { platform: 'win32', env: { ComSpec: 'C:\\cmd.exe' } },
-    'C:\\P F\\ccdt.cmd',
+    'C:\\P F\\cxdt.cmd',
     args,
     'D:\\项目',
   );
@@ -64,12 +65,12 @@ test('the terminal window runs ccdt quoted for the shell that reads it, and wait
   assert.deepEqual(windows.args.slice(0, 3), ['/d', '/s', '/c']);
   assert.equal(
     windows.args[3],
-    `""C:\\P F\\ccdt.cmd" "open" "${args[1]}" "--server" "wss://a.test/ws" || pause"`,
+    `""C:\\P F\\cxdt.cmd" "open" "${args[1]}" "--server" "wss://a.test/ws" || pause"`,
   );
   assert.equal(windows.options.windowsVerbatimArguments, true);
   const mac = terminalCommand(
     { platform: 'darwin', env: {} },
-    "/Users/o'neil/.local/bin/ccdt",
+    "/Users/o'neil/.local/bin/cxdt",
     args,
     '/Users/o\'neil/项目 "x"',
   );
@@ -79,11 +80,11 @@ test('the terminal window runs ccdt quoted for the shell that reads it, and wait
   assert.match(mac.script.path, /\.command$/);
   assert.equal(
     mac.script.text,
-    `#!/bin/sh\nrm -f "$0"\ncd '/Users/o'\\''neil/项目 "x"' && '/Users/o'\\''neil/.local/bin/ccdt' 'open' '${args[1]}' '--server' 'wss://a.test/ws' || read -r _\n`,
+    `#!/bin/sh\nrm -f "$0"\ncd '/Users/o'\\''neil/项目 "x"' && '/Users/o'\\''neil/.local/bin/cxdt' 'open' '${args[1]}' '--server' 'wss://a.test/ws' || read -r _\n`,
   );
   const linux = terminalCommand(
     { platform: 'linux', env: { PATH: '/usr/bin' } },
-    '/home/me/.local/bin/ccdt',
+    '/home/me/.local/bin/cxdt',
     args,
     '/home/me',
     (file) => file === join('/usr/bin', 'konsole'),
@@ -94,7 +95,7 @@ test('the terminal window runs ccdt quoted for the shell that reads it, and wait
     () =>
       terminalCommand(
         { platform: 'linux', env: { PATH: '/usr/bin' } },
-        'ccdt',
+        'cxdt',
         args,
         '/',
         () => false,
@@ -118,14 +119,14 @@ test('an address, session or fingerprint that would mean more to a shell is neve
     { sessionId: '1 && calc' },
     { fingerprint: 'AB;rm' },
   ])
-    await assert.rejects(openSession({ ...request, ...bad }, system), /不能交给 ccdt/);
+    await assert.rejects(openSession({ ...request, ...bad }, system), /不能交给 cxdt/);
   assert.deepEqual(await openSession(request, system), { status: 'missing' });
 });
 
 // A terminal window of the system's really opened, on GitHub's macOS machine and on its Linux one under xvfb with
 // xterm: what the strings above only describe. Not run on a developer's computer, to open no window there.
 test(
-  'on macOS and Linux a window of the terminal runs ccdt in the project, after ccdt was signed in',
+  'on macOS and Linux a window of the terminal runs cxdt in the project, after cxdt was signed in',
   {
     skip:
       process.platform === 'win32' ||
@@ -133,19 +134,19 @@ test(
       (process.platform === 'linux' && !process.env.DISPLAY),
   },
   async (t) => {
-    const root = mkdtempSync(join(tmpdir(), 'ccdt-open-'));
+    const root = mkdtempSync(join(tmpdir(), 'cxdt-open-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const bin = join(root, 'bin');
     const project = join(root, "项目 'x'");
     mkdirSync(bin);
     mkdirSync(project);
     const log = join(root, 'log');
-    // A ccdt of this release that keeps what it was asked, and what it read for a login.
+    // A cxdt of this release that keeps what it was asked, and what it read for a login.
     writeFileSync(
-      join(bin, 'ccdt'),
+      join(bin, 'cxdt'),
       `#!/bin/sh
 case "$1" in
-  --version) echo 'ccdt 9.9.9' ;;
+  --version) echo 'cxdt 9.9.9' ;;
   login) printf '%s|%s\\n' "$*" "$(cat)" >> '${log}' ;;
   *) printf '%s|%s\\n' "$*" "$(pwd)" >> '${log}' ;;
 esac
@@ -170,7 +171,7 @@ esac
         if (text.split('\n').filter(Boolean).length >= 2) return text.split('\n').filter(Boolean);
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      assert.fail(`the terminal ran no ccdt open: ${readFileSync(log, 'utf8')}`);
+      assert.fail(`the terminal ran no cxdt open: ${readFileSync(log, 'utf8')}`);
     };
     const [login, open] = await lines();
     assert.equal(login, 'login wss://a.test/ws --token-stdin --no-verify|secret');
@@ -181,49 +182,49 @@ esac
 );
 
 test(
-  'the ccdt a macOS or Linux client carries becomes the user’s ccdt, in place of one installed on its own',
+  'the cxdt a macOS or Linux client carries becomes the user’s cxdt, in place of one installed on its own',
   { skip: process.platform === 'win32' && 'links of a POSIX home' },
   (t) => {
-    const home = mkdtempSync(join(tmpdir(), 'ccdt-home-'));
+    const home = mkdtempSync(join(tmpdir(), 'cxdt-home-'));
     t.after(() => rmSync(home, { recursive: true, force: true }));
-    const own = join(home, 'opt', 'CC Desk Tunnel', 'resources', 'ccdt', 'bin', 'ccdt');
+    const own = join(home, 'opt', 'CC Desk Tunnel', 'resources', 'cxdt', 'bin', 'cxdt');
     mkdirSync(dirname(own), { recursive: true });
     writeFileSync(own, '#!/bin/sh\n');
-    const link = join(home, '.local', 'bin', 'ccdt');
+    const link = join(home, '.local', 'bin', 'cxdt');
     const linux = { platform: 'linux', home, own, env: { PATH: '/usr/bin' }, shell: '/bin/bash' };
     // None yet: made, and ~/.local/bin goes on the PATH of the shells started from now on, once.
-    assert.deepEqual(linkCcdt(linux), { linked: true, path: link });
+    assert.deepEqual(linkCxdt(linux), { linked: true, path: link });
     assert.equal(readlinkSync(link), own);
-    linkCcdt(linux);
+    linkCxdt(linux);
     assert.equal(
       readFileSync(join(home, '.bashrc'), 'utf8'),
-      '\n# ccdt\nexport PATH="$HOME/.local/bin:$PATH"\n',
+      '\n# cxdt\nexport PATH="$HOME/.local/bin:$PATH"\n',
     );
     // Where the session already has it on the PATH, nothing is written.
     rmSync(join(home, '.bashrc'));
-    linkCcdt({ ...linux, env: { PATH: `${join(home, '.local', 'bin')}:/usr/bin` } });
+    linkCxdt({ ...linux, env: { PATH: `${join(home, '.local', 'bin')}:/usr/bin` } });
     assert.equal(existsSync(join(home, '.bashrc')), false);
-    // A ccdt installed on its own, or a link to one that is gone: taken over.
-    const alone = join(home, '.local', 'share', 'ccdt', 'bin', 'ccdt');
+    // A cxdt installed on its own, or a link to one that is gone: taken over.
+    const alone = join(home, '.local', 'share', 'cxdt', 'bin', 'cxdt');
     mkdirSync(dirname(alone), { recursive: true });
     writeFileSync(alone, '#!/bin/sh\n');
-    for (const target of [alone, join(home, 'gone', 'ccdt')]) {
+    for (const target of [alone, join(home, 'gone', 'cxdt')]) {
       rmSync(link);
       symlinkSync(target, link);
-      assert.equal(linkCcdt(linux).linked, true);
+      assert.equal(linkCxdt(linux).linked, true);
       assert.equal(readlinkSync(link), own);
     }
     // The user's own: a link elsewhere, or a file, is left alone.
-    const mine = join(home, 'src', 'ccdt');
+    const mine = join(home, 'src', 'cxdt');
     mkdirSync(dirname(mine), { recursive: true });
     writeFileSync(mine, '#!/bin/sh\n');
     rmSync(link);
     symlinkSync(mine, link);
-    assert.deepEqual(linkCcdt(linux), { linked: false, reason: 'taken', path: link });
+    assert.deepEqual(linkCxdt(linux), { linked: false, reason: 'taken', path: link });
     assert.equal(readlinkSync(link), mine);
     rmSync(link);
     writeFileSync(link, '#!/bin/sh\n');
-    assert.equal(linkCcdt(linux).reason, 'taken');
+    assert.equal(linkCxdt(linux).reason, 'taken');
     // A Mac client links only from the Applications folder, and writes the PATH for the user's shell.
     rmSync(link);
     const mac = { ...linux, platform: 'darwin', shell: '/bin/zsh' };
@@ -232,15 +233,15 @@ test(
       '/Volumes/CC Desk Tunnel/CC Desk Tunnel.app',
       '/private/var/folders/x/AppTranslocation/1/d/CC Desk Tunnel.app',
     ])
-      assert.equal(linkCcdt({ ...mac, application }).reason, 'not-in-applications');
+      assert.equal(linkCxdt({ ...mac, application }).reason, 'not-in-applications');
     assert.equal(existsSync(link), false);
     assert.equal(
-      linkCcdt({ ...mac, application: join(home, 'Applications', 'CC Desk Tunnel.app') }).linked,
+      linkCxdt({ ...mac, application: join(home, 'Applications', 'CC Desk Tunnel.app') }).linked,
       true,
     );
     assert.match(readFileSync(join(home, '.zshrc'), 'utf8'), /export PATH="\$HOME\/\.local\/bin/);
-    // Windows, or a package without ccdt: nothing.
-    assert.equal(linkCcdt({ ...linux, platform: 'win32' }).linked, false);
-    assert.equal(linkCcdt({ ...linux, own: join(home, 'none') }).linked, false);
+    // Windows, or a package without cxdt: nothing.
+    assert.equal(linkCxdt({ ...linux, platform: 'win32' }).linked, false);
+    assert.equal(linkCxdt({ ...linux, own: join(home, 'none') }).linked, false);
   },
 );

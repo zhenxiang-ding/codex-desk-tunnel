@@ -12,7 +12,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/code
 
 Press Enter to accept installation of missing dependencies and the setup defaults. Check the detected public address. Direct connections use port 8788. At the final prompt, press Enter to begin device login and complete authorization in the browser. Download the Windows desktop installer, CLI, and Linux server bundle from the [Codex Desk Tunnel release page](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest). See the [Chinese setup guide](README.md) for the connection steps.
 
-For Windows projects, open the Codex terminal in Desk Tunnel or run `ccdt`. For projects on the VPS itself, the OpenAI desktop app can connect to its SSH port (typically 22). Install and sign in to Codex as the remote host user first. See the [illustrated SSH setup in the Chinese README](README.md#在-openai-codex-桌面端添加-ssh-连接可选) and the [OpenAI SSH guide](https://learn.chatgpt.com/docs/remote-connections#connect-to-an-ssh-host).
+For Windows projects, open the Codex terminal in Desk Tunnel or run `cxdt`. For projects on the VPS itself, the OpenAI desktop app can connect to its SSH port (typically 22). Install and sign in to Codex as the remote host user first. See the [illustrated SSH setup in the Chinese README](README.md#在-openai-codex-桌面端添加-ssh-连接可选) and the [OpenAI SSH guide](https://learn.chatgpt.com/docs/remote-connections#connect-to-an-ssh-host).
 
 The documentation below describes the original Claude Code project.
 

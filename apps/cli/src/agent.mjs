@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { terminalStatuses } from '@cc-desk-tunnel/protocol';
 
-// What ccdt does for programs and other agents rather than for a person at a terminal: a message sent to a session
+// What cxdt does for programs and other agents rather than for a person at a terminal: a message sent to a session
 // and its run followed until it stops for someone. Everything goes through the service's own conversation, as the
 // desktop client's does: the session, its approvals and its history are the same ones every window shows.
 
@@ -26,13 +26,13 @@ export function findSession(sessions, ref) {
   const key = String(ref ?? '')
     .trim()
     .toLowerCase();
-  if (!key) throw said('要写会话 ID（可只写开头几位）：ccdt sessions --json 列出这个目录的会话。');
+  if (!key) throw said('要写会话 ID（可只写开头几位）：cxdt sessions --json 列出这个目录的会话。');
   const found = sessions.filter((session) => session.id.startsWith(key));
   if (found.length === 1) return found[0];
   throw said(
     found.length
       ? `有 ${found.length} 个会话以 ${ref} 开头，请多写几位。`
-      : `没有会话 ${ref}：ccdt sessions --all --json 列出全部会话。`,
+      : `没有会话 ${ref}：cxdt sessions --all --json 列出全部会话。`,
   );
 }
 
