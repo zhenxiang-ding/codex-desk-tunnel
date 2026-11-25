@@ -4,6 +4,8 @@
 
 感谢原作者 [sun168567](https://github.com/sun168567) 和 [CC Desk Tunnel](https://github.com/sun168567/cc-desk-tunnel) 的贡献者开源了桌面客户端、设备隧道和终端转发。本项目在这些工作的基础上接入 Codex CLI，沿用 [Apache-2.0 许可证](LICENSE) 并保留[原始版权声明](NOTICE)。
 
+上游的五份 GitHub Actions 工作流保存在 [.github/upstream-workflows](.github/upstream-workflows)，供维护者参考。
+
 ### 在 VPS 上安装
 
 在 Ubuntu 24.04 VPS 的交互式 SSH 终端运行以下命令。需要 Git、Docker Engine 和 Docker Compose v2。脚本从本仓库的 `main` 分支拉取源码到 `/opt/codex-desk-tunnel` 并构建镜像，默认端口为 `8788`。

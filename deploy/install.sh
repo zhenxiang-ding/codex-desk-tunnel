@@ -59,11 +59,11 @@ main() {
       [[ -z "$(git -C "$TARGET" status --porcelain)" ]] || fail "工作区有本地修改，请先保存。"
       git -C "$TARGET" fetch origin main
       git -C "$TARGET" merge-base --is-ancestor HEAD FETCH_HEAD || fail "本地有独立提交，请手动更新。"
-      confirm "更新 $TARGET，使用新源码重新部署？" || exit 0
+      confirm "更新 ${TARGET}，使用新源码重新部署？" || exit 0
       git -C "$TARGET" merge --ff-only FETCH_HEAD
       if [[ "$1" = setup && -f "${PROXY_DEPLOY_CONFIG:-$TARGET/.local/docker.env}" ]]; then set -- upgrade; fi
     else
-      echo "将从 $url 拉取 main 到 $TARGET。连接期间，VPS 可通过 SSH 以你的用户身份操作本机项目。"
+      echo "将从 $url 拉取 main 到 ${TARGET}。连接期间，VPS 可通过 SSH 以你的用户身份操作本机项目。"
       confirm "继续安装？" || exit 0
       git clone --branch main --single-branch -- "$url" "$TARGET"
     fi
