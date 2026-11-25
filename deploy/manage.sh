@@ -12,6 +12,7 @@ Usage:
   manage.sh init --host HOST [--mode fingerprint|certificate|nginx]
     [--data ABSOLUTE_PATH] [--control-port 8788]
     [--cert FULLCHAIN --key PRIVATE_KEY] [--url wss://DOMAIN/ws] [--token SECRET]
+  manage.sh login                       sign in to Codex in the running container
   manage.sh pull|build|up|status|logs|stop|restart|uninstall|connection|summary
   manage.sh upgrade [--from SERVER_ARCHIVE]   install the newest release (or the archive) and replace the container
   manage.sh client INSTALLER_EXE              offer a Windows installer to connected clients
@@ -408,6 +409,7 @@ case "$command" in
     docker image inspect "$PROXY_IMAGE" >/dev/null 2>&1 || prepare_image
     dc up -d --no-build; wait_healthy ;;
   status) dc ps ;;
+  login) dc exec proxy codex login --device-auth ;;
   logs) dc logs --tail=100 -f ;;
   stop) dc stop ;;
   restart) dc restart; wait_healthy ;;

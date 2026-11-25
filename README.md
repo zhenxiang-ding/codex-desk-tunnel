@@ -10,40 +10,25 @@ Codex CLI 在 Ubuntu VPS 上运行，通过 SSH 读写你选定的 Windows 项�
 ssh -t ubuntu@VPS_IP
 ```
 
-全新的 Ubuntu 24.04 可用系统软件源安装依赖。已有 Docker Engine 和 Compose v2 的机器可用 `sudo docker info` 和 `docker compose version` 检查，然后直接运行安装脚本。
+在 VPS 的 SSH 终端粘贴这一行（需要 `curl` 和 root 或 sudo 权限）：
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y git curl ca-certificates openssl docker.io docker-compose-v2
-sudo systemctl enable --now docker
+cd ~ && curl -fL --retry 2 -o codex-desk-install.sh https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest/download/install.sh && sudo bash codex-desk-install.sh
 ```
 
-从本仓库下载并运行服务端安装脚本：
+脚本会检查依赖；全新 Ubuntu 缺少 Docker 或 Compose 时，按回车同意安装，再按回车启动 Docker。部署向导会显示检测到的 IP；确认它是 Windows 能访问的公网地址，若有误就输入正确的 IP 或域名。其余提示回车即可使用自签证书、TCP **8788**、默认数据目录和随机服务凭据。首次部署会在 VPS 上构建包含 Codex CLI 的镜像。
 
-```bash
-cd ~
-curl -fsSLo codex-desk-install.sh https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install.sh && sudo bash codex-desk-install.sh
-```
+部署完成后保存**服务地址、证书指纹、服务凭据**，在云安全组和已启用的主机防火墙中放行部署汇总列出的端口。最后一个提示回车开始 Codex 登录，在浏览器完成设备码授权。跳过登录后可在 VPS 运行 `sudo codex-desk-tunnel login`。
 
-按提示填写 Windows 能访问的公网 IP 或域名。只有 IP 时，入口选 **1（自签证书 + 指纹）**。默认直连端口是 **TCP 8788**，在云服务商的安全组和启用的主机防火墙中放行该端口。已有 nginx 反代时按部署汇总中列出的端口配置。
-
-脚本会把源码拉到 `/opt/codex-desk-tunnel`，在 VPS 构建包含 Codex CLI 的镜像。完成后记下**服务地址、证书指纹、服务凭据**，Windows 连接时要用。服务凭据请保密。随后登录容器里的 Codex：
-
-```bash
-cd /opt/codex-desk-tunnel
-sudo docker compose --env-file .local/docker.env -f deploy/compose.yml exec proxy codex login --device-auth
-sudo docker compose --env-file .local/docker.env -f deploy/compose.yml exec proxy codex login status
-```
-
-第一条登录命令会显示验证网址和设备码。用浏览器完成授权，再运行最后一条检查登录状态。
+[GitHub Releases 下载页](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest) 提供 Windows 桌面安装包、命令行客户端、VPS 服务端包和 SHA-256 校验清单。手工部署时，解压服务端包到独立目录，进入该目录执行 `sudo bash deploy/install.sh`。
 
 ## 2. 在 Windows 本机安装客户端
 
 ### 用桌面客户端连接
 
-1. 在 Windows 10/11 x64 上下载并运行 [CC Desk Tunnel 0.3.20 安装包（.exe）](https://github.com/sun168567/cc-desk-tunnel/releases/download/v0.3.20/CC-Desk-Tunnel-Setup-0.3.20-x64.exe)。这是与本项目兼容的原作者客户端，自带 OpenSSH、PowerShell 和 `ccdt`。已经装过这个版本可以直接打开。
+1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/codex-v0.1.0/Codex-Desk-Tunnel-Setup-0.3.20-x64.exe)，自带 OpenSSH、PowerShell 和 `ccdt`。
 2. 添加服务，粘贴 VPS 显示的服务地址和服务凭据。选了自签证书时，也填入对应的证书指纹。
-3. 连接后添加本机项目文件夹，例如 `E:\Codex_default`。创建或选中该项目的会话，右键选择 **用 ccdt 打开**。弹出的系统终端里运行的是 VPS 上的 Codex。桌面主聊天框仍使用 Claude。
+3. 连接后添加本机项目文件夹。创建或选中该项目的会话，在会话菜单选择 **打开 Codex 终端**，即可在桌面窗口内使用 VPS 上的 Codex。使用原作者的 0.3.20 客户端时，选择 **用 ccdt 打开** 在系统终端中使用。
 4. 在 Codex 终端输入“请通过 SSH 列出当前 Windows 项目的顶层文件，并报告项目路径”。核对结果是否与本机目录一致。
 
 ### 用 CMD 或 PowerShell 连接
@@ -58,18 +43,17 @@ ccdt
 
 登录时选刚才保存的 VPS 服务，按提示输入服务凭据。如果从 PowerShell 进入项目，第一行用 `Set-Location E:\Codex_default`。
 
-只用命令行时，也可以单独安装 `ccdt`。在 Windows **PowerShell** 运行以下两行。脚本会下载原作者的 0.3.20 客户端并核对发布包的 SHA-256。
+只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/codex-v0.1.0/ccdt-0.3.20-windows-x64.zip)，解压后在 `ccdt` 目录打开 PowerShell 并运行：
 
 ```powershell
-$env:CCDT_VERSION = '0.3.20'
-irm https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/v0.3.20/deploy/install-ccdt.ps1 | iex
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 新开 CMD，按上面的命令进入项目并执行 `ccdt login`。没有保存过服务时，按提示输入 VPS 显示的连接信息，再运行 `ccdt`。
 
 ## 从源码构建
 
-如果想直接在桌面窗口中使用 **打开 Codex 终端**，可以运行本仓库的客户端。在 Windows x64 上准备 Git、Node.js 24 和 PowerShell 7，首次获取源码时运行：
+自行编译时，在 Windows x64 上准备 Git、Node.js 24 和 PowerShell 7，首次获取源码时运行：
 
 ```powershell
 git clone https://github.com/zhenxiang-ding/codex-desk-tunnel.git

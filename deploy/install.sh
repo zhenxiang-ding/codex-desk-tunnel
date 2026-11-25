@@ -3,6 +3,7 @@
 set -euo pipefail
 
 REPO="${CC_DESK_TUNNEL_REPO:-zhenxiang-ding/codex-desk-tunnel}"
+REF="${CC_DESK_TUNNEL_REF:-refs/tags/codex-v0.1.0}"
 TARGET="${CC_DESK_TUNNEL_DIR:-/opt/codex-desk-tunnel}"
 fail() { echo "错误：$*" >&2; exit 1; }
 confirm() {
@@ -23,28 +24,31 @@ main() {
   [[ ! -r /etc/os-release ]] || id="$(. /etc/os-release && echo "${ID:-}")"
   [[ "$id" = ubuntu ]] || echo "提示：只在 Ubuntu 上验证过；其他发行版可以继续，遇到问题请参考部署手册。"
 
-  # What is missing is reported together with how to install it; nothing is installed from here.
-  local missing=() packages=() tool
-  for tool in curl tar openssl sha256sum; do
-    command -v "$tool" >/dev/null || { missing+=("$tool"); packages+=("$([[ "$tool" = sha256sum ]] && echo coreutils || echo "$tool")"); }
+  local packages=() tool compose_package=docker-compose-v2
+  for tool in curl tar openssl git; do
+    command -v "$tool" >/dev/null || packages+=("$tool")
   done
-  command -v docker >/dev/null || { missing+=("Docker Engine"); packages+=(docker.io); }
-  docker compose version >/dev/null 2>&1 || { missing+=("Docker Compose v2"); packages+=(docker-compose-v2); }
-  if ((${#missing[@]})); then
-    echo "缺少以下组件：${missing[*]}" >&2
-    if [[ "$id" = ubuntu ]]; then
-      echo "请先执行下面的命令安装，然后重新运行本脚本：" >&2
-      echo "  sudo apt-get update && sudo apt-get install -y ${packages[*]}" >&2
-    else
-      echo "请按发行版的方式安装后重新运行本脚本。Docker 的官方安装说明：https://docs.docker.com/engine/install/" >&2
+  command -v sha256sum >/dev/null || packages+=(coreutils)
+  command -v docker >/dev/null || packages+=(docker.io)
+  if ! docker compose version >/dev/null 2>&1; then
+    # Keep the existing Engine provider when installing its Compose plugin.
+    if command -v dpkg-query >/dev/null && dpkg-query -W -f='${db:Status-Status}' docker-ce 2>/dev/null | grep -qx installed; then
+      compose_package=docker-compose-plugin
     fi
-    exit 1
+    packages+=("$compose_package")
   fi
-  docker info >/dev/null 2>&1 || {
-    echo "Docker 已安装但没有运行。请先执行下面的命令，然后重新运行本脚本：" >&2
-    echo "  sudo systemctl enable --now docker" >&2
-    exit 1
-  }
+  if ((${#packages[@]})); then
+    [[ "$id" = ubuntu ]] || fail "请先安装依赖：${packages[*]}"
+    echo "将通过 apt 安装缺少的依赖：${packages[*]}"
+    confirm "安装以上依赖并继续？" || exit 0
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove "${packages[@]}"
+  fi
+  if ! docker info >/dev/null 2>&1; then
+    confirm "启动 Docker 服务并设置开机启动？" || exit 0
+    systemctl enable --now docker
+    docker info >/dev/null || fail "Docker 启动失败，请检查 systemctl status docker。"
+  fi
 
   # Run from an unpacked server archive or a checkout, that copy is used as it is.
   local self="${BASH_SOURCE[0]:-}" root=''
@@ -57,25 +61,33 @@ main() {
       [[ "$(git -C "$TARGET" config --get remote.origin.url)" = "$url" && "$(git -C "$TARGET" branch --show-current)" = main ]] \
         || fail "$TARGET 需要是 $REPO 的 main 分支。"
       [[ -z "$(git -C "$TARGET" status --porcelain)" ]] || fail "工作区有本地修改，请先保存。"
-      git -C "$TARGET" fetch origin main
+      git -C "$TARGET" fetch origin "$REF"
       git -C "$TARGET" merge-base --is-ancestor HEAD FETCH_HEAD || fail "本地有独立提交，请手动更新。"
       confirm "更新 ${TARGET}，使用新源码重新部署？" || exit 0
       git -C "$TARGET" merge --ff-only FETCH_HEAD
       if [[ "$1" = setup && -f "${PROXY_DEPLOY_CONFIG:-$TARGET/.local/docker.env}" ]]; then set -- upgrade; fi
     else
-      echo "将从 $url 拉取 main 到 ${TARGET}。连接期间，VPS 可通过 SSH 以你的用户身份操作本机项目。"
+      echo "将从 $url 拉取 ${REF##*/} 到 ${TARGET}。连接期间，VPS 可通过 SSH 以你的用户身份操作本机项目。"
       confirm "继续安装？" || exit 0
-      git clone --branch main --single-branch -- "$url" "$TARGET"
+      git clone --branch "${REF##*/}" --single-branch -- "$url" "$TARGET"
+      if [[ -z "$(git -C "$TARGET" branch --show-current)" ]]; then
+        git -C "$TARGET" switch -c main
+      fi
     fi
     root="$TARGET"
   fi
 
   bash "$root/deploy/manage.sh" "$@"
+  if [[ "$1" = setup && -t 0 ]]; then
+    if confirm "现在登录 Codex？已登录或想稍后登录可输入 n"; then
+      bash "$root/deploy/manage.sh" login || echo "服务已部署，稍后可执行 sudo codex-desk-tunnel login 重试。"
+    fi
+  fi
   if [[ "$1" = init ]]; then
     echo "启动服务：sudo codex-desk-tunnel up"
   else
-    echo "兼容的 Windows 客户端：https://github.com/sun168567/cc-desk-tunnel/releases/tag/v0.3.20"
+    echo "Windows 客户端：https://github.com/$REPO/releases/latest"
   fi
-  echo "本脚本没有修改防火墙、nginx 或 SSH 配置，也没有安装系统软件。"
+  echo "客户端请使用部署汇总列出的服务地址和端口。"
 }
 main "$@"

@@ -186,6 +186,7 @@ export async function stageCcdt(
   { version, desktop = false, arch = process.arch },
 ) {
   mkdirSync(directory, { recursive: true });
+  for (const name of ['LICENSE', 'NOTICE']) cpSync(join(root, name), join(directory, name));
   await bundleCcdt(root, directory, { version, desktop });
   if (process.platform === 'win32') {
     writeFileSync(join(directory, 'ccdt.cmd'), WINDOWS_LAUNCHER);

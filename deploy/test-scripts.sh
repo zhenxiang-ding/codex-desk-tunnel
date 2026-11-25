@@ -212,6 +212,7 @@ commit_source() {
   git -C "$source_repo" -c user.name=fixture -c user.email=fixture@example.org commit -qm fixture
 }
 commit_source
+git -C "$source_repo" tag codex-v0.1.0
 # Use a real clone and fast-forward, with an isolated URL rewrite in place of the network.
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.file://$source_repo.insteadOf"
 export GIT_CONFIG_VALUE_0=https://github.com/zhenxiang-ding/codex-desk-tunnel.git
@@ -225,6 +226,8 @@ MISSING_IMAGE=1 bash "$CC_DESK_TUNNEL_COMMAND" up > /dev/null
 grep -q "PROXY_IMAGE='codex-desk-tunnel:local'" "$TEMP/installed/.local/docker.env"
 program "$source_repo" 1.4.0
 commit_source
+git -C "$source_repo" tag test-next
+export CC_DESK_TUNNEL_REF=refs/tags/test-next
 : > "$MOCK_LOG"
 printf 'y\n' | bash "$TEMP/install.sh" > "$TEMP/reinstall.log"
 test "$(git -C "$TEMP/installed" rev-parse HEAD)" = "$(git -C "$source_repo" rev-parse HEAD)"

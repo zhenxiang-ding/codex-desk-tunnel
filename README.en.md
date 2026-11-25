@@ -4,13 +4,13 @@ Run Codex CLI on an Ubuntu VPS and use it with projects on your computer over SS
 
 The five upstream GitHub Actions workflows are preserved as [templates](.github/upstream-workflows).
 
-On an Ubuntu 24.04 VPS with Git, Docker Engine, and Compose v2, run the installer in an interactive SSH session.
+On an Ubuntu 24.04 VPS, open an interactive SSH session and run:
 
 ```bash
-curl -fsSLo codex-desk-install.sh https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install.sh && sudo bash codex-desk-install.sh
+cd ~ && curl -fL --retry 2 -o codex-desk-install.sh https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest/download/install.sh && sudo bash codex-desk-install.sh
 ```
 
-The installer clones this repository to `/opt/codex-desk-tunnel` and builds the server locally. Follow the printed device login command. The default port is `8788`. See the [Codex setup and Windows client instructions](README.md) for details.
+Press Enter to accept installation of missing dependencies and the setup defaults. Check the detected public address. Direct connections use port 8788. At the final prompt, press Enter to begin device login and complete authorization in the browser. Download the Windows desktop installer, CLI, and Linux server bundle from the [Codex Desk Tunnel release page](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest). See the [Chinese setup guide](README.md) for the connection steps.
 
 The documentation below describes the original Claude Code project.
 

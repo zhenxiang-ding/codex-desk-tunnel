@@ -25,7 +25,7 @@ await stageDesktop(root, app, {
 // ccdt comes with the client, as its own package has it: the same ccdt.mjs, Node and launchers, with the OpenSSH and
 // PowerShell of this package as the components of its SSH service (apps/cli/src/runtime.mjs). The installer puts its
 // folder on the user's PATH, ahead of a ccdt installed on its own (windows-installer.nsh).
-const productName = 'CC Desk Tunnel';
+const productName = 'Codex Desk Tunnel';
 const version = JSON.parse(readFileSync(join(root, 'apps/desktop/package.json'), 'utf8')).version;
 const ccdt = join(root, '.local/windows-package/ccdt');
 rmSync(ccdt, { recursive: true, force: true });
@@ -51,7 +51,7 @@ const results = await electronBuild({
   targets: Platform.WINDOWS.createTarget(unpacked ? 'dir' : 'nsis', Arch.x64),
   publish: 'never',
   config: {
-    appId: 'io.github.ccdesktunnel.desktop',
+    appId: 'io.github.zhenxiangding.codexdesktunnel',
     productName,
     electronVersion: electron.version,
     electronDist: join(root, 'node_modules/electron/dist'),
@@ -80,10 +80,10 @@ const results = await electronBuild({
       allowToChangeInstallationDirectory: true,
       createDesktopShortcut: true,
       createStartMenuShortcut: true,
-      shortcutName: 'CC Desk Tunnel',
+      shortcutName: productName,
       runAfterFinish: false,
       deleteAppDataOnUninstall: false,
-      artifactName: 'CC-Desk-Tunnel-Setup-${version}-${arch}.${ext}',
+      artifactName: 'Codex-Desk-Tunnel-Setup-${version}-${arch}.${ext}',
       include: join(root, 'scripts/windows-installer.nsh'),
     },
   },
@@ -101,7 +101,7 @@ execFileSync(
     stdio: 'inherit',
     env: {
       ...process.env,
-      WINDOWS_PACKAGE_EXE: join(output, 'win-unpacked/CC Desk Tunnel.exe'),
+      WINDOWS_PACKAGE_EXE: join(output, 'win-unpacked/Codex Desk Tunnel.exe'),
       NATIVE_TEST_CONFIG: '',
     },
   },
@@ -118,7 +118,7 @@ execFileSync(
   { windowsHide: true, stdio: 'inherit' },
 );
 console.log(
-  `Windows package: ${results.join(', ') || join(output, 'win-unpacked/CC Desk Tunnel.exe')}`,
+  `Windows package: ${results.join(', ') || join(output, 'win-unpacked/Codex Desk Tunnel.exe')}`,
 );
 console.log(
   'No service token, OAuth data, local history, test fixtures or source repository included.',
