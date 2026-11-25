@@ -43,6 +43,8 @@ type DataMessage = Extract<
       | 'usage.summary'
       | 'usage.page'
       | 'session.stats'
+      | 'codex.settings.state'
+      | 'codex.usage.state'
       | 'settings.state'
       | 'compaction.state'
       | 'instructions.state'
@@ -56,6 +58,9 @@ type Replies = {
   'usage.summary': 'usage.summary';
   'usage.query': 'usage.page';
   'session.stats': 'session.stats';
+  'codex.settings.get': 'codex.settings.state';
+  'codex.settings.update': 'codex.settings.state';
+  'codex.usage.get': 'codex.usage.state';
   'settings.get': 'settings.state';
   'settings.update': 'settings.state';
   'compaction.get': 'compaction.state';
@@ -93,6 +98,8 @@ export class RequestInterruptedError extends Error {
       'quota.watch',
       'session.stats',
       'settings.get',
+      'codex.settings.get',
+      'codex.usage.get',
       'compaction.get',
       'instructions.get',
       'web.settings.get',
@@ -582,6 +589,8 @@ export class ProxyClient {
         message.type === 'usage.summary' ||
         message.type === 'usage.page' ||
         message.type === 'session.stats' ||
+        message.type === 'codex.settings.state' ||
+        message.type === 'codex.usage.state' ||
         message.type === 'settings.state' ||
         message.type === 'instructions.state' ||
         message.type === 'web.settings.state' ||

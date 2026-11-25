@@ -24,6 +24,7 @@ export function codexTerminal(
   const path = [sshBin, inherited.PATH].filter(Boolean).join(delimiter);
   return {
     file: 'codex',
+    instructions,
     cwd,
     args: [
       '--no-daemon',

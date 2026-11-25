@@ -1,5 +1,6 @@
 import { randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { CodexAccount } from './codex-account.ts';
+import { runCodexChat } from './codex-chat.ts';
 import { codexTerminal } from './codex-terminal.ts';
 import {
   createReadStream,
@@ -626,7 +627,7 @@ export function createProxyServer(options: ServerOptions) {
   }
   // Each session's last turn sets when it is compacted while idle, as after the service starts or the setting changes.
   function armCompactions() {
-    if (!compactions.settings.enabled) return;
+    if (options.terminalRuntime === 'codex' || !compactions.settings.enabled) return;
     for (const session of store.list()) if (!session.activeRun) armCompaction(session.id);
   }
   function armCompaction(sessionId: string) {
@@ -760,6 +761,54 @@ export function createProxyServer(options: ServerOptions) {
     run.controller.abort();
     for (const decide of run.approvals.values()) decide(false);
     run.approvals.clear();
+  }
+  async function codexChat(run: Run, session: Session, text: string, messageId: string) {
+    try {
+      const door = seats.get(run.device)?.door?.ssh;
+      if (!door) throw new Error('项目设备的 SSH 通道未连接。');
+      const ssh = sessionSsh(store.directory, session.id, door, run.device);
+      const runtime = codexTerminal(
+        store.directory,
+        session,
+        store.execution(session.device?.id, platformOf(session.device)),
+        ssh.bin!,
+      );
+      const status = await runCodexChat({
+        runtime,
+        thread: store.codexThread(session.id),
+        message: text,
+        messageId,
+        signal: run.controller.signal,
+        bind: (id) => store.bindCodexThread(session.id, id),
+        usage: (usage) => store.codexUsage(session.id, usage),
+        emit: (event) => emit(run, event),
+        approve: (toolId, reason) =>
+          new Promise<boolean>((resolve) => {
+            if (run.controller.signal.aborted) return resolve(false);
+            const approvalId = randomUUID();
+            run.approvals.set(approvalId, (allowed) => {
+              emit(run, { type: 'approval.resolved', approvalId, allowed });
+              resolve(allowed);
+            });
+            emit(run, { type: 'approval.requested', approvalId, toolId, reason });
+            emit(run, {
+              type: 'run.status',
+              status: 'awaiting_approval',
+              waiting: 'approval',
+              connectionId: run.connectionId,
+            });
+          }),
+      });
+      finish(run, status, run.cancelReason);
+    } catch (error) {
+      if (!run.controller.signal.aborted)
+        emit(run, {
+          type: 'run.error',
+          code: 'codex_chat_failed',
+          message: error instanceof Error ? error.message : 'Codex 对话失败。',
+        });
+      finish(run, run.controller.signal.aborted ? 'cancelled' : 'failed', run.cancelReason);
+    }
   }
   function nativeRoot(sessionId: string) {
     return store.get(sessionId).session.nativeRoot ?? sessionId;
@@ -1112,7 +1161,12 @@ export function createProxyServer(options: ServerOptions) {
         throw new Error('Connection closed');
       current.process = new NativeTerminal(
         codex?.file ?? options.claude.executable,
-        codex?.args ??
+        (codex
+          ? [
+              ...codex.args,
+              ...(store.codexThread(session.id) ? ['resume', store.codexThread(session.id)!] : []),
+            ]
+          : undefined) ??
           terminalArguments(options.claude, session, reach, {
             resume,
             settingsPath: current.continued.settingsPath,
@@ -1596,7 +1650,8 @@ export function createProxyServer(options: ServerOptions) {
       stats: inOrder(),
     };
     runs.set(command.sessionId, run);
-    if (options.claude) run.input = new NativeInput(run.sessionId, (event) => emit(run, event));
+    if (options.claude && !codexAccount)
+      run.input = new NativeInput(run.sessionId, (event) => emit(run, event));
     emit(run, {
       type: 'message.user',
       messageId: command.requestId,
@@ -1607,6 +1662,11 @@ export function createProxyServer(options: ServerOptions) {
     emit(run, { type: 'run.status', status: 'running', connectionId: run.connectionId });
     // What Claude's system prompt no longer has right is told to it with this message; the transcript shows the
     // user's own text.
+    if (codexAccount) {
+      emit(run, { type: 'message.delivery', messageId: command.requestId, status: 'submitted' });
+      track(codexChat(run, session, text, command.requestId));
+      return;
+    }
     run.input?.submit(command.requestId, store.notice(command.sessionId) + text);
     track(
       options.claude
@@ -1752,6 +1812,30 @@ export function createProxyServer(options: ServerOptions) {
       case 'account.cancel':
       case 'account.logout':
         await account(peer, command);
+        return undefined;
+      case 'codex.settings.get':
+      case 'codex.settings.update': {
+        if (!codexAccount) throw new DomainError('codex_unavailable', '当前服务未启用 Codex。');
+        try {
+          const values = await codexAccount.configuration(
+            command.type === 'codex.settings.update' ? command.values : undefined,
+          );
+          send(peer, { type: 'codex.settings.state', requestId: command.requestId, values });
+        } catch {
+          throw new DomainError(
+            'codex_config',
+            '无法读取或写入 VPS 上的 Codex 配置。请检查配置文件及管理策略。',
+          );
+        }
+        return undefined;
+      }
+      case 'codex.usage.get':
+        if (!codexAccount) throw new DomainError('codex_unavailable', '当前服务未启用 Codex。');
+        send(peer, {
+          type: 'codex.usage.state',
+          requestId: command.requestId,
+          ...store.codexUsageSummary(),
+        });
         return undefined;
       case 'settings.get':
       case 'settings.update': {

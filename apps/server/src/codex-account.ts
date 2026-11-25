@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
-import type { AccountState } from '@cc-desk-tunnel/protocol';
+import { codexConfigSchema, type CodexConfig, type AccountState } from '@cc-desk-tunnel/protocol';
 
 type Process = ChildProcessByStdio<Writable, Readable, null>;
 type Limits = NonNullable<AccountState['codexLimits']>;
@@ -97,6 +97,26 @@ export class CodexAccount {
       };
       this.pending.set(id, finish);
       this.child!.stdin.write(JSON.stringify({ id, method, params }) + '\n');
+    });
+  }
+  async configuration(edits?: Partial<CodexConfig>): Promise<CodexConfig> {
+    await this.start();
+    if (edits && Object.keys(edits).length)
+      await this.rpc('config/batchWrite', {
+        edits: Object.entries(codexConfigSchema.partial().parse(edits)).map(([keyPath, value]) => ({
+          keyPath,
+          value,
+          mergeStrategy: 'replace',
+        })),
+        reloadUserConfig: true,
+      });
+    const { config } = await this.rpc<{ config: Partial<CodexConfig> }>('config/read', {
+      includeLayers: false,
+    });
+    return codexConfigSchema.parse({
+      model: config.model ?? null,
+      model_reasoning_effort: config.model_reasoning_effort ?? null,
+      model_auto_compact_token_limit: config.model_auto_compact_token_limit ?? null,
     });
   }
   async state(owner?: object, readLimits = false): Promise<AccountState> {

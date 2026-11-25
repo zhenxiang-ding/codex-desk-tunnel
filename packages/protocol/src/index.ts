@@ -4,12 +4,13 @@ import { webCertificateStateSchema } from './web-certificate.ts';
 export * from './web.ts';
 export * from './web-certificate.ts';
 
-export const PROTOCOL_VERSION = 30;
+export const PROTOCOL_VERSION = 31;
 // The release each protocol version began with, from 0.2.4 on: a client newer than its service signs in with
 // the service's number to have it upgrade (see the README). A new number adds its line here.
 export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
   '0.1.0': 29, // Codex Desk Tunnel's first release.
   '0.1.1': 30,
+  '0.1.2': 31,
   '0.2.4': 10,
   '0.2.6': 11,
   '0.2.9': 12,
@@ -96,6 +97,29 @@ const codexLimitWindow = z
     resetsAt: z.number().nullish(),
   })
   .nullish();
+export const codexConfigSchema = z
+  .object({
+    model: z.string().trim().min(1).max(160).nullable(),
+    model_reasoning_effort: z
+      .enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
+      .nullable(),
+    model_auto_compact_token_limit: z
+      .number()
+      .int()
+      .positive()
+      .max(Number.MAX_SAFE_INTEGER)
+      .nullable(),
+  })
+  .strict();
+export type CodexConfig = z.infer<typeof codexConfigSchema>;
+export const codexTokensSchema = z.object({
+  inputTokens: z.number().int().nonnegative(),
+  cachedInputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  reasoningOutputTokens: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative(),
+});
+export type CodexTokens = z.infer<typeof codexTokensSchema>;
 export const accountStateSchema = z.object({
   loggedIn: z.boolean(),
   codexLimits: z.object({ primary: codexLimitWindow, secondary: codexLimitWindow }).optional(),
@@ -379,6 +403,12 @@ export const eventPayloadSchema = z.discriminatedUnion('type', [
     // it wrote one.
     cacheTtl: z.enum(['5m', '1h']).optional(),
     errors: z.object({ context: z.string().optional() }).optional(),
+  }),
+  z.object({
+    type: z.literal('codex.usage'),
+    total: codexTokensSchema,
+    last: codexTokensSchema,
+    window: z.number().int().positive().nullable(),
   }),
   z.object({ type: z.literal('native.title'), title: z.string().min(1).max(120) }),
   z.object({
@@ -683,6 +713,15 @@ export const commandSchema = z.discriminatedUnion('type', [
     .strict(),
   z.object({ type: z.literal('account.cancel'), ...request }).strict(),
   z.object({ type: z.literal('account.logout'), ...request }).strict(),
+  z.object({ type: z.literal('codex.settings.get'), ...request }).strict(),
+  z
+    .object({
+      type: z.literal('codex.settings.update'),
+      values: codexConfigSchema.partial(),
+      ...request,
+    })
+    .strict(),
+  z.object({ type: z.literal('codex.usage.get'), ...request }).strict(),
   z.object({ type: z.literal('settings.get'), ...request }).strict(),
   z
     .object({
@@ -1059,6 +1098,13 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('account.state'), ...accountStateSchema.shape }),
   // One-time result for the connection that generated it; never part of broadcast account state or history.
   z.object({ type: z.literal('account.token.created'), ...setupTokenResultSchema.shape }),
+  z.object({ type: z.literal('codex.settings.state'), requestId: id, values: codexConfigSchema }),
+  z.object({
+    type: z.literal('codex.usage.state'),
+    requestId: id,
+    totals: codexTokensSchema,
+    sessions: z.number().int().nonnegative(),
+  }),
   z.object({ type: z.literal('settings.state'), requestId: id, values: nativeSettingsSchema }),
   // Sent to every connection when it changes; the one that asked finds its request ID.
   z.object({

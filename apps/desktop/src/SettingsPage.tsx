@@ -1,3 +1,5 @@
+import { ChartColumn as SettingsIconForUsage } from 'lucide-react';
+import { CodexSettings } from './CodexSettings.tsx';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { platformOf } from '@cc-desk-tunnel/protocol';
@@ -48,6 +50,7 @@ export type Section =
   | 'connection'
   | 'notifications'
   | 'shortcuts'
+  | 'codexUsage'
   | 'context'
   | 'shell'
   | 'web'
@@ -128,6 +131,13 @@ export const sections: {
     group: 'Claude Code',
     icon: UserRound,
     words: '登录 退出 订阅 用量 调用日志 重置 读取额度',
+  },
+  {
+    id: 'codexUsage',
+    name: '用量统计',
+    group: 'Claude Code',
+    icon: SettingsIconForUsage,
+    words: 'Codex token 用量 统计 缓存 输入 输出',
   },
   {
     id: 'claude',
@@ -975,16 +985,19 @@ export default function SettingsPage({
     .filter(
       (item) =>
         (!back || item.group === '本机') &&
-        (!codex || !['context', 'claude', 'instructions'].includes(item.id)) &&
+        (codex || item.id !== 'codexUsage') &&
+        (!codex || item.id !== 'instructions') &&
         (item.id !== 'connection' || window.desktop) &&
         (item.id !== 'install' ||
           (browser && /Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent))) &&
-        (!browser || !['context', 'claude', 'instructions'].includes(item.id)) &&
+        (!browser || !['context', 'codexUsage', 'claude', 'instructions'].includes(item.id)) &&
         (item.id !== 'account' || native || !browser) &&
         (item.id !== 'context' || native) &&
         (item.id !== 'shell' || (native && !browser && !!here && platformOf(here) === 'win32')) &&
         (item.id !== 'web' || native || browser) &&
-        `${item.name} ${item.words}`.toLowerCase().includes(term),
+        `${codex && item.id === 'context' ? '自动压缩上下文' : item.name} ${item.words}`
+          .toLowerCase()
+          .includes(term),
     );
   return (
     <>
@@ -1022,7 +1035,7 @@ export default function SettingsPage({
                 onClick={() => go(item.id)}
               >
                 <item.icon />
-                {item.name}
+                {codex && item.id === 'context' ? '自动压缩上下文' : item.name}
               </button>
             </div>
           ))}
@@ -1041,8 +1054,10 @@ export default function SettingsPage({
       </aside>
       <main className="workspace">
         <PageHelp.Provider value={back ? null : (pageHelp[section] ?? 'settings')}>
-          {indexOnly ? null : section === 'account' ||
-            (codex && ['context', 'claude', 'instructions'].includes(section)) ? (
+          {indexOnly ? null : codex &&
+            (section === 'claude' || section === 'context' || section === 'codexUsage') ? (
+            <CodexSettings key={section} section={section} client={client} />
+          ) : section === 'account' || (codex && section === 'instructions') ? (
             account
           ) : section === 'claude' ? (
             native ? (

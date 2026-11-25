@@ -1,6 +1,6 @@
 # Codex Desk Tunnel
 
-当前正式版本为 **v0.1.1**。从 0.1.0 或 0.3.20 开发版升级时，先在 VPS 重新执行下方一键安装命令，再安装新客户端。已有服务配置和持久化数据可沿用。
+当前正式版本为 **v0.1.2**。从 0.1.1、0.1.0 或 0.3.20 开发版升级时，先在 VPS 重新执行下方一键安装命令，再安装新客户端。已有服务配置和持久化数据可沿用。
 
 Codex CLI 在 Ubuntu VPS 上运行，通过 SSH 读写你选定的 Windows 项目。Windows 主动连接 VPS，项目文件留在本机。首次使用先部署 VPS，再安装 Windows 客户端。
 
@@ -28,11 +28,11 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/code
 
 ### 用桌面客户端连接
 
-1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.1/Codex-Desk-Tunnel-Setup-0.1.1-x64.exe)，自带 OpenSSH、PowerShell 和 `cxdt`。
+1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.2/Codex-Desk-Tunnel-Setup-0.1.2-x64.exe)，自带 OpenSSH、PowerShell 和 `cxdt`。
 2. 添加服务，粘贴 VPS 显示的服务地址和服务凭据。选了自签证书时，也填入对应的证书指纹。
 3. 打开 **设置 → Codex CLI → 账号与额度**。若尚未登录，点 **用设备码登录 Codex**，在本机浏览器打开 OpenAI 授权页，输入桌面端显示的一次性设备码。浏览器确认后，客户端会自动读取 VPS 的账号状态。[OpenAI 无浏览器设备登录说明](https://developers.openai.com/codex/auth/#login-on-headless-devices)
-4. 连接后添加本机项目文件夹。创建或选中该项目的会话，在会话菜单选择 **打开 Codex 终端**，即可在桌面窗口内使用 VPS 上的 Codex。要在系统终端接着同一会话，选择 **用 cxdt 打开**。原作者的 0.3.20 客户端中，对应菜单叫 **用 ccdt 打开**。
-5. 在 Codex 终端输入“请通过 SSH 列出当前 Windows 项目的顶层文件，并报告项目路径”。核对结果是否与本机目录一致。
+4. 添加 Windows 项目文件夹，创建或选择该项目的会话。在底部输入框直接发送“请通过 SSH 列出当前 Windows 项目的顶层文件，并报告项目路径”。桌面消息列表会显示 Codex 的回复、命令、工具结果和审批请求。关闭窗口后再打开同一会话可查看记录，下一轮继续同一个 Codex 线程。
+5. 在 **设置 → 自动压缩上下文** 调整 token 阈值，留空使用模型默认值。**设置 → 用量统计** 显示已上报的输入、缓存输入、输出及推理 token。**设置 → CLI 设置** 可更改 VPS 上的 Codex 模型和推理强度。需要终端界面时，可在会话菜单选择 **打开 Codex 终端** 或 **用 cxdt 打开**。
 
 ### 用 CMD 或 PowerShell 连接
 
@@ -46,7 +46,7 @@ cxdt
 
 登录时选刚才保存的 VPS 服务，按提示输入服务凭据。如果从 PowerShell 进入项目，第一行用 `Set-Location E:\Codex_default`。
 
-只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.1/cxdt-0.1.1-windows-x64.zip)，解压后在 `cxdt` 目录打开 PowerShell 并运行：
+只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.2/cxdt-0.1.2-windows-x64.zip)，解压后在 `cxdt` 目录打开 PowerShell 并运行：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
@@ -58,11 +58,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 连接时，Windows 客户端主动连到部署汇总里的 WSS 地址（直连示例 `wss://vps.example.net:8788/ws`），在本机回环地址启动随包的 OpenSSH，并为这次连接生成临时密钥。服务端通过这条隧道把 SSH 命令送回 Windows。Windows 无需开放公网 22 端口，断开后客户端会清理临时密钥。[上游架构说明](docs/architecture.md)
 
-选择本机项目并打开 **Codex 终端** 后，服务端会为该会话配置 SSH 别名。`device` 指向当前项目所在电脑，可供 SSH、SCP 和 SFTP 使用；`device-pwsh` 在该电脑运行 PowerShell 脚本。如果 Windows 客户端检测到 Git Bash，还会提供 `device-bash`。要验证连接，可以让 Codex 执行 `ssh device hostname`，把返回值与 Windows CMD 中 `hostname` 的输出对照。这些别名在隧道会话里生效。[会话 SSH 配置](docs/native-runtime.md)
+选择本机项目并发送消息或打开 **Codex 终端** 后，服务端会为该会话配置 SSH 别名。`device` 指向当前项目所在电脑，可供 SSH、SCP 和 SFTP 使用；`device-pwsh` 在该电脑运行 PowerShell 脚本。如果 Windows 客户端检测到 Git Bash，还会提供 `device-bash`。要验证连接，可以让 Codex 执行 `ssh device hostname`，把返回值与 Windows CMD 中 `hostname` 的输出对照。这些别名在隧道会话里生效。[会话 SSH 配置](docs/native-runtime.md)
 
 ## 在 OpenAI Codex 桌面端添加 SSH 连接（可选）
 
-如果想用 **OpenAI Codex 桌面端打开 VPS 上的项目**，在桌面端进入 **设置 → 连接 → SSH**，打开 **添加 SSH 连接**。这个入口登录 VPS 宿主机。上面一键安装的 Codex CLI 位于 Docker 容器内；桌面端直连宿主机后，看到的是该 SSH 用户可访问的远程目录。要让 VPS 上的 Codex 操作 `E:\Codex_default`，使用上面的 **Codex Desk Tunnel → 打开 Codex 终端** 或 `cxdt` 即可。
+如果想用 **OpenAI Codex 桌面端打开 VPS 上的项目**，在桌面端进入 **设置 → 连接 → SSH**，打开 **添加 SSH 连接**。这个入口登录 VPS 宿主机。上面一键安装的 Codex CLI 位于 Docker 容器内；桌面端直连宿主机后，看到的是该 SSH 用户可访问的远程目录。要让 VPS 上的 Codex 操作 `E:\Codex_default`，使用上面的 **Codex Desk Tunnel 项目会话** 或 `cxdt` 即可。
 
 <a id="windows-ssh-key"></a>
 
@@ -153,13 +153,13 @@ npm.cmd run build
 npm.cmd run desktop
 ```
 
-连接 VPS 后，在会话菜单选择 **打开 Codex 终端**。需要生成 Windows 安装包时，在同一仓库运行 `npm.cmd run package:windows`，产物位于 `artifacts/windows/`。
+连接 VPS 后，选择本机项目，在会话输入框中直接发送消息。需要生成 Windows 安装包时，在同一仓库运行 `npm.cmd run package:windows`，产物位于 `artifacts/windows/`。
 
 ## 日常使用
 
 - **查看服务**：在 VPS 运行 `sudo codex-desk-tunnel status`。需要重新查看客户端连接信息时运行 `sudo codex-desk-tunnel summary`。
 - **升级服务端**：在 VPS 终端重新运行第 1 节的一键安装命令。脚本更新源码，沿用已有配置重建容器。
-- **继续对话**：在本机打开原来的 Desk 会话，再在 Codex 终端用 `/resume` 选择历史。
+- **继续对话**：在本机打开原来的 Desk 会话，直接发送下一条消息。
 - **遇到 `stdin is not a terminal`**：在 Windows Terminal 或 CMD 中按第 1 节用 `ssh -t` 登录 VPS，再逐条执行交互命令。可先在 VPS 执行 `tty`，确认输出是 `/dev/pts/…` 等终端设备。启动本机 `cxdt` 时也要使用交互终端。
 
 ## 致谢与许可

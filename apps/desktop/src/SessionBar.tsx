@@ -67,18 +67,20 @@ export default function SessionBar({
   sessionId,
   refresh,
   metrics,
+  codex,
   native,
 }: {
   client: ProxyClient;
   sessionId: string;
   refresh: number;
+  codex?: Extract<import('@cc-desk-tunnel/protocol').EventPayload, { type: 'codex.usage' }> | null;
   metrics: NativeMetrics | null;
   native: boolean;
 }) {
   const { sessionBar } = usePrefs();
   const [stats, setStats] = useState<SessionStats | null>(null);
   useEffect(() => {
-    if (!sessionBar.enabled) return;
+    if (!sessionBar.enabled || codex !== undefined) return;
     let current = true;
     client.fetch({ type: 'session.stats', sessionId }).then(
       (result) => current && setStats(result),
@@ -87,8 +89,16 @@ export default function SessionBar({
     return () => {
       current = false;
     };
-  }, [client, sessionId, refresh, sessionBar.enabled]);
+  }, [client, sessionId, refresh, sessionBar.enabled, codex]);
   if (!sessionBar.enabled) return null;
+  if (codex !== undefined)
+    return codex ? (
+      <div className="session-bar" aria-label="Codex 会话用量">
+        <span>累计 {codex.total.totalTokens.toLocaleString()} tokens</span>
+        <span>最近一次输入 {codex.last.inputTokens.toLocaleString()} tokens</span>
+        {codex.window && <span>上下文窗口 {codex.window.toLocaleString()} tokens</span>}
+      </div>
+    ) : null;
   const shown = !!stats && stats.sessionId === sessionId && stats.requests > 0;
   if (!shown && !native) return null;
   // The call log is pruned, so a session older than its oldest record is counted from there.

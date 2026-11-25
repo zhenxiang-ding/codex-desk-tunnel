@@ -62,6 +62,7 @@ export default function Composer({
   draft,
   setDraft,
   native,
+  codex = false,
   connected,
   busy,
   refreshing,
@@ -94,6 +95,7 @@ export default function Composer({
   draft: string;
   setDraft: (text: string) => void;
   native: boolean;
+  codex?: boolean;
   connected: boolean;
   busy: boolean;
   refreshing: boolean;
@@ -206,7 +208,7 @@ export default function Composer({
       fill: `/${command.name} `,
     })),
   ];
-  const menuShown = native && slashOpen && items.length > 0;
+  const menuShown = native && !codex && slashOpen && items.length > 0;
   const at =
     pick === null
       ? Math.max(
@@ -381,7 +383,9 @@ export default function Composer({
               <Plus />
             </IconButton>
           )}
-          {!native ? (
+          {codex ? (
+            <span>Codex CLI</span>
+          ) : !native ? (
             <label className="scenario-label">
               场景
               <select
@@ -405,7 +409,7 @@ export default function Composer({
             />
           )}
           <span className="toolbar-space" />
-          {native && (
+          {native && !codex && (
             <ComposerControls
               key={session.id}
               model={session.model}

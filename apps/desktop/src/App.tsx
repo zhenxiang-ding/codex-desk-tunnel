@@ -480,6 +480,7 @@ export function App({
     !connected ||
     busy ||
     !!history?.loading ||
+    (codexMode && (!!selected?.activeRun || state.account?.loggedIn === false)) ||
     selected?.activeRun?.surface === 'terminal' ||
     (!!selected?.activeRun && (!nativeMode || !ownsRun)) ||
     refreshing;
@@ -1301,7 +1302,7 @@ export function App({
             },
           ]
         : []),
-      ...(nativeMode
+      ...(nativeMode && !codexMode
         ? [
             {
               label: '刷新状态',
@@ -2142,29 +2143,12 @@ export function App({
                 }}
               />
             )}
-            {codexMode && selected && (!away || remote) && (
-              <div className="card account-card">
-                {signedOut ? (
-                  <button className="button primary" onClick={() => open('settings', 'account')}>
-                    登录 Codex
-                  </button>
-                ) : host.terminalClient ? (
-                  <button
-                    className="button primary"
-                    disabled={
-                      !connected ||
-                      (!!selected.activeRun && selected.activeRun.surface !== 'terminal')
-                    }
-                    onClick={() => setCodexSession(selected)}
-                  >
-                    进入 Codex 终端
-                  </button>
-                ) : (
-                  <p>请使用桌面客户端或 cxdt 进入 Codex 终端。</p>
-                )}
-              </div>
+            {codexMode && signedOut && selected && (
+              <button className="button" onClick={() => open('settings', 'account')}>
+                登录 Codex
+              </button>
             )}
-            {!codexMode && selected && (!away || remote) && (
+            {selected && (!away || remote) && (
               <Composer
                 openAccount={() => open('settings', 'account')}
                 session={selected}
@@ -2176,6 +2160,7 @@ export function App({
                 }
                 draft={draft}
                 setDraft={(text) => setDraft(selected.id, text)}
+                codex={codexMode}
                 native={nativeMode}
                 connected={connected}
                 busy={busy}
@@ -2209,6 +2194,7 @@ export function App({
             )}
             {selected && (!away || (browser && remote)) && (
               <SessionBar
+                codex={codexMode ? (latest(events, 'codex.usage') ?? null) : undefined}
                 client={client}
                 sessionId={selected.id}
                 refresh={turnReports}

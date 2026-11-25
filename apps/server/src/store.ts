@@ -16,6 +16,7 @@ import { deviceTerms, systemShell } from './device-terms.ts';
 import type { Execution } from './device-terms.ts';
 import { DomainError } from './errors.ts';
 import type {
+  CodexTokens,
   Device,
   DevicePlatform,
   DeviceShell,
@@ -98,6 +99,9 @@ export class SessionStore {
       PRAGMA foreign_keys = ON;
       CREATE TABLE IF NOT EXISTS sessions (
         id TEXT PRIMARY KEY, metadata TEXT NOT NULL, create_request_id TEXT UNIQUE NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS codex_threads (
+        session_id TEXT PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE, thread_id TEXT NOT NULL, usage TEXT
       );
       CREATE TABLE IF NOT EXISTS events (
         session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -423,6 +427,41 @@ export class SessionStore {
     return entry;
   }
   // The caller gets its own copy: what it changes counts once it is saved.
+  codexThread(sessionId: string) {
+    return this.database
+      .prepare('SELECT thread_id FROM codex_threads WHERE session_id=?')
+      .get(sessionId)?.thread_id as string | undefined;
+  }
+  bindCodexThread(sessionId: string, threadId: string) {
+    this.database
+      .prepare(
+        'INSERT INTO codex_threads(session_id,thread_id) VALUES(?,?) ON CONFLICT(session_id) DO UPDATE SET thread_id=excluded.thread_id, usage=NULL WHERE thread_id<>excluded.thread_id',
+      )
+      .run(sessionId, threadId);
+  }
+  codexUsage(sessionId: string, usage: CodexTokens) {
+    this.database
+      .prepare('UPDATE codex_threads SET usage=? WHERE session_id=?')
+      .run(JSON.stringify(usage), sessionId);
+  }
+  codexUsageSummary() {
+    const totals: CodexTokens = {
+      inputTokens: 0,
+      cachedInputTokens: 0,
+      outputTokens: 0,
+      reasoningOutputTokens: 0,
+      totalTokens: 0,
+    };
+    let sessions = 0;
+    for (const row of this.database
+      .prepare('SELECT usage FROM codex_threads WHERE usage IS NOT NULL')
+      .iterate()) {
+      const values: CodexTokens = JSON.parse(String(row.usage));
+      for (const key of Object.keys(totals) as (keyof CodexTokens)[]) totals[key] += values[key];
+      sessions++;
+    }
+    return { totals, sessions };
+  }
   get(sessionId: string): StoredSession {
     const entry = this.entry(sessionId);
     const store = this;
