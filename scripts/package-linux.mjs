@@ -39,7 +39,7 @@ const results = await electronBuild({
   publish: 'never',
   config: {
     appId: 'io.github.ccdesktunnel.desktop',
-    productName: 'CC Desk Tunnel',
+    productName: 'Codex Desk Tunnel',
     electronVersion: electron.version,
     electronDist: join(root, 'node_modules/electron/dist'),
     directories: { app, output },

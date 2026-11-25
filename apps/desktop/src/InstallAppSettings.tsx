@@ -3,7 +3,7 @@ import { webAppBadgeSchema, webAppNameSchema } from '@cc-desk-tunnel/protocol';
 import { Page, Row, Switch } from './ui.tsx';
 
 type Settings = { name: string; label: string; badge: boolean };
-const defaultName = 'CC Desk Tunnel';
+const defaultName = 'Codex Desk Tunnel';
 const storageKey = `web-app:${new URL('./', location.href).pathname}`;
 function read(): Settings {
   let saved: Partial<Settings> = {};
@@ -16,9 +16,10 @@ function read(): Settings {
     const values = query.getAll(key);
     return values.length === 1 ? values[0] : undefined;
   };
+  const name = storedName ?? webAppNameSchema.safeParse(one('appName')).data ?? defaultName;
   const label = webAppBadgeSchema.safeParse(storedName ? saved.label : one('appLabel')).data ?? '';
   return {
-    name: storedName ?? webAppNameSchema.safeParse(one('appName')).data ?? defaultName,
+    name: name === 'CC Desk Tunnel' ? defaultName : name,
     label,
     badge: storedName && typeof saved.badge === 'boolean' ? saved.badge : !!label,
   };

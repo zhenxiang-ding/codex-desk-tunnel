@@ -21,6 +21,7 @@ const {
   closeSync,
   existsSync,
   fsyncSync,
+  mkdirSync,
   openSync,
   readFileSync,
   renameSync,
@@ -53,6 +54,13 @@ protocol.registerSchemesAsPrivileged([
 // there: the window of that connection, made then with the storage of its own partition, connects in the background
 // while the sign-in window tells how it goes, and is shown once it is connected. A process is one connection's at
 // most: signing in to another one, or signing out, goes on in a new process.
+// cxdt and earlier installers use this profile for saved services and the device ID.
+if (app.isPackaged && !app.commandLine.hasSwitch('user-data-dir')) {
+  const profile = path.join(app.getPath('appData'), 'CC Desk Tunnel');
+  mkdirSync(profile, { recursive: true });
+  app.setPath('userData', profile);
+  app.setPath('sessionData', profile);
+}
 const base = app.getPath('userData');
 // `--quit-connection` asks a connection's process to go the way the user's own "退出" does, through its control
 // pipe (see `listen` in connections.cjs). `--export-token`: see `savedToken`.
@@ -945,7 +953,7 @@ const label = () => {
   return entry ? connections.labelOf(base, entry) : '';
 };
 const several = () => connections.accounts(base).length > 1;
-const titled = () => (label() ? `CC Desk Tunnel · ${label()}` : 'CC Desk Tunnel');
+const titled = () => (label() ? `Codex Desk Tunnel · ${label()}` : 'Codex Desk Tunnel');
 const others = () => connections.list(base).filter((entry) => entry.id !== connectionId);
 const listed = () =>
   connections.accounts(base).map((entry) => ({
@@ -1196,7 +1204,7 @@ handle('update:install', async (event, version) => {
   // The installer works for a while with no window of its own: the system's notification says what goes on.
   if (Notification.isSupported())
     new Notification({
-      title: '正在升级 CC Desk Tunnel',
+      title: '正在升级 Codex Desk Tunnel',
       body: '安装完成后会自动重新打开。',
       icon: path.join(__dirname, 'icon.png'),
     }).show();
@@ -1225,7 +1233,9 @@ ipcMain.handle('proxy:disconnect', closeBridge);
 
 // Windows files notifications under this identity; the installer gives the shortcut the same one.
 if (process.platform === 'win32')
-  app.setAppUserModelId(app.isPackaged ? 'io.github.ccdesktunnel.desktop' : process.execPath);
+  app.setAppUserModelId(
+    app.isPackaged ? 'io.github.zhenxiangding.codexdesktunnel' : process.execPath,
+  );
 // Each window has storage of its own: a sign-in window's is in memory and goes with it; a connection's window has
 // its connection's partition (see connections.cjs). Pictures on this computer are served to both; neither may ask
 // for a permission.
@@ -1256,7 +1266,7 @@ function createWindow(partition, { width, height, shown }) {
     minWidth: 380,
     minHeight: 560,
     backgroundColor: windowColours().color,
-    title: partition === 'launcher' ? 'CC Desk Tunnel' : titled(),
+    title: partition === 'launcher' ? 'Codex Desk Tunnel' : titled(),
     // The page draws the title bar; the system adds only its window buttons: over the bar's right end on
     // Windows, at its left end on macOS, where the page leaves them room (see `.titlebar` in style.css).
     titleBarStyle: 'hidden',
@@ -1376,7 +1386,7 @@ function attend(window) {
       // Balloons are a thing of the Windows tray.
       if (process.platform === 'win32')
         tray.displayBalloon({
-          title: 'CC Desk Tunnel 仍在后台运行',
+          title: 'Codex Desk Tunnel 仍在后台运行',
           content: '点击托盘图标恢复窗口；右键图标选择“退出”才会结束连接。',
         });
     }
@@ -1425,13 +1435,13 @@ app.whenReady().then(async () => {
           {
             label: app.name,
             submenu: [
-              { role: 'about', label: '关于 CC Desk Tunnel' },
+              { role: 'about', label: '关于 Codex Desk Tunnel' },
               { type: 'separator' },
-              { role: 'hide', label: '隐藏 CC Desk Tunnel' },
+              { role: 'hide', label: '隐藏 Codex Desk Tunnel' },
               { role: 'hideOthers', label: '隐藏其他' },
               { role: 'unhide', label: '全部显示' },
               { type: 'separator' },
-              { role: 'quit', label: '退出 CC Desk Tunnel' },
+              { role: 'quit', label: '退出 Codex Desk Tunnel' },
             ],
           },
           {

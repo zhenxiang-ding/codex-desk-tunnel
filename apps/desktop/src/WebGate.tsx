@@ -76,7 +76,7 @@ export default function WebGate() {
   return (
     <main className="web-login">
       <section className="web-login-body">
-        <h1>CC Desk Tunnel</h1>
+        <h1>Codex Desk Tunnel</h1>
         <p className="muted">登录服务端工作台</p>
         {session?.selfSigned && <CertificateWarning />}
         {!session ? (

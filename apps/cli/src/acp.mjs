@@ -437,7 +437,7 @@ export async function serveAcp(context, { input = process.stdin, output = proces
         sessionCapabilities: { close: {} },
       },
       authMethods: [],
-      agentInfo: { name: 'cxdt', title: 'CC Desk Tunnel', version: context.version },
+      agentInfo: { name: 'cxdt', title: 'Codex Desk Tunnel', version: context.version },
     }),
     async 'session/new'({ cwd, mcpServers }) {
       ignored(mcpServers);

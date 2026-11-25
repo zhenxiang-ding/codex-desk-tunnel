@@ -17,8 +17,10 @@
     $version = (Invoke-RestMethod "https://api.github.com/repos/$repository/releases/latest").tag_name
   }
   $version = $version -replace '^(codex-)?v', ''
-  $name = "cxdt-$version-windows-x64.zip"
   $base = "https://github.com/$repository/releases/download/codex-v$version"
+  # UI-only releases keep the same client/server compatibility version.
+  $version = $version -replace '-ui\.[0-9]+$', ''
+  $name = "cxdt-$version-windows-x64.zip"
   $folder = Join-Path ([IO.Path]::GetTempPath()) "cxdt-install-$(Get-Random)"
   New-Item -ItemType Directory $folder | Out-Null
   try {

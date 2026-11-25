@@ -312,7 +312,7 @@ test('installation badges use independent text of up to three safe graphemes wit
     assert.ok(
       page.includes(`href="./manifest.webmanifest?${query.toString().replaceAll('&', '&amp;')}"`),
     );
-    if (!name) assert.ok(page.includes('<title>CC Desk Tunnel</title>'));
+    if (!name) assert.ok(page.includes('<title>Codex Desk Tunnel</title>'));
     const path = `/private/${source.slice(2)}`;
     const svg = await f.http(path);
     assert.equal(svg.status, 200);

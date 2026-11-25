@@ -1,6 +1,6 @@
 {
-  "name": "CC Desk Tunnel",
-  "short_name": "CC Desk",
+  "name": "Codex Desk Tunnel",
+  "short_name": "Codex Desk",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

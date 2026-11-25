@@ -538,7 +538,7 @@ function Message({
     <article className={`message ${item.kind}${latest ? ' latest' : ''}${joined ? ' joined' : ''}`}>
       {!user && !native && (
         <div className="message-label">
-          CC Desk Tunnel
+          Codex Desk Tunnel
           <span>模拟</span>
           {stamp}
           <CopyButton text={item.text} />

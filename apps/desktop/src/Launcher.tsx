@@ -197,7 +197,7 @@ export default function Launcher({ signIns }: { signIns: SignIns }) {
         url: form.url,
         fingerprint: form.fingerprint,
         token: form.token.trim(),
-        deviceName: device?.name ?? 'CC Desk Tunnel',
+        deviceName: device?.name ?? 'Codex Desk Tunnel',
       })
       .catch(() => null);
   }

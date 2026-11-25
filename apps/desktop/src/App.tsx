@@ -1765,7 +1765,7 @@ export function App({
       <TitleBar
         title={
           place.page === 'chat'
-            ? (selected?.title ?? 'CC Desk Tunnel')
+            ? (selected?.title ?? 'Codex Desk Tunnel')
             : place.page === 'schedules'
               ? '定时任务'
               : place.page === 'help'

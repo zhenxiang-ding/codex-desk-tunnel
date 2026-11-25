@@ -205,7 +205,7 @@ export const articles: Article[] = [
         kind: 'list',
         items: [
           '**项目**：左栏“项目”旁点 + 添加，可以改名。在 `cxdt` 里开会话，也会把那个文件夹登记为项目。',
-          '**普通会话**：点“新建会话”得到，不属于项目，列在“最近”。工作目录默认在“文档\\CC Desk Tunnel”下，可在[常规](settings:general)里更换。',
+          '**普通会话**：点“新建会话”得到，不属于项目，列在“最近”。可在[常规](settings:general)里查看或更换工作目录。',
         ],
       },
       {
@@ -660,7 +660,7 @@ export const articles: Article[] = [
       {
         kind: 'code',
         label: 'Zed：settings.json',
-        text: '{ "agent_servers": { "CC Desk Tunnel": { "type": "custom", "command": "cxdt", "args": ["acp"] } } }',
+        text: '{ "agent_servers": { "Codex Desk Tunnel": { "type": "custom", "command": "cxdt", "args": ["acp"] } } }',
       },
       {
         kind: 'code',

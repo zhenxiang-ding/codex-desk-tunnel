@@ -130,7 +130,7 @@ test('Electron: a sign-in window signs in to a service in its own process, one w
     await signIn(launcher, { url: serverUrl, token: 'x'.repeat(40) });
     await expect(launcher.getByRole('alert')).toContainText('服务凭据不正确');
     await expect(launcher.getByRole('button', { name: '连接', exact: true })).toBeEnabled();
-    expect(await titles(first)).toEqual(['CC Desk Tunnel']);
+    expect(await titles(first)).toEqual(['Codex Desk Tunnel']);
     await expect(launcher.getByRole('button', { name: '登录过的服务', exact: true })).toHaveCount(
       0,
     );
@@ -139,7 +139,7 @@ test('Electron: a sign-in window signs in to a service in its own process, one w
     await signIn(launcher, { token });
     const page = await connectionWindow(first);
     await connected(page);
-    await expect.poll(() => titles(first)).toEqual([`CC Desk Tunnel · ${shown(serverUrl)}`]);
+    await expect.poll(() => titles(first)).toEqual([`Codex Desk Tunnel · ${shown(serverUrl)}`]);
     const [id] = desk.ids();
     expect(desk.ids()).toEqual([id]);
     expect(desk.running(id)).toBe(true);
@@ -190,7 +190,7 @@ test('Electron: a sign-in window signs in to a service in its own process, one w
     const home = await desk.start(`--connection=${id2}`, '--sign-in');
     const second2 = await connectionWindow(home);
     await connected(second2);
-    await expect.poll(() => titles(home)).toEqual([`CC Desk Tunnel · ${shown(elsewhere)}`]);
+    await expect.poll(() => titles(home)).toEqual([`Codex Desk Tunnel · ${shown(elsewhere)}`]);
     const device = (target: Page) => target.evaluate(() => window.desktop!.device());
     expect(await device(second2)).toEqual(await device(page));
     // Two services: each window names its own.
@@ -259,7 +259,7 @@ test('Electron: a sign-in window signs in to a service in its own process, one w
     await page.getByRole('button', { name: `备注名 ${shown(elsewhere)}`, exact: true }).click();
     await page.getByRole('textbox', { name: '备注名', exact: true }).fill('工作');
     await page.getByRole('button', { name: '保存', exact: true }).click();
-    await expect.poll(() => titles(home)).toEqual(['CC Desk Tunnel · 工作']);
+    await expect.poll(() => titles(home)).toEqual(['Codex Desk Tunnel · 工作']);
 
     // Started with no window open, the program signs in to the service chosen for it, from its sign-in window.
     await home.close();

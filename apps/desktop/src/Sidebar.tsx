@@ -315,7 +315,7 @@ export default function Sidebar({
   return (
     <aside className="sidebar" ref={aside}>
       <div className="sidebar-brand">
-        <span className="brand">CC Desk Tunnel</span>
+        <span className="brand">Codex Desk Tunnel</span>
         <NoticeBell notifications={notifications} open={select} />
         <IconButton
           title={searching ? '关闭搜索' : '搜索'}

@@ -186,7 +186,7 @@ export default function LoginPage({
       <div className="login-content">
         <div className="brand">
           <SquareTerminal />
-          <span>CC Desk Tunnel</span>
+          <span>Codex Desk Tunnel</span>
         </div>
         <div className="login-title">
           <h1>连接代理服务</h1>

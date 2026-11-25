@@ -29,8 +29,9 @@ if [ -z "$version" ]; then
 fi
 version=${version#codex-}
 version=${version#v}
-name="cxdt-$version-$system.tar.gz"
 base="https://github.com/$repository/releases/download/codex-v$version"
+version=${version%-ui.*}
+name="cxdt-$version-$system.tar.gz"
 folder=$(mktemp -d)
 trap 'rm -rf "$folder"' EXIT
 echo "正在下载 cxdt $version ……"

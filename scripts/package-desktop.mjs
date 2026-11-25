@@ -119,7 +119,7 @@ export async function stageDesktop(root, app, { description, files = [], depende
     JSON.stringify(
       {
         name: 'cc-desk-tunnel',
-        productName: 'CC Desk Tunnel',
+        productName: 'Codex Desk Tunnel',
         // The desktop workspace manifest is the single source of the client version.
         version: JSON.parse(readFileSync(join(root, 'apps/desktop/package.json'), 'utf8')).version,
         description,

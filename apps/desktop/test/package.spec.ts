@@ -69,6 +69,8 @@ test('packaged exe runs without development dependencies and reclaims bundled re
       launcher.getByRole('heading', { name: '连接代理服务', exact: true }),
     ).toBeVisible();
     await expect(launcher.getByLabel('服务证书指纹', { exact: true })).toBeVisible();
+    await expect(launcher.locator('.login-page .brand')).toHaveText('Codex Desk Tunnel');
+    expect(await application.evaluate(({ app }) => app.getName())).toBe('Codex Desk Tunnel');
     expect(await application.evaluate(({ app }) => app.isPackaged)).toBe(true);
     expect(await launcher.evaluate((path) => window.desktop!.gitBranch(path), project)).toBe(
       'package-smoke',

@@ -91,12 +91,15 @@ test('a session opens in cxdt signed in as the window is, or the window says how
   });
   try {
     const launcher = await application.firstWindow();
+    await expect(launcher.locator('.login-page .brand')).toHaveText('Codex Desk Tunnel');
+    await expect(launcher).toHaveTitle('Codex Desk Tunnel');
     const version = await application.evaluate(({ app }) => app.getVersion());
     await launcher.getByRole('button', { name: '本地模拟', exact: true }).click();
     await launcher.getByLabel('服务地址', { exact: true }).fill(url);
     await launcher.getByLabel('服务凭据', { exact: true }).fill(token);
     await launcher.getByRole('button', { name: '连接', exact: true }).click();
     const page = await connectionWindow(application);
+    await expect(page.locator('.sidebar-brand .brand')).toHaveText('Codex Desk Tunnel');
     const row = page.locator('.session-row').filter({ hasText: session.title });
     const open = async () => {
       await row.click({ button: 'right' });

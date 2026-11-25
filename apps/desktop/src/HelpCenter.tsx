@@ -206,7 +206,7 @@ function Home({ list, news, context }: { list: Article[]; news: News[]; context:
     <>
       <header className="help-hero">
         <div className="help-hero-text">
-          <span className="help-kicker">CC Desk Tunnel 帮助</span>
+          <span className="help-kicker">Codex Desk Tunnel 帮助</span>
           <h1>
             Claude Code 住在服务器上，
             <br />
