@@ -156,7 +156,8 @@ test('SNI changes only new domain connections; IP/default TLS and existing conne
   server.on('secureConnection', (socket) => socket.on('data', (data) => socket.write(data)));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   t.after(async () => {
-    for (const socket of sockets) socket.destroy();
+    // Finish the TLS exchange before tearing down its TCP connection on Windows.
+    for (const socket of sockets) socket.end();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
   const address = server.address();

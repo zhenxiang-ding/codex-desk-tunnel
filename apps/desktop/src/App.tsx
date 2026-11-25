@@ -101,6 +101,7 @@ import type { MenuItem, MenuPosition } from './ui.tsx';
 
 // The notes of every version so far are read only when asked for, and stay out of what the window starts with.
 const ReleaseNotes = lazy(() => import('./ReleaseNotes.tsx'));
+const CodexTerminal = lazy(() => import('./CodexTerminal.tsx'));
 const HelpCenter = lazy(() => import('./HelpCenter.tsx'));
 
 // The newest event of a kind is the session's current native state.
@@ -269,6 +270,7 @@ export function App({
   }, []);
   // Opening a session in ccdt found it not installed (`{}`), or of another release (`installed`).
   const [ccdtNeeded, setCcdtNeeded] = useState<{ installed?: string } | null>(null);
+  const [codexSession, setCodexSession] = useState<Session | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const [createOpen, setCreateOpen] = useState(false);
@@ -1269,6 +1271,12 @@ export function App({
         : []),
       ...(nativeMode && host.terminalClient
         ? [
+            {
+              label: '打开 Codex 终端',
+              icon: <SquareTerminal />,
+              disabled: !idle || (!!session.activeRun && session.activeRun.surface !== 'terminal'),
+              run: () => setCodexSession(session),
+            },
             {
               label: '用 ccdt 打开',
               icon: <SquareTerminal />,
@@ -2292,6 +2300,15 @@ export function App({
             });
           }}
         />
+      )}
+      {codexSession && (
+        <Suspense fallback={null}>
+          <CodexTerminal
+            client={client}
+            session={codexSession}
+            close={() => setCodexSession(null)}
+          />
+        </Suspense>
       )}
       {ccdtNeeded && (
         <CcdtDialog

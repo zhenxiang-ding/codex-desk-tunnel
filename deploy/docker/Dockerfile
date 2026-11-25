@@ -3,7 +3,7 @@ FROM ubuntu:24.04 AS base
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates curl wget openssl openssh-client openssh-sftp-server git rsync \
-    bash tini tar xz-utils unzip zip jq ripgrep file less vim-tiny \
+    bash bubblewrap tini tar xz-utils unzip zip jq ripgrep file less vim-tiny \
     python3 python3-pip python3-venv build-essential pkg-config \
     procps lsof iproute2 dnsutils netcat-openbsd sqlite3 \
     && rm -rf /var/lib/apt/lists/*

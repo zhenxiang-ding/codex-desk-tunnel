@@ -41,6 +41,7 @@ export function environmentConfig(env: NodeJS.ProcessEnv, defaultDataDir: string
   if (native && !reverseProxy && (!env.PROXY_TLS_CERT || !env.PROXY_TLS_KEY))
     throw new Error('Direct mode requires PROXY_TLS_CERT and PROXY_TLS_KEY.');
   const options: ServerOptions = {
+    terminalRuntime: env.PROXY_TERMINAL_RUNTIME === 'codex' ? 'codex' : undefined,
     token: env.PROXY_TOKEN ?? '',
     dataDir: resolve(env.PROXY_DATA_DIR ?? defaultDataDir),
     host: env.PROXY_HOST ?? (native && !reverseProxy ? '0.0.0.0' : '127.0.0.1'),

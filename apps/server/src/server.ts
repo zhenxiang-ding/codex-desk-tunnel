@@ -1,4 +1,5 @@
 import { randomUUID, createHash, timingSafeEqual } from 'node:crypto';
+import { codexTerminal } from './codex-terminal.ts';
 import {
   createReadStream,
   mkdirSync,
@@ -189,6 +190,7 @@ export type Run = {
   stats: ReturnType<typeof inOrder>;
 };
 type Terminal = {
+  runtime?: 'codex';
   id: string;
   sessionId: string;
   // The connection showing it. The terminal outlives a lost connection by `graceMs`.
@@ -237,6 +239,7 @@ type Seat = {
 type Login = { process: NativeLogin; owner: Peer; url?: string };
 type CommandOf<T extends Command['type']> = Extract<Command, { type: T }>;
 export type ServerOptions = {
+  terminalRuntime?: 'codex';
   token: string;
   dataDir: string;
   stepMs?: number;
@@ -988,19 +991,27 @@ export function createProxyServer(options: ServerOptions) {
   async function openTerminal(peer: Peer, command: CommandOf<'terminal.open'>, session: Session) {
     if (!options.claude) throw new DomainError('native_unavailable', '离线模拟不启动终端。');
     const running = terminals.get(command.sessionId);
-    if (running?.process) return attachTerminal(peer, running, command);
+    const runtime = command.runtime ?? options.terminalRuntime;
+    if (running?.process) {
+      if (running.runtime !== runtime)
+        throw new DomainError('terminal_busy', '这个会话已打开另一种终端，请先退出它。');
+      return attachTerminal(peer, running, command);
+    }
     // The terminal's own CLI takes care of the session while it is held.
     compactions.cancel(command.sessionId);
     if (terminals.has(command.sessionId) || runs.has(command.sessionId) || mutations.size)
       throw new DomainError('native_busy', '请先结束这个会话的运行或会话管理，再打开终端。');
     const device = target(peer, session);
     const ssh = seats.get(device)?.door?.ssh;
+    if (runtime === 'codex' && !ssh)
+      throw new DomainError('execution_offline', 'Codex 需要已连接的项目设备。');
     if (!ssh && device !== serverDevice.id)
       throw new DomainError('execution_offline', '本机的执行通道尚未就绪。');
     room();
     const id = randomUUID();
     const directory = join(store.directory, 'terminals');
     const current: Terminal = {
+      runtime,
       id,
       sessionId: command.sessionId,
       owner: peer,
@@ -1023,46 +1034,57 @@ export function createProxyServer(options: ServerOptions) {
     try {
       const { NativeTerminal, terminalArguments, terminalEnvironment } =
         await import('./native-terminal.ts');
-      const cwd = prepareNativeDirectory(options.claude, store.directory, nativeRoot(session.id));
-      const resume = !!(await getSessionInfo(session.id, { dir: cwd }));
-      const messages = await getSessionMessages(session.id, {
-        dir: cwd,
-        includeSystemMessages: true,
-      }).catch(() => []);
-      // A record of the session with nothing in it, which a terminal that ended without a word left when it could
-      // not clear it away (see the end below), makes the CLI refuse the session's ID as one in use.
-      if (!resume && !messages.length)
-        await deleteSession(session.id, { dir: cwd }).catch(() => {});
-      current.continued.known = new Set(messages.map((message) => message.uuid));
-      current.continued.last = messages.at(-1)?.uuid;
-      mkdirSync(directory, { recursive: true, mode: 0o700 });
-      terminalSettings(
-        current.continued.settingsPath,
-        current.continued.hooksPath,
-        options.claude.settingsPath,
-        current.continued.statusPath,
-        undefined,
-        compactions.settings,
-      );
-      if (closing || peer.socket.readyState !== WebSocket.OPEN)
-        throw new Error('Connection closed');
-      completeOnboarding();
       const reach = ssh
         ? sessionSsh(store.directory, session.id, ssh, session.device?.id)
         : undefined;
+      const execution = store.execution(session.device?.id, platformOf(session.device));
+      const codex =
+        runtime === 'codex'
+          ? codexTerminal(store.directory, session, execution, reach!.bin!)
+          : undefined;
+      const cwd =
+        codex?.cwd ??
+        prepareNativeDirectory(options.claude, store.directory, nativeRoot(session.id));
+      let resume = false;
+      if (!codex) {
+        resume = !!(await getSessionInfo(session.id, { dir: cwd }));
+        const messages = await getSessionMessages(session.id, {
+          dir: cwd,
+          includeSystemMessages: true,
+        }).catch(() => []);
+        // A record of the session with nothing in it, which a terminal that ended without a word left when it could
+        // not clear it away (see the end below), makes the CLI refuse the session's ID as one in use.
+        if (!resume && !messages.length)
+          await deleteSession(session.id, { dir: cwd }).catch(() => {});
+        current.continued.known = new Set(messages.map((message) => message.uuid));
+        current.continued.last = messages.at(-1)?.uuid;
+        mkdirSync(directory, { recursive: true, mode: 0o700 });
+        terminalSettings(
+          current.continued.settingsPath,
+          current.continued.hooksPath,
+          options.claude.settingsPath,
+          current.continued.statusPath,
+          undefined,
+          compactions.settings,
+        );
+        completeOnboarding();
+      }
+      if (closing || peer.socket.readyState !== WebSocket.OPEN)
+        throw new Error('Connection closed');
       current.process = new NativeTerminal(
-        options.claude.executable,
-        terminalArguments(options.claude, session, reach, {
-          resume,
-          settingsPath: current.continued.settingsPath,
-          execution: store.execution(session.device?.id, platformOf(session.device)),
-        }),
+        codex?.file ?? options.claude.executable,
+        codex?.args ??
+          terminalArguments(options.claude, session, reach, {
+            resume,
+            settingsPath: current.continued.settingsPath,
+            execution,
+          }),
         {
           cwd,
           cols: command.cols,
           rows: command.rows,
-          env: terminalEnvironment(options.claude, process.env, reach),
-          status: (activity) => void heardTerminal(current, false, activity),
+          env: codex?.env ?? terminalEnvironment(options.claude, process.env, reach),
+          status: codex ? undefined : (activity) => void heardTerminal(current, false, activity),
           screen: {
             detached: () => {
               if (current.owner)
@@ -1088,30 +1110,32 @@ export function createProxyServer(options: ServerOptions) {
         async (exitCode) => {
           if (terminals.get(current.sessionId) !== current) return;
           clearTimeout(current.idle);
-          const { hooksPath, settingsPath, statusPath } = current.continued;
-          unwatchFile(hooksPath);
-          unwatchFile(statusPath);
-          if (current.continued.record) unwatchFile(current.continued.record);
-          await heardTerminal(current, true);
-          // A terminal that said nothing leaves no native session: its record, with nothing in it, would keep the
-          // session's ID from a chat run or the next terminal, which the CLI refuses it to as one in use.
-          if (current.continued.empty)
-            await deleteSession(current.sessionId, { dir: cwd }).catch(() => {});
-          else
-            record(
-              current.sessionId,
-              current.id,
-              nativeContext(
+          if (!codex) {
+            const { hooksPath, settingsPath, statusPath } = current.continued;
+            unwatchFile(hooksPath);
+            unwatchFile(statusPath);
+            if (current.continued.record) unwatchFile(current.continued.record);
+            await heardTerminal(current, true);
+            // A terminal that said nothing leaves no native session: its record, with nothing in it, would keep the
+            // session's ID from a chat run or the next terminal, which the CLI refuses it to as one in use.
+            if (current.continued.empty)
+              await deleteSession(current.sessionId, { dir: cwd }).catch(() => {});
+            else
+              record(
                 current.sessionId,
-                await getSessionInfo(current.sessionId, { dir: cwd }).catch(() => undefined),
-              ),
-            );
-          rmSync(settingsPath, { force: true });
-          rmSync(hooksPath, { force: true });
-          rmSync(statusPath, { force: true });
+                current.id,
+                nativeContext(
+                  current.sessionId,
+                  await getSessionInfo(current.sessionId, { dir: cwd }).catch(() => undefined),
+                ),
+              );
+            rmSync(settingsPath, { force: true });
+            rmSync(hooksPath, { force: true });
+            rmSync(statusPath, { force: true });
+          }
           store.append(current.sessionId, current.id, {
             type: 'run.status',
-            status: 'completed',
+            status: codex && exitCode !== 0 ? 'failed' : 'completed',
             surface: 'terminal',
             connectionId: peer.id,
           });
@@ -1125,7 +1149,7 @@ export function createProxyServer(options: ServerOptions) {
             });
           terminals.delete(current.sessionId);
           // What the terminal's CLI did not compact before it ended is the service's again.
-          if (compactions.settings.enabled) armCompaction(current.sessionId);
+          if (!codex && compactions.settings.enabled) armCompaction(current.sessionId);
         },
       );
       store.append(command.sessionId, current.id, {
@@ -1136,8 +1160,14 @@ export function createProxyServer(options: ServerOptions) {
         connectionId: peer.id,
       });
       updated(command.sessionId);
-      watchFile(current.continued.hooksPath, { interval: 500 }, () => void heardTerminal(current));
-      watchFile(current.continued.statusPath, { interval: 1000 }, () => terminalStatus(current));
+      if (!codex) {
+        watchFile(
+          current.continued.hooksPath,
+          { interval: 500 },
+          () => void heardTerminal(current),
+        );
+        watchFile(current.continued.statusPath, { interval: 1000 }, () => terminalStatus(current));
+      }
       send(peer, { type: 'terminal.opened', sessionId: command.sessionId, terminalId: current.id });
     } catch {
       await current.process?.close();

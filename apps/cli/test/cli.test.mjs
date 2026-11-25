@@ -95,6 +95,20 @@ function fakes() {
   return { service, sent, requests, input, output, shown: () => shown };
 }
 
+test('the Codex terminal requests its runtime and propagates its exit code', async () => {
+  const f = fakes();
+  const ended = relay(f.service, 's', { runtime: 'codex' }, f.input, f.output);
+  assert.equal(f.requests[0].runtime, 'codex');
+  f.service.emit('message', { type: 'terminal.opened', sessionId: 's', terminalId: 't' });
+  f.service.emit('message', {
+    type: 'terminal.closed',
+    sessionId: 's',
+    terminalId: 't',
+    exitCode: 2,
+  });
+  assert.deepEqual(await ended, { how: 'exited', code: 2 });
+});
+
 test('the terminal is shown as it is: output acknowledged once written, keys and size passed on', async () => {
   const f = fakes();
   const sessionId = 's';

@@ -113,6 +113,7 @@ export class FileService {
     return [
       join(configDir, '.credentials.json'),
       join(configDir, 'settings.json'),
+      resolve(process.env.CODEX_HOME || join(homedir(), '.codex')),
       join(homedir(), '.claude.json'),
       join(homedir(), '.ssh'),
       ...data.map((name) => join(this.dataDir, name)),

@@ -10,7 +10,7 @@ usage() {
 Usage:
   manage.sh setup                      interactive first install: asks, gets the image, starts, prints a summary
   manage.sh init --host HOST [--mode fingerprint|certificate|nginx]
-    [--data ABSOLUTE_PATH] [--control-port 8787]
+    [--data ABSOLUTE_PATH] [--control-port 8788]
     [--cert FULLCHAIN --key PRIVATE_KEY] [--url wss://DOMAIN/ws] [--token SECRET]
   manage.sh pull|build|up|status|logs|stop|restart|uninstall|connection|summary
   manage.sh upgrade [--from SERVER_ARCHIVE]   install the newest release (or the archive) and replace the container
@@ -26,10 +26,9 @@ Requires Docker Engine + Compose v2+, Bash, OpenSSL, curl, tar.
 Use sudo if your user cannot access Docker. Config defaults to .local/docker.env;
 set PROXY_DEPLOY_CONFIG to manage a different isolated installation.
 Set PROXY_COMPOSE_FILE when managing an image-only standalone compose.yml.
-The image is the prebuilt one of this program's version (ghcr.io/sun168567/cc-desk-tunnel:X.Y.Z), built here
-when it cannot be pulled. CC_DESK_TUNNEL_BUILD=1 always builds here, CC_DESK_TUNNEL_BUILD=0 never does.
-upgrade fetches the newest release; CC_DESK_TUNNEL_VERSION=X.Y.Z picks another.
-After an install with sudo, `sudo cc-desk-tunnel COMMAND` runs this script from anywhere.
+The default is to build the Codex image from this checkout. To pull a published fork image,
+set CC_DESK_TUNNEL_BUILD=0 and CC_DESK_TUNNEL_IMAGE to its repository.
+After an install with sudo, `sudo codex-desk-tunnel COMMAND` runs this script from anywhere.
 Uninstall keeps all data; backup/restore pause the service. To move to another server, back up here, install
 there, copy the file over and restore it there.
 HELP
@@ -102,9 +101,9 @@ build_image() {
     commit="$(git -c safe.directory="$ROOT" -C "$ROOT" log -1 --format=%ct 2>/dev/null || echo 0)"
     if ((commit > $(stat -c %Y "$web"))); then rm -rf -- "$ROOT/apps/server/web"; fi
   fi
-  PROXY_IMAGE=cc-desk-tunnel:local docker compose --env-file "$CONFIG" -p "$PROJECT_NAME" \
+  PROXY_IMAGE=codex-desk-tunnel:local docker compose --env-file "$CONFIG" -p "$PROJECT_NAME" \
     -f "$ROOT/deploy/docker/compose.yaml" build --pull
-  save_image cc-desk-tunnel:local
+  save_image codex-desk-tunnel:local
 }
 version_of() { sed -n 's/^ *"version": "\([0-9.]*\)",\{0,1\}$/\1/p' "$ROOT/apps/desktop/package.json" 2>/dev/null | head -n 1; }
 save_image() {
@@ -119,7 +118,8 @@ pull_image() {
   local version image
   version="$(version_of)"
   [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "No program version in $ROOT/apps/desktop/package.json."
-  image="${CC_DESK_TUNNEL_IMAGE:-ghcr.io/sun168567/cc-desk-tunnel}:$version"
+  [[ -n "${CC_DESK_TUNNEL_IMAGE:-}" ]] || fail "Set CC_DESK_TUNNEL_IMAGE to your fork's image, or use build."
+  image="${CC_DESK_TUNNEL_IMAGE}:$version"
   echo "拉取镜像 $image …"
   docker pull "$image" || return
   # Only a pulled image is configured: a failed pull leaves the deployment as it was.
@@ -128,7 +128,7 @@ pull_image() {
 # Where the image cannot be pulled (a version released before there were images, a registry this machine cannot
 # reach, a checkout with changes of its own), it is built here from the program beside this script.
 prepare_image() {
-  case "${CC_DESK_TUNNEL_BUILD:-}" in
+  case "${CC_DESK_TUNNEL_BUILD:-1}" in
     1) build_image ;;
     0) pull_image || fail "Cannot pull the image." ;;
     *)
@@ -139,7 +139,7 @@ prepare_image() {
 }
 # The newest release's server archive (or CC_DESK_TUNNEL_VERSION's), checked against its SHA256SUMS.
 fetch_release() {
-  local releases=https://github.com/sun168567/cc-desk-tunnel/releases name version current
+  local releases="https://github.com/${CC_DESK_TUNNEL_RELEASE_REPO:?Specify the fork repository}/releases" name version current
   local listed="$releases/latest/download"
   if [[ -n "${CC_DESK_TUNNEL_VERSION:-}" ]]; then
     [[ "$CC_DESK_TUNNEL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "CC_DESK_TUNNEL_VERSION must be X.Y.Z."
@@ -171,10 +171,10 @@ fetch_release() {
   ARCHIVE="$FETCHED/$name"
 }
 # `sudo cc-desk-tunnel COMMAND` from anywhere, for the installation managed with the default configuration.
-COMMAND_LINK="${CC_DESK_TUNNEL_COMMAND:-/usr/local/bin/cc-desk-tunnel}"
+COMMAND_LINK="${CC_DESK_TUNNEL_COMMAND:-/usr/local/bin/codex-desk-tunnel}"
 # How the administrator runs this script: the command, where it is this installation's.
 self() {
-  if grep -qF "'$ROOT/deploy/manage.sh'" "$COMMAND_LINK" 2>/dev/null; then echo cc-desk-tunnel; else echo "bash $ROOT/deploy/manage.sh"; fi
+  if grep -qF "'$ROOT/deploy/manage.sh'" "$COMMAND_LINK" 2>/dev/null; then basename "$COMMAND_LINK"; else echo "bash $ROOT/deploy/manage.sh"; fi
 }
 link_command() {
   [[ "$(id -u)" = 0 && -z "${PROXY_DEPLOY_CONFIG:-}" ]] && safe_value "$ROOT" || return 0
@@ -286,13 +286,13 @@ case "$command" in
         options+=(--url "$url")
       fi
       while :; do
-        port="$(ask "控制端口" 8787)"
+        port="$(ask "控制端口" 8788)"
         valid_port "$port" && break
         echo "端口应在 1024 到 65535 之间。" >&2
       done
       options+=(--control-port "$port")
-      default_data="${HOME}/.local/share/cc-desk-tunnel-container"
-      [[ "$(id -u)" != 0 ]] || default_data=/srv/cc-desk-tunnel
+      default_data="${HOME}/.local/share/codex-desk-tunnel-container"
+      [[ "$(id -u)" != 0 ]] || default_data=/srv/codex-desk-tunnel
       while :; do
         data="$(ask "数据目录（新建，存放账号、会话与证书）" "$default_data")"
         [[ "$data" = /* && "$data" != / && "$(realpath -m -- "$data")" != "$(realpath -- "$HOME")" ]] && safe_value "$data" \
@@ -317,9 +317,9 @@ case "$command" in
     summary
     exit ;;
   init)
-    HOST='' MODE=fingerprint DATA_DIR="${HOME}/.local/share/cc-desk-tunnel-container"
-    [[ "$(id -u)" != 0 ]] || DATA_DIR=/srv/cc-desk-tunnel
-    CONTROL_PORT=8787 CERT='' KEY='' URL='' TOKEN=''
+    HOST='' MODE=fingerprint DATA_DIR="${HOME}/.local/share/codex-desk-tunnel-container"
+    [[ "$(id -u)" != 0 ]] || DATA_DIR=/srv/codex-desk-tunnel
+    CONTROL_PORT=8788 CERT='' KEY='' URL='' TOKEN=''
     while (($#)); do
       [[ $# -ge 2 ]] || fail "Missing value for $1"
       case "$1" in
@@ -376,6 +376,8 @@ case "$command" in
       write_var PROXY_TLS_KEY /data/tls/control.key
       write_var PROXY_CERT_NAME "$CERT_NAME"
       write_var PROXY_DATA_DIR /data/state
+      write_var PROXY_TERMINAL_RUNTIME codex
+      write_var PROXY_RELEASE_REPO none
       write_var CLAUDE_CONTEXT_RETENTION_DAYS 3650
       write_var CLAUDE_SETTINGS_PATH /data/config/provider.json
     } > "$DATA_DIR/config/service.env"
@@ -388,7 +390,7 @@ case "$command" in
       write_var CONTROL_PORT "$CONTROL_PORT"
       write_var MODE "$MODE"
       write_var CONNECTION_URL "$URL"
-      write_var PROXY_IMAGE cc-desk-tunnel:local
+      write_var PROXY_IMAGE codex-desk-tunnel:local
     } > "$CONFIG"
     if [[ "$(id -u)" = 0 ]]; then
       chown -R 1000:1000 "$DATA_DIR"
@@ -418,7 +420,9 @@ case "$command" in
       ARCHIVE="$2"
     else
       [[ $# = 0 ]] || fail "upgrade takes no arguments besides --from SERVER_ARCHIVE."
-      [[ -n "${CC_DESK_TUNNEL_UNPACKED:-}" || -d "$ROOT/.git" ]] || fetch_release
+      if [[ -n "${CC_DESK_TUNNEL_RELEASE_REPO:-}" && -z "${CC_DESK_TUNNEL_UNPACKED:-}" && ! -d "$ROOT/.git" ]]; then
+        fetch_release
+      fi
     fi
     if [[ -n "${ARCHIVE:-}" ]]; then
       if tar -tzf "$ARCHIVE" | grep -E '(^/|(^|/)\.\.(/|$))' >/dev/null; then fail "Unsafe archive paths."; fi

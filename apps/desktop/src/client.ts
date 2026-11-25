@@ -207,6 +207,7 @@ export class ProxyClient {
     progress: {},
   };
   results = new Map<string, DataMessage>();
+  terminalListeners = new Set<(message: Extract<ServerMessage, { terminalId: string }>) => void>();
   listeners = new Set<() => void>();
   socket: WebSocket | null = null;
   credentials: {
@@ -446,6 +447,10 @@ export class ProxyClient {
         this.update({ error: '服务消息格式不兼容，已断开连接。' });
         this.credentials = null;
         socket.close();
+        return;
+      }
+      if ('terminalId' in message) {
+        for (const listener of this.terminalListeners) listener(message);
         return;
       }
       receive(message);

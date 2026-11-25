@@ -151,10 +151,12 @@ export function Modal({
   title,
   onClose,
   children,
+  closeOnEscape = true,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  closeOnEscape?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -166,7 +168,7 @@ export function Modal({
       ref={ref}
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        if (closeOnEscape) onClose();
       }}
     >
       <div className="dialog-heading">

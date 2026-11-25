@@ -4656,3 +4656,13 @@ dialog:has(.ccdt-dialog) {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.codex-terminal {
+  height: min(70vh, 48rem);
+  background: #000;
+  padding: 0.5rem;
+  overflow: hidden;
+}
+dialog:has(.codex-terminal) {
+  width: min(90vw, 72rem);
+  max-width: 96vw;
+}

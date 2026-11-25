@@ -32,6 +32,7 @@ import { UPDATE_TICK_MS, lookDue } from '../../desktop/src/update-check.ts';
 const HELP = `ccdt：在自己的终端里使用 CC Desk Tunnel 服务端上的原版 Claude Code，与图形客户端共用会话。
 
 用法：
+  ccdt --codex             在本机项目中打开 VPS 上的原版 Codex 终端
   ccdt                   接着当前目录这个项目最近的会话；没有就新建
   ccdt -r                从当前项目的会话里选一个打开（加 --all 从全部会话里选）
   ccdt new [标题]        在当前目录新建会话
@@ -647,7 +648,7 @@ function usage(summary) {
 // Shows the session's terminal until it ends, taking it up again after the connection is lost. Closing the window
 // ends it too, as it would a local CLI.
 async function show(config, values, service, session, fresh) {
-  const shown = {};
+  const shown = values.codex ? { runtime: 'codex' } : {};
   let closing = false;
   const close = async () => {
     if (closing) return;
@@ -872,6 +873,7 @@ export async function main(argv) {
       args: printing(argv),
       allowPositionals: true,
       options: {
+        codex: { type: 'boolean' },
         resume: { type: 'boolean', short: 'r' },
         print: { type: 'boolean', short: 'p' },
         continue: { type: 'boolean', short: 'c' },
@@ -911,6 +913,8 @@ export async function main(argv) {
   try {
     if (values.help) return (say(values.print ? AGENT_HELP : HELP), 0);
     if (values.version) return (process.stdout.write(`ccdt ${version}\n`), 0);
+    if (values.codex && (values.print || (command && !['new', 'open'].includes(command))))
+      return (say('--codex 用于交互终端，可与 new、open 或 -r 配合使用。'), 2);
     // With -p every word is the task, whatever command it happens to name.
     if (values.print) return await agentCommand(config, values, command, rest);
     if (command === 'help') return (say(rest[0] === 'agents' ? AGENT_HELP : HELP), 0);

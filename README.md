@@ -1,3 +1,39 @@
+# Codex Desk Tunnel
+
+在 Ubuntu 24.04 VPS 上运行 Codex CLI，通过已有的 CC Desk Tunnel 设备通道操作 Windows 上的项目。本分支基于上游 0.3.20，复用桌面客户端、`ccdt`、WSS、临时 SSH 密钥、终端转发和掉线重连。
+
+### 在 VPS 上安装
+
+把**本分支的源码**放到 Ubuntu VPS 上，在仓库根目录执行以下命令。需要已安装 Docker Engine 和 Compose。首次部署从源码构建镜像，默认监听 8788，与原版默认的 8787 可并行使用。
+
+```bash
+sudo bash deploy/manage.sh setup
+sudo docker compose --env-file .local/docker.env -f deploy/compose.yml exec proxy codex login --device-auth
+sudo docker compose --env-file .local/docker.env -f deploy/compose.yml exec proxy codex login status
+```
+
+### 在 Windows 上使用
+
+1. 在 **CC Desk Tunnel 0.3.20** 桌面端添加服务，填写新服务显示的地址、证书指纹和服务凭据，选择本机项目。
+2. 使用本分支的桌面端时，在会话菜单点 **打开 Codex 终端**，即可在桌面窗口内输入消息、审批命令、查看输出。使用原版 0.3.20 桌面端时，点 **用 ccdt 打开**，同一套 Codex 界面会显示在系统终端窗口。原来的桌面聊天框仍使用 Claude。
+3. 也可以直接在本机项目目录运行 `ccdt login` 选择新服务，然后运行 `ccdt`。如果安装的是本分支构建的 CLI，可显式运行 `ccdt --codex`。首次验收可以让 Codex 经 SSH 读取当前项目的 README 并报告首行。
+
+Codex 使用自己的会话历史。重新打开同一个 Desk 会话后，可在 Codex 内用 `/resume` 选择历史。不同 Desk 会话使用不同的 VPS 工作目录。账号保存在新服务的数据卷里。
+
+需要内嵌终端时，在 Windows 上用 Node.js 24 和 PowerShell 7，从本分支仓库根目录运行：
+
+```powershell
+npm.cmd ci
+npm.cmd run prepare:windows:package
+npm.cmd run setup:desktop
+npm.cmd run build
+npm.cmd run desktop
+```
+
+升级本分支使用源码构建。下方是上游项目说明，上游安装命令安装的是 Claude 版本。
+
+---
+
 <div align="center">
 
 <img src="apps/desktop/public/assets/icon-192.png" width="88" alt="CC Desk Tunnel 图标">
