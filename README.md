@@ -1,6 +1,6 @@
 # Codex Desk Tunnel
 
-当前正式版本为 **v0.1.4**。已有 Codex 服务可从 Windows 客户端检查更新，服务重启后沿用原来的连接和会话。
+当前正式版本为 **v0.1.5**。已有 Codex 服务可从 Windows 客户端检查更新，服务重启后沿用原来的连接和会话。
 
 Codex CLI 在 Ubuntu VPS 上运行，通过 SSH 读写你选定的 Windows 项目。Windows 主动连接 VPS，项目文件留在本机。首次使用先部署 VPS，再安装 Windows 客户端。
 
@@ -28,7 +28,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/code
 
 ### 用桌面客户端连接
 
-1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.4/Codex-Desk-Tunnel-Setup-0.1.4-x64.exe)，自带 OpenSSH、PowerShell 和 `cxdt`。
+1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.5/Codex-Desk-Tunnel-Setup-0.1.5-x64.exe)，自带 OpenSSH、PowerShell 和 `cxdt`。
 2. 添加服务，粘贴 VPS 显示的服务地址和服务凭据。选了自签证书时，也填入对应的证书指纹。
 3. 打开 **设置 → Codex CLI → 账号与额度**。若尚未登录，点 **用设备码登录 Codex**，在本机浏览器打开 OpenAI 授权页，输入桌面端显示的一次性设备码。浏览器确认后，客户端会自动读取 VPS 的账号状态。[OpenAI 无浏览器设备登录说明](https://developers.openai.com/codex/auth/#login-on-headless-devices)
 4. 添加 Windows 项目文件夹，创建或选择该项目的会话。在底部输入框直接发送“请通过 SSH 列出当前 Windows 项目的顶层文件，并报告项目路径”。桌面消息列表会显示 Codex 的回复、命令、工具结果和审批请求。关闭窗口后再打开同一会话可查看记录，下一轮继续同一个 Codex 线程。
@@ -47,7 +47,7 @@ cxdt
 
 登录时选刚才保存的 VPS 服务，按提示输入服务凭据。如果从 PowerShell 进入项目，第一行用 `Set-Location E:\Codex_default`。
 
-只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.4/cxdt-0.1.4-windows-x64.zip)，解压后在 `cxdt` 目录打开 PowerShell 并运行：
+只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.5/cxdt-0.1.5-windows-x64.zip)，解压后在 `cxdt` 目录打开 PowerShell 并运行：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1

@@ -1,6 +1,6 @@
 # Codex Desk Tunnel
 
-The current Codex Desk Tunnel release is **v0.1.4**. Use About & updates in the connected client, or check for server updates from the Windows sign-in screen. Install the matching Windows client for per-session model, reasoning and approval controls. Account & quota shows subscription windows and session usage records. CLI settings manages compaction, memory, model defaults and permissions.
+The current Codex Desk Tunnel release is **v0.1.5**. Use About & updates in the connected client, or check for server updates from the Windows sign-in screen. Install the matching Windows client for per-session model, reasoning and approval controls. Account & quota shows subscription windows and session usage records. CLI settings manages compaction, memory, model defaults and permissions.
 
 Run Codex CLI on an Ubuntu VPS and use it with projects on your computer over SSH. This adaptation builds on [CC Desk Tunnel](https://github.com/sun168567/cc-desk-tunnel) v0.3.20. Thank you to [sun168567](https://github.com/sun168567) and the upstream contributors for the desktop client, device tunnel, and terminal forwarding. The project retains the [Apache-2.0 license](LICENSE) and [original notices](NOTICE).
 

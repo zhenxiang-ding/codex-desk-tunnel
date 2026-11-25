@@ -46,6 +46,12 @@ async function feed(t: TestContext, version: string, runtime = 1) {
           ],
         }),
       );
+    else if (
+      request.url === '/releases/latest/download/release.json' ||
+      request.url === '/releases/download/v' + version + '/release.json'
+    )
+      response.end(JSON.stringify(manifest));
+    else if (request.url === '/releases/download/v' + version + '/' + name) response.end(installer);
     else if (request.url === '/assets/1') response.end(JSON.stringify(manifest));
     else if (request.url === '/assets/2') response.end(installer);
     else response.writeHead(404).end();
@@ -57,12 +63,17 @@ async function feed(t: TestContext, version: string, runtime = 1) {
     rmSync(directory, { recursive: true, force: true });
   });
   const states: ServiceUpdate[] = [];
-  const updates = (options: { runtimeLevel?: number; repository?: string } = {}) => {
+  const updates = (
+    options: { runtimeLevel?: number; repository?: string; publicFeed?: boolean } = {},
+  ) => {
     if (options.runtimeLevel) writeFileSync(join(directory, 'level'), `${options.runtimeLevel}\n`);
     return new ServiceUpdates(
       {
         repository: options.repository ?? 'owner/name',
-        token: 'read-only-token',
+        token: options.publicFeed ? undefined : 'read-only-token',
+        publicReleases: options.publicFeed
+          ? 'http://127.0.0.1:' + String((server.address() as AddressInfo).port) + '/releases'
+          : undefined,
         api: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
         programDir: options.runtimeLevel ? join(directory, 'program') : undefined,
         runtimeDir: options.runtimeLevel ? directory : undefined,
@@ -81,6 +92,18 @@ test('version comparison is numeric', () => {
   assert.equal(isNewer('0.2.1', '0.2.10'), false);
 });
 
+test('public service checks read the direct release manifest without an API request or token', async (t) => {
+  const f = await feed(t, '9.9.9', 3);
+  const updates = f.updates({ runtimeLevel: 3, publicFeed: true });
+  await updates.check();
+  assert.equal(updates.state.latest, '9.9.9');
+  assert.equal(updates.state.state, 'available');
+  assert.deepEqual(
+    f.requests.map((r) => r.url),
+    ['/releases/latest/download/release.json'],
+  );
+  assert.equal(f.requests[0].authorization, undefined);
+});
 test('a newer release is installable only where the runtime is recent enough', async (t) => {
   const f = await feed(t, '99.0.0', 2);
   const reported = f.updates();

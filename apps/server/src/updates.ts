@@ -26,6 +26,7 @@ export type UpdateOptions = {
   runtimeDir?: string;
   clientDir: string;
   api?: string;
+  publicReleases?: string;
   // The program directory was switched: end the process so that the supervisor starts the new one.
   restart: () => void;
   // The installer for clients has arrived in `clientDir`.
@@ -156,14 +157,40 @@ export class ServiceUpdates {
     if (!response.ok || !response.body) {
       await response.body?.cancel();
       throw new Error(
-        response.status === 404 || response.status === 401 || response.status === 403
-          ? `发布页无法访问（${response.status}）；跟踪私有仓库时需要在服务端配置只读令牌。`
-          : `发布页请求失败（${response.status}）。`,
+        response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0'
+          ? 'GitHub API 的请求配额已用完，请等额度重置后重试。'
+          : response.status === 404 || response.status === 401 || response.status === 403
+            ? `发布页无法访问（${response.status}）；跟踪私有仓库时需要在服务端配置只读令牌。`
+            : `发布页请求失败（${response.status}）。`,
       );
     }
     return response;
   }
   private async release(which: string): Promise<Manifest> {
+    const direct =
+      this.options.publicReleases ??
+      (!this.options.api
+        ? 'https://github.com/' + this.options.repository + '/releases'
+        : undefined);
+    if (direct && !this.options.token) {
+      const pinned = which === 'latest' ? undefined : which.replace(/^tags\/v/, '');
+      const uri = pinned ? 'download/v' + pinned : 'latest/download';
+      const manifest = this.parseManifest(
+        await (
+          await this.get(direct + '/' + uri + '/release.json', 'application/octet-stream')
+        ).json(),
+      );
+      if (pinned && manifest.version !== pinned) throw Error('下载的发布清单版本不符。');
+      return {
+        ...manifest,
+        assets: new Map(
+          manifest.files.map((f) => [
+            f.name,
+            direct + '/download/v' + manifest.version + '/' + f.name,
+          ]),
+        ),
+      };
+    }
     const api = this.options.api ?? 'https://api.github.com';
     const release = (await (
       await this.get(
@@ -174,16 +201,25 @@ export class ServiceUpdates {
     const assets = new Map((release.assets ?? []).map((asset) => [asset.name, asset.url]));
     const url = assets.get('release.json');
     if (!url) throw new Error('该发布没有 release.json。');
-    const manifest = (await (await this.get(url, 'application/octet-stream')).json()) as Manifest;
+    return {
+      ...this.parseManifest(await (await this.get(url, 'application/octet-stream')).json()),
+      assets,
+    };
+  }
+  private parseManifest(manifest: Manifest) {
     if (
       !versionPattern.test(manifest.version) ||
       !Array.isArray(manifest.files) ||
       manifest.files.some(
-        (file) => !/^[\w.-]+$/.test(file.name) || !/^[0-9a-f]{64}$/.test(file.sha256),
+        (file) =>
+          !/^[\w.-]+$/.test(file.name) ||
+          !/^[0-9a-f]{64}$/.test(file.sha256) ||
+          !Number.isSafeInteger(file.size) ||
+          file.size <= 0,
       )
     )
       throw new Error('release.json 格式不符。');
-    return { ...manifest, runtime: Number(manifest.runtime) || 1, assets };
+    return { ...manifest, runtime: Number(manifest.runtime) || 1 };
   }
   // Downloads one file of the release, in stretches (see `downloadPace`), and keeps it only if its hash is the
   // one the manifest states.

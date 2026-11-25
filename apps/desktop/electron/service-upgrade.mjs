@@ -167,7 +167,12 @@ export function upgradeService(
             (error) => end(error.message, undefined, 'declined'),
           );
         } else if (message.state === 'restarting') end(null, message.latest);
-        else if (message.state === 'failed') end(message.detail ?? '服务端升级失败。');
+        else if (message.state === 'failed')
+          end(
+            message.detail?.includes('发布页无法访问（403）')
+              ? '旧服务端查询 GitHub 时收到 403。公开仓库可能已用完该 VPS 出口的匿名 API 配额，请稍后再点“检查服务端更新”。'
+              : (message.detail ?? '服务端升级失败。'),
+          );
         else if (message.state === 'manual')
           end(
             `服务端 ${message.latest} 需要更新镜像，请在服务器上执行 sudo codex-desk-tunnel upgrade；没有这个命令的旧部署重新运行安装命令即可。`,
