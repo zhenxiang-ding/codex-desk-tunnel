@@ -26,6 +26,9 @@ test('server archives contain a fresh Web build without local data or desktop de
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   for (const path of [
     '.dockerignore',
+    'LICENSE',
+    'NOTICE',
+    'README.md',
     'package.json',
     'package-lock.json',
     'CHANGELOG.md',
@@ -66,7 +69,9 @@ test('server archives contain a fresh Web build without local data or desktop de
   }).split(/\r?\n/);
   assert.ok(entries.includes('apps/server/web/index.html'));
   assert.ok(entries.includes('apps/server/web/assets/current.js'));
-  assert.ok(entries.includes('CHANGELOG.md'));
+  for (const name of ['CHANGELOG.md', 'LICENSE', 'NOTICE', 'README.md']) {
+    assert.ok(entries.includes(name), name);
+  }
   assert.ok(entries.includes('deploy/install.sh'));
   assert.ok(!entries.some((entry) => /node_modules|\.env|private-test|desktop\/dist/.test(entry)));
   assert.equal(
