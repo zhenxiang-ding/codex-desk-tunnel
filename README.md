@@ -13,7 +13,7 @@ ssh -t ubuntu@VPS_IP
 在 VPS 的 SSH 终端粘贴这一行（需要 `curl` 和 root 或 sudo 权限）：
 
 ```bash
-cd ~ && curl -fL --retry 2 -o codex-desk-install.sh https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest/download/install.sh && sudo bash codex-desk-install.sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install.sh)"
 ```
 
 脚本会检查依赖；全新 Ubuntu 缺少 Docker 或 Compose 时，按回车同意安装，再按回车启动 Docker。部署向导会显示检测到的 IP；确认它是 Windows 能访问的公网地址，若有误就输入正确的 IP 或域名。其余提示回车即可使用自签证书、TCP **8788**、默认数据目录和随机服务凭据。首次部署会在 VPS 上构建包含 Codex CLI 的镜像。
@@ -75,7 +75,7 @@ npm.cmd run desktop
 ## 日常使用
 
 - **查看服务**：在 VPS 运行 `sudo codex-desk-tunnel status`。需要重新查看客户端连接信息时运行 `sudo codex-desk-tunnel summary`。
-- **升级服务端**：回到 VPS 用户的家目录，重新运行第 1 节的下载安装命令。脚本更新源码，沿用已有配置重建容器。
+- **升级服务端**：在 VPS 终端重新运行第 1 节的一键安装命令。脚本更新源码，沿用已有配置重建容器。
 - **继续对话**：在本机打开原来的 Desk 会话，再在 Codex 终端用 `/resume` 选择历史。
 - **遇到 `stdin is not a terminal`**：在 Windows Terminal 或 CMD 中按第 1 节用 `ssh -t` 登录 VPS，再逐条执行交互命令。可先在 VPS 执行 `tty`，确认输出是 `/dev/pts/…` 等终端设备。启动本机 `ccdt` 时也要使用交互终端。
 

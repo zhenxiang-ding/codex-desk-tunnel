@@ -7,7 +7,7 @@ The five upstream GitHub Actions workflows are preserved as [templates](.github/
 On an Ubuntu 24.04 VPS, open an interactive SSH session and run:
 
 ```bash
-cd ~ && curl -fL --retry 2 -o codex-desk-install.sh https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest/download/install.sh && sudo bash codex-desk-install.sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install.sh)"
 ```
 
 Press Enter to accept installation of missing dependencies and the setup defaults. Check the detected public address. Direct connections use port 8788. At the final prompt, press Enter to begin device login and complete authorization in the browser. Download the Windows desktop installer, CLI, and Linux server bundle from the [Codex Desk Tunnel release page](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest). See the [Chinese setup guide](README.md) for the connection steps.
