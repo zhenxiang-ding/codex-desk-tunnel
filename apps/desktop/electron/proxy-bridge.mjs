@@ -294,11 +294,25 @@ export async function openProxyBridge(
     });
     remote.on('message', (raw) => {
       alive();
-      let message;
+      let message, rawType;
       try {
-        message = serverMessageSchema.parse(JSON.parse(raw.toString('utf8')));
-      } catch {
-        fail('服务端的消息无法识别。\n客户端与服务端的版本可能不一致，请把两者升级到同一版本。');
+        const decoded = JSON.parse(raw.toString('utf8'));
+        rawType = decoded?.type;
+        message = serverMessageSchema.parse(decoded);
+      } catch (error) {
+        // Include the protocol field only. Session contents and credentials stay out of diagnostics.
+        const type =
+          typeof rawType === 'string' && /^[a-z.]{1,48}$/.test(rawType) ? rawType : '未知类型';
+        const path = error.issues?.[0]?.path
+          ?.filter((p) => typeof p === 'string' && /^[A-Za-z]+$/.test(p))
+          .slice(0, 4)
+          .join('.');
+        fail(
+          '服务端的消息无法识别（' +
+            type +
+            (path ? ' / ' + path : '') +
+            '）。可在登录页点“检查服务端更新”。',
+        );
         return;
       }
       if (message.type === 'web.settings.state')

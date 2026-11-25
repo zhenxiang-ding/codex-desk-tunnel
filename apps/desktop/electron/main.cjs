@@ -615,7 +615,7 @@ handle('service:upgrade', async (event, config) => {
   );
   // The sign-in window does not read a remembered token: the one its sign-in used is taken.
   return upgradeService(
-    { ...config, token: config?.token || attemptToken },
+    { ...config, token: await managementToken(config) },
     {
       resolveProxy: (url) => session.defaultSession.resolveProxy(url),
       onUpdate: (update) => {
@@ -701,7 +701,25 @@ function exportSaved() {
 // What the sign-in window hands to the connection's window: the address, the choices and the token. The token
 // also stays for an upgrade of the service the sign-in window may ask for after a refusal.
 let handed = null;
-let attemptToken = '';
+let attemptedService;
+async function managementToken(config) {
+  const url = new URL(config.url);
+  if (url.protocol !== 'wss:' || url.username || url.password || url.search || url.hash)
+    throw new Error('请输入有效的 WSS 服务地址。');
+  if (config.token?.trim()) return config.token.trim();
+  const key = connections.serviceKey(config.url);
+  const same = (login) =>
+    login &&
+    connections.serviceKey(login.url) === key &&
+    (login.fingerprint ?? '').trim() === (config.fingerprint ?? '').trim();
+  if (same(attemptedService)) return attemptedService.token;
+  const entry = connections.find(base, config.url);
+  if (entry && same(connections.loginOf(base, entry.id))) {
+    const token = await savedToken(entry.id);
+    if (token) return token;
+  }
+  throw new Error('请填写此服务的凭据后再检查更新。');
+}
 // The sign-in window offers the service it was started for, the one that signs in by itself when nothing else is
 // open, or the latest one whose window is not open; with `signIn` it signs in at once. A remembered token is not
 // read there but when the sign-in starts (see `launcher:start`). A connection's window has what was handed over.
@@ -798,7 +816,7 @@ handle('launcher:start', async (event, form) => {
   tried = connectionId = id;
   connections.mark(base, id, true);
   handed = { ...login, token, ...choices };
-  attemptToken = token;
+  attemptedService = { ...login, token };
   log(`Signing in to ${login.url}.`);
   const window = createWindow(`persist:${id}`, { width: 1240, height: 850, shown: false });
   mainWindow = window;
@@ -1222,7 +1240,7 @@ handle('service:probe', async (_event, config) => {
     pathToFileURL(path.join(__dirname, 'proxy-bridge.mjs')).href
   );
   return probeService(
-    { ...config, token: config?.token || attemptToken },
+    { ...config, token: await managementToken(config) },
     { resolveProxy: (url) => session.defaultSession.resolveProxy(url) },
   );
 });

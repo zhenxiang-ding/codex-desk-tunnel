@@ -1,7 +1,7 @@
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createProxyServer } from './server.ts';
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { clearServiceVariables, environmentConfig } from './config.ts';
 import { removeFrpLeftovers } from './legacy.ts';
 
@@ -10,6 +10,12 @@ const { options, native, port } = environmentConfig(
   fileURLToPath(new URL('../../../.local/sessions', import.meta.url)),
 );
 const programDir = process.env.PROXY_PROGRAM_DIR;
+// Older container entrypoints add an overlay CLI to PATH only if it contains Claude.
+if (programDir && options.terminalRuntime === 'codex') {
+  const cliBin = fileURLToPath(new URL('../../../cli/bin/', import.meta.url));
+  if (existsSync(join(cliBin, 'codex')))
+    process.env.PATH = [cliBin, process.env.PATH].filter(Boolean).join(delimiter);
+}
 if (native) removeFrpLeftovers();
 clearServiceVariables(process.env);
 // The CLI is the version this release was built and tested with (see scripts/install-linux.sh). Left to itself, an

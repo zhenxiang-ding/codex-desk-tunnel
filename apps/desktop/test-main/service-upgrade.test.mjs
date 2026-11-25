@@ -5,7 +5,7 @@ import { PROTOCOL_VERSION } from '@cc-desk-tunnel/protocol';
 import { probeService, upgradeService } from '../electron/service-upgrade.mjs';
 
 // A 0.3.2 service: signs in only a client of protocol 17, and answers an update check with `found`.
-async function upgrade(found, service = '0.3.2', confirm) {
+async function upgrade(found, service = '0.3.2', confirm, checkOnly = false) {
   const server = new WebSocketServer({ port: 0, host: '127.0.0.1' });
   await new Promise((resolve) => server.once('listening', resolve));
   const received = [];
@@ -14,7 +14,10 @@ async function upgrade(found, service = '0.3.2', confirm) {
     socket.on('message', (raw) => {
       const message = JSON.parse(raw.toString());
       received.push(message);
-      if (message.type === 'auth' && message.protocolVersion !== (service === '0.1.0' ? 29 : 17))
+      if (
+        message.type === 'auth' &&
+        message.protocolVersion !== ({ '0.1.0': 29, '0.1.2': 31, '0.1.3': 32 }[service] ?? 17)
+      )
         send({ type: 'connection.error', code: 'version_mismatch', message: '版本不一致' });
       else if (message.type === 'auth') send({ type: 'ready', update: { state: 'idle' } });
       else if (message.type === 'service.update.check')
@@ -29,7 +32,7 @@ async function upgrade(found, service = '0.3.2', confirm) {
   const updates = [];
   try {
     const result = await upgradeService(
-      { url, fingerprint: '', token: 'a'.repeat(32), deviceName: '这台电脑', service },
+      { url, fingerprint: '', token: 'a'.repeat(32), deviceName: '这台电脑', service, checkOnly },
       { open: () => new WebSocket(url), onUpdate: (update) => updates.push(update.state), confirm },
     ).catch((error) => error);
     return { result, received, updates };
@@ -54,7 +57,7 @@ test('a newer client signs in to an older service with its protocol version and 
 
 test('a service that cannot upgrade from here says why', async () => {
   const manual = (await upgrade('manual')).result;
-  assert.match(manual.message, /cc-desk-tunnel upgrade/);
+  assert.match(manual.message, /codex-desk-tunnel upgrade/);
   assert.equal(manual.code, 'manual');
   const idle = (await upgrade('idle')).result;
   assert.match(idle.message, /没有找到/);
@@ -126,6 +129,19 @@ test('a service with sessions at work says so as busy, and a forced upgrade asks
   }
 });
 
+test('a launcher can check updates without installing and upgrade a Codex service on its own protocol', async () => {
+  for (const service of ['0.1.2', '0.1.3']) {
+    const check = await upgrade('available', service, undefined, true);
+    assert.equal(check.result, '0.3.4');
+    assert.deepEqual(
+      check.received.map((m) => m.type),
+      ['auth', 'service.update.check'],
+    );
+    const install = await upgrade('available', service);
+    assert.equal(install.result, '0.3.4');
+    assert.equal(install.received.filter((m) => m.type === 'service.update.install').length, 1);
+  }
+});
 // A service that answers a sign-in with `answer`, or not at all; what it was sent is kept.
 async function probe(t, answer) {
   const server = new WebSocketServer({ port: 0, host: '127.0.0.1' });
@@ -182,6 +198,10 @@ test('a service is asked at sign-in what it says to this client, and how far it 
     preparing: null,
   });
   assert.deepEqual((await probe(t, { type: 'ready' })).result, { status: 'ready' });
+  assert.deepEqual((await probe(t, { type: 'ready', version: '0.1.3' })).result, {
+    status: 'ready',
+    service: '0.1.3',
+  });
   const wrong = await probe(t, {
     type: 'connection.error',
     code: 'unauthorized',

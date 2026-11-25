@@ -172,8 +172,8 @@ export default function Launcher({ signIns }: { signIns: SignIns }) {
         const result = await probe();
         if (cancelled) return;
         if (
-          result?.status === 'ready' ||
-          (result?.status === 'refused' && result.service !== restarting)
+          (result?.status === 'ready' && result.service !== restarting) ||
+          (result?.status === 'refused' && !!result.service && result.service !== restarting)
         ) {
           setRestarting(null);
           void start(form);

@@ -1,6 +1,6 @@
 # Codex Desk Tunnel
 
-当前正式版本为 **v0.1.3**。从 0.1.2、0.1.1、0.1.0 或 0.3.20 开发版升级时，先在 VPS 重新执行下方一键安装命令，再安装新客户端。已有服务配置和持久化数据可沿用。
+当前正式版本为 **v0.1.4**。已有 Codex 服务可从 Windows 客户端检查更新，服务重启后沿用原来的连接和会话。
 
 Codex CLI 在 Ubuntu VPS 上运行，通过 SSH 读写你选定的 Windows 项目。Windows 主动连接 VPS，项目文件留在本机。首次使用先部署 VPS，再安装 Windows 客户端。
 
@@ -28,7 +28,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/code
 
 ### 用桌面客户端连接
 
-1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.3/Codex-Desk-Tunnel-Setup-0.1.3-x64.exe)，自带 OpenSSH、PowerShell 和 `cxdt`。
+1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.4/Codex-Desk-Tunnel-Setup-0.1.4-x64.exe)，自带 OpenSSH、PowerShell 和 `cxdt`。
 2. 添加服务，粘贴 VPS 显示的服务地址和服务凭据。选了自签证书时，也填入对应的证书指纹。
 3. 打开 **设置 → Codex CLI → 账号与额度**。若尚未登录，点 **用设备码登录 Codex**，在本机浏览器打开 OpenAI 授权页，输入桌面端显示的一次性设备码。浏览器确认后，客户端会自动读取 VPS 的账号状态。[OpenAI 无浏览器设备登录说明](https://developers.openai.com/codex/auth/#login-on-headless-devices)
 4. 添加 Windows 项目文件夹，创建或选择该项目的会话。在底部输入框直接发送“请通过 SSH 列出当前 Windows 项目的顶层文件，并报告项目路径”。桌面消息列表会显示 Codex 的回复、命令、工具结果和审批请求。关闭窗口后再打开同一会话可查看记录，下一轮继续同一个 Codex 线程。
@@ -47,7 +47,7 @@ cxdt
 
 登录时选刚才保存的 VPS 服务，按提示输入服务凭据。如果从 PowerShell 进入项目，第一行用 `Set-Location E:\Codex_default`。
 
-只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.3/cxdt-0.1.3-windows-x64.zip)，解压后在 `cxdt` 目录打开 PowerShell 并运行：
+只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.4/cxdt-0.1.4-windows-x64.zip)，解压后在 `cxdt` 目录打开 PowerShell 并运行：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
@@ -159,7 +159,7 @@ npm.cmd run desktop
 ## 日常使用
 
 - **查看服务**：在 VPS 运行 `sudo codex-desk-tunnel status`。需要重新查看客户端连接信息时运行 `sudo codex-desk-tunnel summary`。
-- **升级服务端**：在 VPS 终端重新运行第 1 节的一键安装命令。脚本更新源码，沿用已有配置重建容器。
+- **升级服务端**：已连接时打开 **设置 → 关于与更新 → 检查更新**，发现新版后点 **升级服务端到…**。无法进入主界面时，打开 v0.1.4 或更新的 Windows 客户端，在登录页填好原服务地址、证书指纹和凭据，点 **检查服务端更新**，再点显示目标版本的升级按钮。旧服务因协议版本拒绝登录时，该页也会直接显示 **升级服务端**。确认后等待服务重启，再使用原连接登录。只有提示需要更新容器镜像时，才需在 VPS 执行第 1 节的一键安装命令。
 - **继续对话**：在本机打开原来的 Desk 会话，直接发送下一条消息。
 - **遇到 `stdin is not a terminal`**：在 Windows Terminal 或 CMD 中按第 1 节用 `ssh -t` 登录 VPS，再逐条执行交互命令。可先在 VPS 执行 `tty`，确认输出是 `/dev/pts/…` 等终端设备。启动本机 `cxdt` 时也要使用交互终端。
 

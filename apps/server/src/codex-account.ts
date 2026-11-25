@@ -183,10 +183,10 @@ export class CodexAccount {
       if (codexLimits) codexLimitsAt = new Date(read.time).toISOString();
     } else if (!account) this.quotaRead = undefined;
     const provider = account
-      ? await this.rpc<{ config: { model_provider?: string } }>('config/read', {
+      ? await this.rpc<{ config: { model_provider?: string | null } }>('config/read', {
           includeLayers: false,
         })
-          .then((r) => r.config?.model_provider)
+          .then((r) => r.config?.model_provider ?? undefined)
           .catch(() => undefined)
       : undefined;
     const challenge = owner && this.login?.owner === owner ? this.login.challenge : undefined;

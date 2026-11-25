@@ -69,6 +69,7 @@ export function environmentConfig(env: NodeJS.ProcessEnv, defaultDataDir: string
   // Releases are followed only by a real service; the entry script of the image says where programs and runtime are.
   if (native && env.PROXY_RELEASE_REPO !== 'none')
     options.updates = {
+      codex: options.terminalRuntime === 'codex',
       repository: env.PROXY_RELEASE_REPO ?? 'zhenxiang-ding/codex-desk-tunnel',
       token: env.PROXY_RELEASE_TOKEN || undefined,
       programDir:

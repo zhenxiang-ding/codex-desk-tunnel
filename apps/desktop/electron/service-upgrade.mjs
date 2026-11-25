@@ -52,7 +52,11 @@ export function probeService({ url, fingerprint, token, deviceName }, options = 
       } catch {
         return end({ status: 'unreachable' });
       }
-      if (message.type === 'ready') end({ status: 'ready' });
+      if (message.type === 'ready')
+        end({
+          status: 'ready',
+          ...(/^\d+\.\d+\.\d+$/.test(message.version) ? { service: message.version } : {}),
+        });
       else if (message.type === 'connection.error' && message.code === 'version_mismatch')
         end({
           status: 'refused',
@@ -73,7 +77,7 @@ export function probeService({ url, fingerprint, token, deviceName }, options = 
 }
 
 export function upgradeService(
-  { url, fingerprint, token, deviceName, service, force },
+  { url, fingerprint, token, deviceName, service, force, checkOnly, expectedVersion },
   options = {},
 ) {
   const protocolVersion = protocolForRelease(service);
@@ -87,11 +91,25 @@ export function upgradeService(
   const remote = options.open?.() ?? open(address, fingerprint, options.resolveProxy);
   const send = (message) => remote.send(JSON.stringify({ requestId: randomUUID(), ...message }));
   return new Promise((resolve, reject) => {
+    let finished = false,
+      installRequested = false;
+    let idleTimer;
+    const refreshTimer = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(
+        () => end('服务端未返回升级进度，请重新检查服务端状态。'),
+        options.timeoutMs ?? (installRequested ? 960000 : 90000),
+      );
+    };
     const end = (error, version, code) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(idleTimer);
       remote.close();
       if (error) reject(Object.assign(new Error(error), code ? { code } : {}));
       else resolve(version);
     };
+    refreshTimer();
     remote.on('open', () => {
       if (
         fingerprint &&
@@ -102,7 +120,14 @@ export function upgradeService(
     });
     // Read as plain JSON: the frames are those of an older release.
     remote.on('message', (raw) => {
-      const message = JSON.parse(raw.toString('utf8'));
+      if (finished) return;
+      let message;
+      try {
+        message = JSON.parse(raw.toString('utf8'));
+        if (!message || typeof message.type !== 'string') throw Error();
+      } catch {
+        return end('服务端返回了无效的升级消息。');
+      }
       if (message.type === 'connection.error' || (message.type === 'response' && !message.ok))
         end(
           message.message ?? '服务端拒绝了升级。',
@@ -110,11 +135,26 @@ export function upgradeService(
           message.code === 'native_busy' ? 'busy' : undefined,
         );
       // An upgrade already under way is only followed.
-      else if (message.type === 'ready' && message.update?.state !== 'installing')
-        send({ type: 'service.update.check' });
-      else if (message.type === 'service.update') {
+      else if (message.type === 'ready') {
+        if (checkOnly && ['installing', 'restarting'].includes(message.update?.state))
+          return end('服务端正在升级，请稍后重新连接。');
+        if (message.update?.state === 'restarting') return end(null, message.update.latest);
+        if (message.update?.state === 'installing') {
+          installRequested = true;
+          refreshTimer();
+        } else send({ type: 'service.update.check' });
+      } else if (message.type === 'service.update') {
         options.onUpdate?.(message);
-        if (message.state === 'available')
+        if (message.state === 'installing') installRequested = true;
+        refreshTimer();
+        if (message.state === 'available') {
+          if (!/^\d+\.\d+\.\d+$/.test(message.latest)) return end('服务端未返回有效的目标版本。');
+          if (checkOnly) return end(null, message.latest);
+          if (expectedVersion && message.latest !== expectedVersion)
+            return end('最新版本已变化，请重新检查更新。');
+          if (installRequested) return;
+          installRequested = true;
+          refreshTimer();
           Promise.resolve(options.confirm?.(message.latest) ?? true).then(
             (yes) =>
               yes
@@ -126,11 +166,11 @@ export function upgradeService(
                 : end('没有升级服务端。', undefined, 'declined'),
             (error) => end(error.message, undefined, 'declined'),
           );
-        else if (message.state === 'restarting') end(null, message.latest);
+        } else if (message.state === 'restarting') end(null, message.latest);
         else if (message.state === 'failed') end(message.detail ?? '服务端升级失败。');
         else if (message.state === 'manual')
           end(
-            `服务端 ${message.latest} 需要更新镜像，请在服务器上执行 sudo cc-desk-tunnel upgrade；没有这个命令的旧部署重新运行安装命令即可。`,
+            `服务端 ${message.latest} 需要更新镜像，请在服务器上执行 sudo codex-desk-tunnel upgrade；没有这个命令的旧部署重新运行安装命令即可。`,
             undefined,
             'manual',
           );

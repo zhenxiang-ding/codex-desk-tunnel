@@ -18,6 +18,7 @@ type Manifest = {
 export type UpdateOptions = {
   // owner/name of the GitHub repository whose releases are followed, and a read-only token while it is private.
   repository: string;
+  codex?: boolean;
   token?: string;
   // Where upgraded programs are kept and the level of the runtime around this process; without both, a newer
   // release can only be reported.
@@ -338,15 +339,21 @@ export class ServiceUpdates {
           ],
           options,
         );
-        // The release names the Claude Code it was built against; the image's copy is used when it is that one.
-        const wanted = /^CLAUDE_VERSION=([\w.-]+)$/m.exec(
-          readFileSync(join(work, 'scripts/install-linux.sh'), 'utf8'),
-        )?.[1];
-        const bundled = await run(join(this.options.runtimeDir!, 'cli/bin/claude'), ['--version'])
-          .then((result) => result.stdout.split(' ')[0].trim())
-          .catch(() => '');
-        if (wanted && wanted !== bundled) {
-          step(`安装 Claude Code ${wanted}`);
+        // Install the CLI pinned by this release only when the container's copy differs.
+        const codex = this.options.codex;
+        const binary = codex ? 'codex' : 'claude';
+        const pin = codex ? /^CODEX_VERSION=([\w.-]+)$/m : /^CLAUDE_VERSION=([\w.-]+)$/m;
+        const wanted = pin.exec(readFileSync(join(work, 'scripts/install-linux.sh'), 'utf8'))?.[1];
+        if (!wanted) throw new Error('服务端发布包缺少 ' + binary + ' 版本。');
+        const versionOf = async (file: string) => {
+          const { stdout } = await run(file, ['--version']);
+          return codex ? /^codex-cli\s+(\S+)/.exec(stdout)?.[1] : stdout.trim().split(/\s+/)[0];
+        };
+        const bundled = await versionOf(join(this.options.runtimeDir!, 'cli/bin', binary)).catch(
+          () => undefined,
+        );
+        if (wanted !== bundled) {
+          step('安装 ' + (codex ? 'Codex CLI' : 'Claude Code') + ' ' + wanted);
           await run(
             'npm',
             [
@@ -354,11 +361,12 @@ export class ServiceUpdates {
               '--global',
               '--prefix',
               join(work, 'cli'),
-              `@anthropic-ai/claude-code@${wanted}`,
+              (codex ? '@openai/codex' : '@anthropic-ai/claude-code') + '@' + wanted,
             ],
             options,
           );
-          await run(join(work, 'cli/bin/claude'), ['--version']);
+          if ((await versionOf(join(work, 'cli/bin', binary))) !== wanted)
+            throw new Error(binary + ' 安装版本与发布包不符。');
         }
         await rm(target, { recursive: true, force: true });
         await rename(work, target);

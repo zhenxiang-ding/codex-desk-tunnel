@@ -154,7 +154,8 @@ export type CodexTokens = z.infer<typeof codexTokensSchema>;
 export const accountStateSchema = z.object({
   loggedIn: z.boolean(),
   codexLimitsAt: z.string().datetime().optional(),
-  codexProvider: z.string().optional(),
+  // 0.1.3 services forward the native null for the default provider.
+  codexProvider: z.string().nullish(),
   codexLimits: z.object({ primary: codexLimitWindow, secondary: codexLimitWindow }).optional(),
   authMethod: z.string().optional(),
   email: z.string().optional(),

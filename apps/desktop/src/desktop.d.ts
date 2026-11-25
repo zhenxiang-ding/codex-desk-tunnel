@@ -174,7 +174,8 @@ declare global {
         token: string;
         deviceName: string;
       }) => Promise<
-        | { status: 'ready' | 'unreachable' }
+        | { status: 'ready'; service?: string }
+        | { status: 'unreachable' }
         | { status: 'failed'; error: string }
         | {
             status: 'refused';
@@ -191,6 +192,8 @@ declare global {
         token: string;
         deviceName: string;
         service: string;
+        checkOnly?: boolean;
+        expectedVersion?: string;
         // Upgrades even while sessions are at work (see FORCED_UPGRADE_SINCE).
         force?: boolean;
       }) => Promise<{ version?: string; error?: string; code?: string }>;
