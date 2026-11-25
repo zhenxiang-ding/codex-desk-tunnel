@@ -1,3 +1,19 @@
+# Codex Desk Tunnel
+
+Run Codex CLI on an Ubuntu VPS and use it with projects on your computer over SSH. This adaptation builds on [CC Desk Tunnel](https://github.com/sun168567/cc-desk-tunnel) v0.3.20. Thank you to [sun168567](https://github.com/sun168567) and the upstream contributors for the desktop client, device tunnel, and terminal forwarding. The project retains the [Apache-2.0 license](LICENSE) and [original notices](NOTICE).
+
+On an Ubuntu 24.04 VPS with Git, Docker Engine, and Compose v2, run the installer in an interactive SSH session.
+
+```bash
+curl -fsSLo codex-desk-install.sh https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install.sh && sudo bash codex-desk-install.sh
+```
+
+The installer clones this repository to `/opt/codex-desk-tunnel` and builds the server locally. Follow the printed device login command. The default port is `8788`. See the [Codex setup and Windows client instructions](README.md) for details.
+
+The documentation below describes the original Claude Code project.
+
+---
+
 <div align="center">
 
 <img src="apps/desktop/public/assets/icon-192.png" width="88" alt="CC Desk Tunnel icon">

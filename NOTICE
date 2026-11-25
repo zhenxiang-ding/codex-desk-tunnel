@@ -23,3 +23,7 @@ third-party components, each under its own license:
   dependencies under their respective licenses.
 
 npm dependencies are listed in package-lock.json and keep their own licenses.
+
+Codex Desk Tunnel is based on CC Desk Tunnel by sun168567 and its contributors.
+Upstream project: https://github.com/sun168567/cc-desk-tunnel
+The Codex adaptation adds a Codex CLI runtime and terminal integration.

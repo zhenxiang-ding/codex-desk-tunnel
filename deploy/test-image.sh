@@ -41,7 +41,7 @@ writeFileSync('/data/home/upgrade-marker', 'keep-account-data');
 writeFileSync('/data/workspace/upgrade-marker', 'keep-workspace');
 JS
 }
-sed -i "s|cc-desk-tunnel:local|$IMAGE|" "$PROXY_DEPLOY_CONFIG"
+sed -i "s|codex-desk-tunnel:local|$IMAGE|" "$PROXY_DEPLOY_CONFIG"
 manage up
 source "$PROXY_DEPLOY_CONFIG"
 dc=(docker compose --env-file "$PROXY_DEPLOY_CONFIG" -p "$PROJECT_NAME" -f "$ROOT/deploy/compose.yml")

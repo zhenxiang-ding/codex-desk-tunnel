@@ -22,7 +22,7 @@ release() {
   rm -rf "$TEMP/archive" "$MOCK_RELEASE"/*
   program "$TEMP/archive" "$1"
   tar -czf "$MOCK_RELEASE/cc-desk-tunnel-server-$1.tar.gz" -C "$TEMP/archive" deploy apps
-  (cd "$MOCK_RELEASE" && sha256sum "cc-desk-tunnel-server-$1.tar.gz" > SHA256SUMS)
+  (cd "$MOCK_RELEASE" && sha256sum "cc-desk-tunnel-server-$1.tar.gz" | sed 's/ \*/  /' > SHA256SUMS)
 }
 cat > "$TEMP/bin/docker" <<'MOCK'
 #!/usr/bin/env bash
@@ -78,6 +78,10 @@ CONFIG
 manage() { bash "$DEPLOYED/deploy/manage.sh" "$@"; }
 image() { sed -n "s/^PROXY_IMAGE='\(.*\)'$/\1/p" "$PROXY_DEPLOY_CONFIG"; }
 
+# Exercise the opt-in prebuilt image and release modes against the fixture registry.
+export CC_DESK_TUNNEL_BUILD=auto
+export CC_DESK_TUNNEL_RELEASE_REPO=sun168567/cc-desk-tunnel
+export CC_DESK_TUNNEL_IMAGE=ghcr.io/sun168567/cc-desk-tunnel
 # The prebuilt image of the program's own version.
 deployment 1.2.3
 manage pull
@@ -87,7 +91,7 @@ test "$(image)" = ghcr.io/sun168567/cc-desk-tunnel:1.2.3
 # No image to pull: built here, and only then configured.
 deployment 1.2.3
 FAIL_PULL=1 CC_DESK_TUNNEL_UNPACKED=1 manage upgrade > /dev/null
-test "$(image)" = cc-desk-tunnel:local
+test "$(image)" = codex-desk-tunnel:local
 grep -q ' build --pull' "$MOCK_LOG"
 grep -q ' up -d --no-build' "$MOCK_LOG"
 # Neither: the deployment stays as it was and nothing restarts.
@@ -198,7 +202,19 @@ for tool in id chown uname openssl; do
 done
 unset PROXY_DEPLOY_CONFIG
 export CC_DESK_TUNNEL_DIR="$TEMP/installed"
-release 1.3.0
+unset CC_DESK_TUNNEL_IMAGE CC_DESK_TUNNEL_BUILD CC_DESK_TUNNEL_RELEASE_REPO
+source_repo="$TEMP/git-source"
+program "$source_repo" 1.3.0
+echo '.local/' > "$source_repo/.gitignore"
+git -C "$source_repo" init -q -b main
+commit_source() {
+  git -C "$source_repo" add .
+  git -C "$source_repo" -c user.name=fixture -c user.email=fixture@example.org commit -qm fixture
+}
+commit_source
+# Use a real clone and fast-forward, with an isolated URL rewrite in place of the network.
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.file://$source_repo.insteadOf"
+export GIT_CONFIG_VALUE_0=https://github.com/zhenxiang-ding/codex-desk-tunnel.git
 : > "$MOCK_LOG"
 tr -d '\r' < "$ROOT/deploy/install.sh" > "$TEMP/install.sh"
 printf 'y\n' | bash "$TEMP/install.sh" init --host my_box.example.com --mode nginx --data "$TEMP/installed-data" > "$TEMP/install.log"
@@ -206,12 +222,15 @@ grep -q '"version": "1.3.0"' "$TEMP/installed/apps/desktop/package.json"
 grep -q "CONNECTION_URL='wss://my_box.example.com/ws'" "$TEMP/installed/.local/docker.env"
 grep -q "deploy/manage.sh" "$CC_DESK_TUNNEL_COMMAND"
 MISSING_IMAGE=1 bash "$CC_DESK_TUNNEL_COMMAND" up > /dev/null
-grep -q "PROXY_IMAGE='ghcr.io/sun168567/cc-desk-tunnel:1.3.0'" "$TEMP/installed/.local/docker.env"
-release 1.4.0
+grep -q "PROXY_IMAGE='codex-desk-tunnel:local'" "$TEMP/installed/.local/docker.env"
+program "$source_repo" 1.4.0
+commit_source
 : > "$MOCK_LOG"
 printf 'y\n' | bash "$TEMP/install.sh" > "$TEMP/reinstall.log"
-grep -q "PROXY_IMAGE='ghcr.io/sun168567/cc-desk-tunnel:1.4.0'" "$TEMP/installed/.local/docker.env"
-test "$(grep -c '^pull ' "$MOCK_LOG")" = 1
+test "$(git -C "$TEMP/installed" rev-parse HEAD)" = "$(git -C "$source_repo" rev-parse HEAD)"
+grep -q "PROXY_IMAGE='codex-desk-tunnel:local'" "$TEMP/installed/.local/docker.env"
+grep -q ' build --pull' "$MOCK_LOG"
+! grep -q '^pull ' "$MOCK_LOG"
 bash "$CC_DESK_TUNNEL_COMMAND" uninstall > /dev/null
 test ! -e "$CC_DESK_TUNNEL_COMMAND"
 echo 'PASS: image choice, failures, release upgrade, backup and restore, installer, management command.'

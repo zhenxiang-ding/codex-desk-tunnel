@@ -193,7 +193,7 @@ ask() {
 summary() {
   local id
   echo
-  echo "================ CC Desk Tunnel 部署汇总 ================"
+  echo "================ Codex Desk Tunnel 部署汇总 ================"
   echo "客户端填写"
   echo "  服务地址   $CONNECTION_URL"
   if [[ "$MODE" = fingerprint ]]; then
@@ -212,8 +212,8 @@ summary() {
   echo "下一步"
   echo "  1. 云防火墙只放行上面“需放行端口”一项；本项目不需要其他入站端口。"
   echo "  2. Windows 客户端填入服务地址、指纹和凭据并连接。"
-  echo "  3. 在客户端账号页登录 Claude 账号。"
-  echo "  使用第三方 API 时编辑 $DATA_DIR/config/provider.json 后执行 sudo $(self) restart。"
+  echo "  3. 在 VPS 终端登录 Codex（首次部署）："
+  printf '     sudo docker compose --env-file %q -p %q -f %q exec proxy codex login --device-auth\n' "$CONFIG" "$PROJECT_NAME" "$COMPOSE"
   echo "  日常管理：sudo $(self) status | logs | upgrade | help"
   echo "以上凭据等同于服务器登录权限，请勿外传。"
   echo "======================================================="

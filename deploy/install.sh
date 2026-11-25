@@ -1,25 +1,15 @@
 #!/usr/bin/env bash
-# Installs or upgrades the CC Desk Tunnel service on this machine. It can be run on its own,
-#   sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/main/deploy/install.sh)"
-# in which case it fetches the newest release from GitHub (CC_DESK_TUNNEL_VERSION=X.Y.Z picks another), or from an
-# unpacked server archive, which it then uses. The service runs the prebuilt image of that version where there is
-# one, and builds it here where there is not (see manage.sh).
-# It checks for what it needs and says how to install what is missing; it installs no system software and leaves
-# the firewall, nginx and SSH alone. Its one addition to the host is the command `cc-desk-tunnel`.
+# Codex Desk Tunnel installer, adapted from sun168567/cc-desk-tunnel.
 set -euo pipefail
 
-REPO="${CC_DESK_TUNNEL_REPO:-sun168567/cc-desk-tunnel}"
-TARGET="${CC_DESK_TUNNEL_DIR:-/opt/cc-desk-tunnel}"
-TEMP=''
-trap '[[ -z "$TEMP" ]] || rm -rf -- "$TEMP"' EXIT
+REPO="${CC_DESK_TUNNEL_REPO:-zhenxiang-ding/codex-desk-tunnel}"
+TARGET="${CC_DESK_TUNNEL_DIR:-/opt/codex-desk-tunnel}"
 fail() { echo "错误：$*" >&2; exit 1; }
 confirm() {
   local answer
   read -r -p "$1 [Y/n]: " answer
   [[ -z "$answer" || "$answer" =~ ^[Yy] ]]
 }
-version_of() { sed -n 's/^ *"version": "\([0-9.]*\)",\{0,1\}$/\1/p' "$1/apps/desktop/package.json" 2>/dev/null | head -n 1; }
-
 main() {
   # Without arguments the installer asks its questions, gets the image, starts and prints a summary.
   (($#)) || set -- setup
@@ -58,64 +48,33 @@ main() {
 
   # Run from an unpacked server archive or a checkout, that copy is used as it is.
   local self="${BASH_SOURCE[0]:-}" root=''
-  if [[ -n "$self" && -f "$(dirname -- "$self")/manage.sh" ]]; then
+  if [[ "$self" = */install.sh || "$self" = install.sh ]] && [[ -f "$(dirname -- "$self")/manage.sh" ]]; then
     root="$(cd -- "$(dirname -- "$self")/.." && pwd)"
   else
-    local temp name installed latest releases="https://github.com/$REPO/releases/latest/download"
-    temp="$(mktemp -d)"
-    TEMP="$temp"
-    if [[ -n "${CC_DESK_TUNNEL_VERSION:-}" ]]; then
-      [[ "$CC_DESK_TUNNEL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "CC_DESK_TUNNEL_VERSION 应写成 X.Y.Z。"
-      releases="https://github.com/$REPO/releases/download/v$CC_DESK_TUNNEL_VERSION"
-    fi
-    echo "查询版本（github.com/${REPO}）…"
-    curl -fsSL --connect-timeout 20 --max-time 60 -o "$temp/SHA256SUMS" "$releases/SHA256SUMS" \
-      || fail "无法读取发布页。请检查这台机器能否访问 github.com，以及版本号是否存在。"
-    name="$(awk '$2 ~ /^cc-desk-tunnel-server-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/ { print $2 }' "$temp/SHA256SUMS" | head -n 1)"
-    [[ -n "$name" ]] || fail "发布页的校验清单里没有服务端程序包。"
-    latest="${name#cc-desk-tunnel-server-}"; latest="${latest%.tar.gz}"
-
-    if [[ -f "$TARGET/deploy/manage.sh" && -f "${PROXY_DEPLOY_CONFIG:-$TARGET/.local/docker.env}" ]]; then
-      installed="$(version_of "$TARGET")"
-      echo "检测到已有部署：${TARGET}（程序包版本 ${installed:-未知}），最新版本 ${latest}。"
-      confirm "升级到 $latest 并替换容器？数据、账号和配置保留" || exit 0
-      set -- upgrade
-    elif [[ -e "$TARGET" && ! -f "$TARGET/deploy/manage.sh" && -n "$(ls -A "$TARGET" 2>/dev/null)" ]]; then
-      fail "$TARGET 已存在且不是 CC Desk Tunnel 的程序目录。请换一个目录：CC_DESK_TUNNEL_DIR=/其他路径"
+    command -v git >/dev/null || fail "请先安装 Git：sudo apt-get install git"
+    local url="https://github.com/$REPO.git"
+    if [[ -d "$TARGET/.git" ]]; then
+      [[ "$(git -C "$TARGET" config --get remote.origin.url)" = "$url" && "$(git -C "$TARGET" branch --show-current)" = main ]] \
+        || fail "$TARGET 需要是 $REPO 的 main 分支。"
+      [[ -z "$(git -C "$TARGET" status --porcelain)" ]] || fail "工作区有本地修改，请先保存。"
+      git -C "$TARGET" fetch origin main
+      git -C "$TARGET" merge-base --is-ancestor HEAD FETCH_HEAD || fail "本地有独立提交，请手动更新。"
+      confirm "更新 $TARGET，使用新源码重新部署？" || exit 0
+      git -C "$TARGET" merge --ff-only FETCH_HEAD
+      if [[ "$1" = setup && -f "${PROXY_DEPLOY_CONFIG:-$TARGET/.local/docker.env}" ]]; then set -- upgrade; fi
     else
-      cat <<NOTICE
-
-即将安装 CC Desk Tunnel $latest 到 ${TARGET}。继续之前请确认：
-  · 这台服务器由你自己控制且可信：连接期间它能以你的 Windows 用户身份执行任意命令。
-  · 安装结束时显示的“服务凭据”等同于这台服务器和你 Windows 的控制权，不要外传或截图分享。
-  · 防火墙只需要放行安装结束时列出的那个 TCP 端口，其余端口不需要为本项目开放。
-  · 本项目主要由 AI 编写，未经专业安全审计；完整说明见 https://github.com/$REPO#安全须知
-
-NOTICE
+      echo "将从 $url 拉取 main 到 $TARGET。连接期间，VPS 可通过 SSH 以你的用户身份操作本机项目。"
       confirm "继续安装？" || exit 0
+      git clone --branch main --single-branch -- "$url" "$TARGET"
     fi
-
-    echo "下载 $name …"
-    curl -fL --connect-timeout 20 --max-time 600 --progress-bar -o "$temp/$name" \
-      "https://github.com/$REPO/releases/download/v$latest/$name" || fail "下载失败。"
-    (cd "$temp" && grep "  $name\$" SHA256SUMS | sha256sum -c - >/dev/null) || fail "程序包校验失败，已放弃。"
-    if [[ "$1" = upgrade ]]; then
-      # A manage.sh older than this archive unpacks it and hands over to the new one, which need not fetch it again.
-      CC_DESK_TUNNEL_UNPACKED=1 bash "$TARGET/deploy/manage.sh" upgrade --from "$temp/$name"
-      exit
-    fi
-    if tar -tzf "$temp/$name" | grep -E '(^/|(^|/)\.\.(/|$))' >/dev/null; then fail "程序包内含不安全的路径。"; fi
-    mkdir -p "$TARGET"
-    tar -xzf "$temp/$name" -C "$TARGET" --no-same-owner
     root="$TARGET"
   fi
 
   bash "$root/deploy/manage.sh" "$@"
-  if [[ "$1" = setup ]]; then
-    echo "Windows 客户端安装包：https://github.com/$REPO/releases/latest"
+  if [[ "$1" = init ]]; then
+    echo "启动服务：sudo codex-desk-tunnel up"
   else
-    echo "下一步：按需编辑 provider 配置，然后执行 sudo cc-desk-tunnel up。"
-    echo "日常管理：sudo cc-desk-tunnel status | logs | upgrade | help"
+    echo "兼容的 Windows 客户端：https://github.com/sun168567/cc-desk-tunnel/releases/tag/v0.3.20"
   fi
   echo "本脚本没有修改防火墙、nginx 或 SSH 配置，也没有安装系统软件。"
 }

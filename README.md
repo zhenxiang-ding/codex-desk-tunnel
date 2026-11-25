@@ -2,15 +2,25 @@
 
 在 Ubuntu 24.04 VPS 上运行 Codex CLI，通过已有的 CC Desk Tunnel 设备通道操作 Windows 上的项目。本分支基于上游 0.3.20，复用桌面客户端、`ccdt`、WSS、临时 SSH 密钥、终端转发和掉线重连。
 
+感谢原作者 [sun168567](https://github.com/sun168567) 和 [CC Desk Tunnel](https://github.com/sun168567/cc-desk-tunnel) 的贡献者开源了桌面客户端、设备隧道和终端转发。本项目在这些工作的基础上接入 Codex CLI，沿用 [Apache-2.0 许可证](LICENSE) 并保留[原始版权声明](NOTICE)。
+
 ### 在 VPS 上安装
 
-把**本分支的源码**放到 Ubuntu VPS 上，在仓库根目录执行以下命令。需要已安装 Docker Engine 和 Compose。首次部署从源码构建镜像，默认监听 8788，与原版默认的 8787 可并行使用。
+在 Ubuntu 24.04 VPS 的交互式 SSH 终端运行以下命令。需要 Git、Docker Engine 和 Docker Compose v2。脚本从本仓库的 `main` 分支拉取源码到 `/opt/codex-desk-tunnel` 并构建镜像，默认端口为 `8788`。
 
 ```bash
-sudo bash deploy/manage.sh setup
+curl -fsSLo codex-desk-install.sh https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install.sh && sudo bash codex-desk-install.sh
+```
+
+部署结束后，在同一个 VPS 终端完成 Codex 登录，按提示在浏览器输入设备码。
+
+```bash
+cd /opt/codex-desk-tunnel
 sudo docker compose --env-file .local/docker.env -f deploy/compose.yml exec proxy codex login --device-auth
 sudo docker compose --env-file .local/docker.env -f deploy/compose.yml exec proxy codex login status
 ```
+
+升级时重新运行安装命令。脚本会拉取最新源码，使用已有配置重建容器。
 
 ### 在 Windows 上使用
 
