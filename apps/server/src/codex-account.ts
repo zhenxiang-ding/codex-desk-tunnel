@@ -1,7 +1,13 @@
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
-import { codexConfigSchema, type CodexConfig, type AccountState } from '@cc-desk-tunnel/protocol';
+import {
+  codexModelSchema,
+  type CodexModel,
+  codexConfigSchema,
+  type CodexConfig,
+  type AccountState,
+} from '@cc-desk-tunnel/protocol';
 
 type Process = ChildProcessByStdio<Writable, Readable, null>;
 type Limits = NonNullable<AccountState['codexLimits']>;
@@ -99,6 +105,27 @@ export class CodexAccount {
       this.child!.stdin.write(JSON.stringify({ id, method, params }) + '\n');
     });
   }
+  async models(): Promise<CodexModel[]> {
+    await this.start();
+    const models: CodexModel[] = [],
+      seen = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const page: { data: unknown[]; nextCursor: string | null } = await this.rpc<{
+        data: unknown[];
+        nextCursor: string | null;
+      }>('model/list', { cursor, limit: 100, includeHidden: false });
+      for (const raw of page.data) {
+        const parsed = codexModelSchema.safeParse(raw);
+        if (parsed.success && !models.some((row) => row.model === parsed.data.model))
+          models.push(parsed.data);
+      }
+      cursor = page.nextCursor;
+      if (cursor && seen.has(cursor)) throw new Error('模型列表分页重复。');
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    return models;
+  }
   async configuration(edits?: Partial<CodexConfig>): Promise<CodexConfig> {
     await this.start();
     if (edits && Object.keys(edits).length)
@@ -113,28 +140,55 @@ export class CodexAccount {
     const { config } = await this.rpc<{ config: Partial<CodexConfig> }>('config/read', {
       includeLayers: false,
     });
+    const flat: Record<string, unknown> = {};
+    for (const [key, schema] of Object.entries(codexConfigSchema.shape)) {
+      const value = key
+        .split('.')
+        .reduce<unknown>(
+          (obj, k) => (obj && typeof obj === 'object' ? Reflect.get(obj, k) : null),
+          config,
+        );
+      const normalized = schema.safeParse(value ?? null);
+      flat[key] = normalized.success ? normalized.data : null;
+    }
     return codexConfigSchema.parse({
+      ...flat,
       model: config.model ?? null,
       model_reasoning_effort: config.model_reasoning_effort ?? null,
       model_auto_compact_token_limit: config.model_auto_compact_token_limit ?? null,
     });
   }
-  async state(owner?: object, readLimits = false): Promise<AccountState> {
+  private quotaRead?: { key: string; time: number; result: Promise<Limits | undefined> };
+  async state(owner?: object, readLimits = false, automatic = false): Promise<AccountState> {
     await this.start();
     const { account } = await this.rpc<{
       account: null | { type: string; email?: string; planType?: string; workspaceName?: string };
     }>('account/read', { refreshToken: false });
 
-    let codexLimits: Limits | undefined;
+    let codexLimits: Limits | undefined, codexLimitsAt: string | undefined;
     if (readLimits && account?.type === 'chatgpt') {
-      const result = await this.rpc<{ rateLimits: Limits }>('account/rateLimits/read').catch(
-        () => null,
-      );
-      if (result?.rateLimits) {
-        const { primary, secondary } = result.rateLimits;
-        codexLimits = { primary, secondary };
+      const key = JSON.stringify([account.email, account.workspaceName, account.planType]);
+      if (!automatic || this.quotaRead?.key !== key || Date.now() - this.quotaRead.time >= 60000) {
+        const result = this.rpc<{ rateLimits: Limits }>('account/rateLimits/read')
+          .then((r) =>
+            r.rateLimits
+              ? { primary: r.rateLimits.primary, secondary: r.rateLimits.secondary }
+              : undefined,
+          )
+          .catch(() => undefined);
+        this.quotaRead = { key, time: Date.now(), result };
       }
-    }
+      const read = this.quotaRead;
+      codexLimits = await read.result;
+      if (codexLimits) codexLimitsAt = new Date(read.time).toISOString();
+    } else if (!account) this.quotaRead = undefined;
+    const provider = account
+      ? await this.rpc<{ config: { model_provider?: string } }>('config/read', {
+          includeLayers: false,
+        })
+          .then((r) => r.config?.model_provider)
+          .catch(() => undefined)
+      : undefined;
     const challenge = owner && this.login?.owner === owner ? this.login.challenge : undefined;
     return {
       loggedIn: !!account,
@@ -144,6 +198,8 @@ export class CodexAccount {
       subscriptionType: account?.planType ?? undefined,
       login: challenge ? { url: challenge.url, deviceCode: challenge.deviceCode } : null,
       codexLimits,
+      codexProvider: provider,
+      codexLimitsAt,
     };
   }
   async begin(owner: object) {

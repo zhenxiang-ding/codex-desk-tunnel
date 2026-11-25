@@ -1,9 +1,12 @@
 import { SshKeySetup } from './SshKeySetup.tsx';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { AccountState, Command } from '@cc-desk-tunnel/protocol';
 import type { ProxyClient } from './client.ts';
 import { CopyButton } from './copy.tsx';
-import { Page, Row } from './ui.tsx';
+import { UserRound, ListOrdered, LogOut, RefreshCw } from 'lucide-react';
+import { usePrefs, setPrefs } from './prefs.ts';
+import type { CodexTokens } from '@cc-desk-tunnel/protocol';
+import { Page, Row, Switch } from './ui.tsx';
 
 export default function CodexAccountPanel({
   client,
@@ -18,6 +21,29 @@ export default function CodexAccountPanel({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const { quotaReads } = usePrefs();
+  const [log, setLog] = useState(false),
+    [usage, setUsage] = useState<{
+      sessions: number;
+      totals: CodexTokens;
+      recent?: { at: string; session: string; tokens: CodexTokens }[];
+    } | null>(null);
+  useEffect(() => {
+    let active = true;
+    setUsage(null);
+    if (!log || !connected || browser) return;
+    client.fetch({ type: 'codex.usage.get', recent: true }).then(
+      (v) => {
+        if (active) setUsage(v);
+      },
+      (e) => {
+        if (active) setError(e.message);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [log, connected, browser, client, account?.codexLimitsAt]);
   async function run(
     command: Extract<
       Command,
@@ -39,48 +65,80 @@ export default function CodexAccountPanel({
     (w) => !!w,
   );
   return (
-    <Page title="账号与额度" label="Codex 账号" intro="此账号供 VPS 容器里的 Codex CLI 使用。">
+    <Page
+      title="账号与额度"
+      label="Codex 账号"
+      intro="VPS 上的 Codex 账号和订阅额度。"
+      actions={
+        !browser && (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="刷新账号与额度"
+            disabled={!connected || busy}
+            onClick={() => void run('account.status')}
+          >
+            <RefreshCw />
+          </button>
+        )
+      }
+    >
       {error || account?.notice ? <p role="alert">{error || account?.notice}</p> : null}
       {browser ? (
         <p>请在 Windows 桌面客户端管理 Codex 账号。</p>
       ) : (
         <>
           <div className="card account-card">
-            <Row
-              title={
-                account?.loggedIn
-                  ? account.email || 'Codex 已登录'
-                  : account
-                    ? '尚未登录 Codex'
-                    : '正在读取 Codex 登录状态'
-              }
-            >
-              <button
-                type="button"
-                className="button"
-                disabled={!connected || busy}
-                onClick={() => void run('account.status')}
-              >
-                刷新
-              </button>
-            </Row>
-            {account?.loggedIn ? (
-              <>
-                <Row title="登录方式">
-                  {account.authMethod === 'chatgpt' ? 'ChatGPT' : account.authMethod}
-                </Row>
-                {account.subscriptionType && <Row title="订阅">{account.subscriptionType}</Row>}
-                {account.organization && <Row title="工作区">{account.organization}</Row>}
+            <div className="account-identity">
+              <span className="account-avatar">
+                <UserRound />
+              </span>
+              <div>
+                <h2>
+                  {account?.loggedIn
+                    ? account.email || 'Codex 已登录'
+                    : account
+                      ? '尚未登录 Codex'
+                      : '正在读取登录状态'}
+                </h2>
+                <p>{account?.subscriptionType || 'Codex CLI'}</p>
+              </div>
+              {account?.loggedIn && (
                 <button
-                  type="button"
-                  className="button"
+                  className="button secondary"
                   disabled={busy || !connected}
                   onClick={() => {
                     if (window.confirm('退出 VPS 上的 Codex 账号？')) void run('account.logout');
                   }}
                 >
-                  退出 Codex 登录
+                  <LogOut />
+                  退出登录
                 </button>
+              )}
+            </div>
+            {account?.loggedIn ? (
+              <>
+                <Row title="登录方式">
+                  <span className="setting-value">
+                    {account.authMethod === 'chatgpt'
+                      ? 'ChatGPT 授权'
+                      : account.authMethod === 'apiKey'
+                        ? 'API 密钥'
+                        : account.authMethod}
+                  </span>
+                </Row>
+                {account.organization && (
+                  <Row title="工作区">
+                    <span className="setting-value">{account.organization}</span>
+                  </Row>
+                )}
+                {account.codexProvider && (
+                  <Row title="模型服务">
+                    <span className="setting-value">
+                      {account.codexProvider === 'openai' ? 'OpenAI' : account.codexProvider}
+                    </span>
+                  </Row>
+                )}
               </>
             ) : login?.deviceCode ? (
               <div className="account-login">
@@ -131,28 +189,89 @@ export default function CodexAccountPanel({
             )}
           </div>
           {account?.loggedIn && (
-            <div className="card account-card">
-              <h2>Codex 额度</h2>
-              {limits.length ? (
-                limits.map((w, i) => (
-                  <Row
-                    key={i}
-                    title={
-                      w.windowDurationMins ? `${w.windowDurationMins} 分钟用量窗口` : '用量窗口'
-                    }
-                    detail={
-                      w.resetsAt
-                        ? `重置时间 ${new Date(w.resetsAt * 1000).toLocaleString()}`
-                        : undefined
-                    }
-                  >
-                    已用 {w.usedPercent}%
-                  </Row>
-                ))
-              ) : (
-                <p>当前账号未返回 Codex 额度数据。</p>
+            <>
+              <div className="page-heading account-section-title">
+                <h2>订阅用量</h2>
+                <button
+                  type="button"
+                  className="button secondary"
+                  aria-expanded={log}
+                  onClick={() => setLog(!log)}
+                >
+                  <ListOrdered />
+                  用量记录
+                </button>
+              </div>
+              <div className="settings-list card">
+                {limits.length ? (
+                  limits.map((w, i) => {
+                    const mins = w.windowDurationMins;
+                    const name =
+                      mins === 10080
+                        ? '每周额度'
+                        : mins && mins % 60 === 0
+                          ? Math.round(mins / 60) + ' 小时额度'
+                          : mins
+                            ? mins + ' 分钟额度'
+                            : '订阅额度';
+                    return (
+                      <div key={i} className="quota-row">
+                        <div>
+                          <strong>{name}</strong>
+                          <span>
+                            {w.usedPercent}% 已用 · {Math.max(0, 100 - w.usedPercent)}% 剩余
+                          </span>
+                        </div>
+                        <progress aria-label={name} value={w.usedPercent} max={100} />
+                        {w.resetsAt && (
+                          <small>重置于 {new Date(w.resetsAt * 1000).toLocaleString()}</small>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p>当前账号未返回订阅额度。</p>
+                )}
+                {account.codexLimitsAt && (
+                  <small>更新于 {new Date(account.codexLimitsAt).toLocaleTimeString()}</small>
+                )}
+                <Row title="运行中每分钟读取一次额度">
+                  <Switch
+                    label="运行中每分钟读取一次额度"
+                    checked={quotaReads}
+                    onChange={(v) => setPrefs((p) => ({ ...p, quotaReads: v }))}
+                  />
+                </Row>
+              </div>
+              {log && (
+                <section>
+                  <h2 className="page-heading">桌面会话用量记录</h2>
+                  <div className="settings-list card">
+                    {usage ? (
+                      <>
+                        <Row
+                          title="已保留会话的累计用量"
+                          detail={usage.sessions + ' 个会话 · 包含历次账号登录期间的记录'}
+                        >
+                          {usage.totals.totalTokens.toLocaleString()} tokens
+                        </Row>
+                        {usage.recent?.map((r, i) => (
+                          <Row key={i} title={r.session} detail={new Date(r.at).toLocaleString()}>
+                            <span className="setting-value">
+                              输入 {r.tokens.inputTokens.toLocaleString()}（含缓存{' '}
+                              {r.tokens.cachedInputTokens.toLocaleString()}） · 输出{' '}
+                              {r.tokens.outputTokens.toLocaleString()}
+                            </span>
+                          </Row>
+                        ))}
+                      </>
+                    ) : (
+                      <p>{error ? '无法读取用量记录。' : '正在读取记录…'}</p>
+                    )}
+                  </div>
+                </section>
               )}
-            </div>
+            </>
           )}
           <SshKeySetup />
         </>

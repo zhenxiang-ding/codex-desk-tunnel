@@ -22,6 +22,9 @@ import type {
   Session,
 } from '@cc-desk-tunnel/protocol';
 import { slashCommands } from './commands.ts';
+import { CodexToolbar } from './CodexToolbar.tsx';
+import type { ProxyClient } from './client.ts';
+import type { EventPayload } from '@cc-desk-tunnel/protocol';
 import ComposerControls from './ComposerControls.tsx';
 import MessageInput, { messageLimit } from './MessageInput.tsx';
 import type { MessageInputHandle } from './MessageInput.tsx';
@@ -63,6 +66,8 @@ export default function Composer({
   setDraft,
   native,
   codex = false,
+  client,
+  codexUsage,
   connected,
   busy,
   refreshing,
@@ -96,6 +101,8 @@ export default function Composer({
   setDraft: (text: string) => void;
   native: boolean;
   codex?: boolean;
+  client: ProxyClient;
+  codexUsage?: (Extract<EventPayload, { type: 'codex.usage' }> & { measuredAt: string }) | null;
   connected: boolean;
   busy: boolean;
   refreshing: boolean;
@@ -120,6 +127,7 @@ export default function Composer({
   compact: () => void;
   refresh: () => void;
   configure: (values: {
+    codex?: Session['codex'];
     model?: string | null;
     effort?: Effort | null;
     permissionMode?: PermissionMode;
@@ -384,7 +392,13 @@ export default function Composer({
             </IconButton>
           )}
           {codex ? (
-            <span>Codex CLI</span>
+            <CodexToolbar
+              client={client}
+              session={session}
+              disabled={controlsDisabled}
+              usage={codexUsage}
+              configure={(c) => configure({ codex: c })}
+            />
           ) : !native ? (
             <label className="scenario-label">
               场景
@@ -408,7 +422,7 @@ export default function Composer({
               change={(permissionMode) => void configure({ permissionMode })}
             />
           )}
-          <span className="toolbar-space" />
+          {!codex && <span className="toolbar-space" />}
           {native && !codex && (
             <ComposerControls
               key={session.id}

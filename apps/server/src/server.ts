@@ -775,6 +775,7 @@ export function createProxyServer(options: ServerOptions) {
       );
       const status = await runCodexChat({
         runtime,
+        choice: session.codex,
         thread: store.codexThread(session.id),
         message: text,
         messageId,
@@ -890,9 +891,9 @@ export function createProxyServer(options: ServerOptions) {
     }
   }
 
-  async function publishAccount(target?: Peer, notice?: string) {
+  async function publishAccount(target?: Peer, notice?: string, automatic = false) {
     if (codexAccount) {
-      const state = await codexAccount.state(target, true);
+      const state = await codexAccount.state(target, true, automatic);
       if (closing) return;
       const message = { type: 'account.state', ...state, notice } as const;
       if (target) send(target, message);
@@ -912,7 +913,7 @@ export function createProxyServer(options: ServerOptions) {
     if (!options.claude && !codexAccount)
       throw new DomainError('native_unavailable', '离线模拟没有原生账号。');
     if (command.type === 'account.status') {
-      await publishAccount(peer);
+      await publishAccount(peer, undefined, command.automatic);
       return;
     }
     if (codexAccount) {
@@ -1128,7 +1129,14 @@ export function createProxyServer(options: ServerOptions) {
       const execution = store.execution(session.device?.id, platformOf(session.device));
       const codex =
         runtime === 'codex'
-          ? codexTerminal(store.directory, session, execution, reach!.bin!)
+          ? codexTerminal(
+              store.directory,
+              session,
+              execution,
+              reach!.bin!,
+              process.env,
+              (await codexAccount?.configuration()) ?? {},
+            )
           : undefined;
       const cwd =
         codex?.cwd ??
@@ -1813,6 +1821,15 @@ export function createProxyServer(options: ServerOptions) {
       case 'account.logout':
         await account(peer, command);
         return undefined;
+      case 'codex.models.get': {
+        if (!codexAccount) throw new DomainError('codex_unavailable', '当前服务未启用 Codex。');
+        const [models, defaults] = await Promise.all([
+          codexAccount.models(),
+          codexAccount.configuration(),
+        ]);
+        send(peer, { type: 'codex.models.state', requestId: command.requestId, models, defaults });
+        return undefined;
+      }
       case 'codex.settings.get':
       case 'codex.settings.update': {
         if (!codexAccount) throw new DomainError('codex_unavailable', '当前服务未启用 Codex。');
@@ -1835,6 +1852,7 @@ export function createProxyServer(options: ServerOptions) {
           type: 'codex.usage.state',
           requestId: command.requestId,
           ...store.codexUsageSummary(),
+          ...(command.recent ? { recent: store.recentCodexUsage() } : {}),
         });
         return undefined;
       case 'settings.get':
@@ -2059,6 +2077,7 @@ export function createProxyServer(options: ServerOptions) {
             command.permissionMode,
             command.model,
             command.effort,
+            command.codex,
           ),
         });
         break;

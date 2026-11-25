@@ -1,158 +1,275 @@
 import { useEffect, useState } from 'react';
-import type { CodexConfig, CodexTokens } from '@cc-desk-tunnel/protocol';
+import type { CodexConfig, CodexModel } from '@cc-desk-tunnel/protocol';
 import type { ProxyClient } from './client.ts';
 import { Page, Row } from './ui.tsx';
+import { effortLabels } from './CodexToolbar.tsx';
 
-const labels: Record<keyof CodexTokens, string> = {
-  totalTokens: '总 token',
-  inputTokens: '输入 token',
-  cachedInputTokens: '其中缓存输入',
-  outputTokens: '输出 token',
-  reasoningOutputTokens: '其中推理输出',
+type Field = {
+  key: keyof CodexConfig;
+  name: string;
+  detail?: string;
+  kind?: 'number' | 'bool';
+  options?: Record<string, string>;
 };
-
-export function CodexSettings({
-  client,
-  section,
-}: {
-  client: ProxyClient;
-  section: 'claude' | 'context' | 'codexUsage';
-}) {
-  const [config, setConfig] = useState<CodexConfig | null>(null),
-    [limit, setLimit] = useState('');
-  const [usage, setUsage] = useState<{ totals: CodexTokens; sessions: number } | null>(null);
-  const [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState('');
-  const [revision, refresh] = useState(0);
-  const context = section === 'context',
-    stats = section === 'codexUsage';
-  function display(values: CodexConfig) {
-    setConfig(values);
-    setLimit(String(values.model_auto_compact_token_limit ?? ''));
-  }
+const groups: { name: string; fields: Field[] }[] = [
+  {
+    name: '上下文与记忆',
+    fields: [
+      {
+        key: 'model_auto_compact_token_limit',
+        name: '自动压缩窗口',
+        kind: 'number',
+        detail: '达到此 token 阈值时压缩历史；留空使用模型默认值。',
+      },
+      {
+        key: 'features.memories',
+        name: '自动记忆',
+        kind: 'bool',
+        detail: '启用此 VPS 上 Codex 的跨会话记忆。',
+      },
+      {
+        key: 'memories.generate_memories',
+        name: '生成记忆',
+        kind: 'bool',
+        detail: '允许新线程成为后台记忆整理的来源。',
+      },
+      {
+        key: 'memories.use_memories',
+        name: '读取记忆',
+        kind: 'bool',
+        detail: '在后续会话中使用已保存的记忆。',
+      },
+    ],
+  },
+  {
+    name: '模型与推理',
+    fields: [
+      { key: 'model', name: '默认模型', detail: '可在会话输入框单独选择模型。' },
+      { key: 'model_reasoning_effort', name: '推理强度', options: {} },
+      {
+        key: 'model_reasoning_summary',
+        name: '思考摘要',
+        options: { auto: '自动', concise: '简短', detailed: '详细', none: '关闭' },
+        detail: '支持摘要的模型会将摘要显示在对话中。',
+      },
+      { key: 'service_tier', name: '服务档位', options: {}, detail: '可用档位取决于模型和账号。' },
+    ],
+  },
+  {
+    name: '行为',
+    fields: [
+      {
+        key: 'model_verbosity',
+        name: '回复详细程度',
+        options: { low: '简洁', medium: '适中', high: '详细' },
+      },
+      {
+        key: 'tool_output_token_limit',
+        name: '工具输出上限',
+        kind: 'number',
+        detail: '写入模型历史的单次工具输出 token 预算。',
+      },
+      {
+        key: 'web_search',
+        name: '网页搜索',
+        options: { disabled: '关闭', cached: '缓存', live: '实时' },
+      },
+    ],
+  },
+  {
+    name: '权限',
+    fields: [
+      {
+        key: 'approval_policy',
+        name: '审批规则',
+        options: { 'on-request': '按需询问', untrusted: '非受信命令先询问', never: '直接拒绝提权' },
+        detail: '会话工具栏可覆盖此默认值。',
+      },
+      {
+        key: 'approvals_reviewer',
+        name: '审批人',
+        options: { user: '由我审批', auto_review: 'Codex 自动审查' },
+      },
+      {
+        key: 'sandbox_mode',
+        name: 'VPS 沙箱',
+        options: { 'read-only': '只读', 'workspace-write': '允许写入工作区' },
+        detail: '限制 VPS 上运行的命令。本机文件访问由 SSH 登录用户的权限决定。',
+      },
+    ],
+  },
+];
+export function CodexSettings({ client }: { client: ProxyClient }) {
+  const [current, setCurrent] = useState<CodexConfig | null>(null),
+    [changes, setChanges] = useState<Partial<CodexConfig>>({}),
+    [message, setMessage] = useState(''),
+    [busy, setBusy] = useState(false),
+    [revision, refresh] = useState(0);
+  const [models, setModels] = useState<CodexModel[]>([]);
+  useEffect(() => {
+    let active = true;
+    client.fetch({ type: 'codex.models.get' }).then(
+      (r) => {
+        if (active) setModels(r.models);
+      },
+      () => {
+        if (active) setModels([]);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [client, revision]);
+  const selectedModel = 'model' in changes ? changes.model : current?.model;
+  const model = selectedModel
+    ? models.find((m) => m.model === selectedModel)
+    : models.find((m) => m.isDefault);
   useEffect(() => {
     let active = true;
     setBusy(true);
-    setNotice('');
-    const read = stats
-      ? client.fetch({ type: 'codex.usage.get' }).then((v) => {
-          if (active) setUsage(v);
-        })
-      : client.fetch({ type: 'codex.settings.get' }).then((v) => {
-          if (active) display(v.values);
-        });
-    void read
-      .catch((e) => {
-        if (active) setNotice(e.message);
-      })
+    setMessage('');
+    client
+      .fetch({ type: 'codex.settings.get' })
+      .then(
+        (r) => {
+          if (active) {
+            setCurrent(r.values);
+            setChanges({});
+          }
+        },
+        (e) => {
+          if (active) setMessage(e.message);
+        },
+      )
       .finally(() => {
         if (active) setBusy(false);
       });
     return () => {
       active = false;
     };
-  }, [client, section, stats, revision]);
+  }, [client, revision]);
   async function save() {
-    if (!config) return;
-    const threshold = limit.trim() ? Number(limit) : null;
-    if (context && threshold !== null && (!Number.isSafeInteger(threshold) || threshold <= 0)) {
-      setNotice('请输入正整数，或留空使用模型默认阈值。');
-      return;
-    }
     setBusy(true);
-    setNotice('');
+    setMessage('');
     try {
-      const values = context
-        ? { model_auto_compact_token_limit: threshold }
-        : {
-            model: config.model?.trim() || null,
-            model_reasoning_effort: config.model_reasoning_effort,
-          };
-      display((await client.fetch({ type: 'codex.settings.update', values })).values);
-      setNotice('已保存到 VPS 上的 Codex 配置，下轮对话生效。');
+      const r = await client.fetch({ type: 'codex.settings.update', values: changes });
+      setCurrent(r.values);
+      setChanges({});
+      setMessage('已保存。后续启动的 Codex 对话使用新设置。');
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : '保存失败。');
+      setMessage(e instanceof Error ? e.message : '保存失败。');
     } finally {
       setBusy(false);
     }
   }
   return (
     <Page
-      title={stats ? '用量统计' : context ? '自动压缩上下文' : 'CLI 设置'}
-      intro={
-        stats
-          ? '汇总当前保留的桌面对话中，Codex 已上报的累计 token。'
-          : context
-            ? '达到阈值时，Codex 会压缩较早的对话，以便在同一会话中继续工作。'
-            : '配置 VPS 上 Codex CLI 使用的模型与推理强度。'
+      title="CLI 设置"
+      intro="VPS 上 Codex CLI 的默认配置。"
+      actions={
+        <button
+          className="button secondary"
+          disabled={busy || Object.keys(changes).length > 0}
+          onClick={() => refresh((v) => v + 1)}
+        >
+          刷新
+        </button>
       }
     >
-      <div className="card account-card">
-        {stats && usage && (
-          <>
-            <Row title="已上报用量的会话">{usage.sessions}</Row>
-            {(Object.keys(labels) as (keyof CodexTokens)[]).map((k) => (
-              <Row key={k} title={labels[k]}>
-                {usage.totals[k].toLocaleString()}
-              </Row>
-            ))}
-          </>
-        )}
-        {!stats &&
-          config &&
-          (context ? (
-            <Row title="自动压缩阈值（token）" detail="留空使用 Codex 为所选模型确定的阈值。">
-              <input
-                aria-label="自动压缩阈值"
-                type="number"
-                min="1"
-                step="1"
-                placeholder="模型默认"
-                value={limit}
-                onChange={(e) => setLimit(e.target.value)}
-              />
-            </Row>
-          ) : (
-            <>
-              <Row title="模型" detail="留空使用 Codex 的默认模型。">
-                <input
-                  aria-label="模型"
-                  placeholder="Codex 默认"
-                  value={config.model ?? ''}
-                  maxLength={160}
-                  onChange={(e) => setConfig({ ...config, model: e.target.value })}
-                />
-              </Row>
-              <Row title="推理强度">
-                <select
-                  aria-label="推理强度"
-                  value={config.model_reasoning_effort ?? ''}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      model_reasoning_effort:
-                        (e.target.value as CodexConfig['model_reasoning_effort']) || null,
-                    })
-                  }
-                >
-                  <option value="">模型默认</option>
-                  {['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].map((v) => (
-                    <option key={v}>{v}</option>
-                  ))}
-                </select>
-              </Row>
-            </>
+      {current && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+        >
+          {groups.map((group) => (
+            <section className="settings-section" key={group.name}>
+              <h2 className="page-heading">{group.name}</h2>
+              <div className="settings-list card">
+                {group.fields.map((f) => {
+                  const value = f.key in changes ? changes[f.key] : current[f.key];
+                  const opts: Record<string, string> | undefined =
+                    f.key === 'model_reasoning_effort'
+                      ? Object.fromEntries(
+                          (model?.supportedReasoningEfforts ?? []).map((e) => [
+                            e.reasoningEffort,
+                            effortLabels[e.reasoningEffort] ?? e.reasoningEffort,
+                          ]),
+                        )
+                      : f.key === 'service_tier'
+                        ? Object.fromEntries((model?.serviceTiers ?? []).map((t) => [t.id, t.name]))
+                        : f.kind === 'bool'
+                          ? { true: '开启', false: '关闭' }
+                          : f.options;
+                  const change = (raw: string) =>
+                    setChanges((v) => ({
+                      ...v,
+                      [f.key]:
+                        raw === ''
+                          ? null
+                          : f.kind === 'number'
+                            ? Number(raw)
+                            : f.kind === 'bool'
+                              ? raw === 'true'
+                              : raw,
+                    }));
+                  return (
+                    <Row key={f.key} title={f.name} detail={f.detail}>
+                      {opts ? (
+                        <select
+                          aria-label={f.name}
+                          disabled={busy}
+                          value={String(value ?? '')}
+                          onChange={(e) => change(e.target.value)}
+                        >
+                          <option value="">CLI 默认</option>
+                          {value != null && !(String(value) in opts) && (
+                            <option value={String(value)}>{String(value)}</option>
+                          )}
+                          {Object.entries(opts).map(([key, label]) => (
+                            <option key={key} value={key}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          list={f.key === 'model' ? 'codex-setting-models' : undefined}
+                          aria-label={f.name}
+                          type={f.kind === 'number' ? 'number' : 'text'}
+                          min={f.kind === 'number' ? 1 : undefined}
+                          step={f.kind === 'number' ? 1 : undefined}
+                          maxLength={160}
+                          disabled={busy}
+                          value={String(value ?? '')}
+                          placeholder="CLI 默认"
+                          onChange={(e) => change(e.target.value)}
+                        />
+                      )}
+                    </Row>
+                  );
+                })}
+              </div>
+            </section>
           ))}
-        {!!notice && <p role="status">{notice}</p>}
-        {!stats && (
-          <button className="button primary" disabled={busy || !config} onClick={() => void save()}>
+          <datalist id="codex-setting-models">
+            {models.map((m) => (
+              <option key={m.model} value={m.model}>
+                {m.displayName}
+              </option>
+            ))}
+          </datalist>
+          <button
+            type="submit"
+            className="button primary"
+            disabled={busy || !Object.keys(changes).length}
+          >
             保存
           </button>
-        )}
-        <button className="button" disabled={busy} onClick={() => refresh((v) => v + 1)}>
-          {busy ? '读取或保存中…' : '刷新'}
-        </button>
-      </div>
+        </form>
+      )}
+      {message && <p role="status">{message}</p>}
     </Page>
   );
 }

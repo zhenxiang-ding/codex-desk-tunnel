@@ -1,3 +1,4 @@
+import type { CodexChoice, CodexConfig } from '@cc-desk-tunnel/protocol';
 import { mkdirSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { deviceTerms } from './device-terms.ts';
@@ -6,10 +7,11 @@ import type { Execution } from './device-terms.ts';
 // One cwd per desk session keeps the native /resume picker scoped to that session.
 export function codexTerminal(
   directory: string,
-  session: { id: string; projectPath: string },
+  session: { id: string; projectPath: string; codex?: CodexChoice },
   execution: Execution,
   sshBin: string,
   inherited: NodeJS.ProcessEnv = process.env,
+  terminalDefaults?: Partial<CodexConfig>,
 ) {
   const cwd = join(directory, 'codex', session.id);
   mkdirSync(cwd, { recursive: true, mode: 0o700 });
@@ -28,10 +30,27 @@ export function codexTerminal(
     cwd,
     args: [
       '--no-daemon',
-      '--sandbox',
-      'workspace-write',
-      '--ask-for-approval',
-      'on-request',
+      ...(terminalDefaults
+        ? [
+            '--sandbox',
+            terminalDefaults.sandbox_mode === 'read-only' ? 'read-only' : 'workspace-write',
+            ...(session.codex?.approval
+              ? [
+                  '--ask-for-approval',
+                  session.codex.approval === 'auto_review' ? 'on-request' : session.codex.approval,
+                  '-c',
+                  'approvals_reviewer=' +
+                    JSON.stringify(
+                      session.codex.approval === 'auto_review' ? 'auto_review' : 'user',
+                    ),
+                ]
+              : []),
+            ...(session.codex?.model ? ['--model', session.codex.model] : []),
+            ...(session.codex?.effort
+              ? ['-c', 'model_reasoning_effort=' + JSON.stringify(session.codex.effort)]
+              : []),
+          ]
+        : []),
       '-c',
       'allow_login_shell=false',
       '-c',

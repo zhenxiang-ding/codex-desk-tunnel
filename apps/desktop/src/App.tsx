@@ -456,6 +456,7 @@ export function App({
     // What is shown changes with these two.
     [selected?.id, recorded, unfinished],
   );
+  const usageEvent = events.findLast((e) => e.payload.type === 'codex.usage');
   const history = selected ? state.history[selected.id] : undefined;
   const nativeSession = latest(events, 'native.session');
   // Each turn's report is a reason to ask for the session's figures again.
@@ -793,6 +794,13 @@ export function App({
     if (!codexMode && nativeMode && connected)
       void client.request({ type: 'compaction.get' }).catch(() => {});
   }, [codexMode, nativeMode, connected]);
+  useEffect(() => {
+    if (!codexMode || !connected || inBrowser || !prefs.quotaReads || !anyChat) return;
+    const timer = setInterval(() => {
+      void client.request({ type: 'account.status', automatic: true }).catch(() => {});
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [client, codexMode, connected, inBrowser, prefs.quotaReads, anyChat]);
   // Each connection tells the service anew whether this client wants the quota kept current.
   useEffect(() => {
     if (!codexMode && nativeMode && connected)
@@ -1205,6 +1213,7 @@ export function App({
     });
   }
   async function configure(values: {
+    codex?: Session['codex'];
     model?: string | null;
     effort?: Effort | null;
     permissionMode?: PermissionMode;
@@ -1750,7 +1759,9 @@ export function App({
           : menu.kind === 'move'
             ? {
                 label: '会话所在的项目',
-                heading: '下一条消息会告诉 Claude 换了项目或电脑；聊过的会话仍沿用原项目的记忆',
+                heading: codexMode
+                  ? '选择下一条消息使用的项目，已有对话会保留在当前 Codex 线程中。'
+                  : '下一条消息会告诉 Claude 换了项目或电脑；聊过的会话仍沿用原项目的记忆',
                 items: moved ? moveMenu(moved) : [],
               }
             : menu.kind === 'settings'
@@ -1887,6 +1898,7 @@ export function App({
       ) : place.page === 'help' ? (
         <Suspense fallback={null}>
           <HelpCenter
+            codex={codexMode || !connected}
             article={place.article}
             here={state.device?.name ?? '这台电脑'}
             others={onlineOthers}
@@ -2161,6 +2173,12 @@ export function App({
                 draft={draft}
                 setDraft={(text) => setDraft(selected.id, text)}
                 codex={codexMode}
+                client={client}
+                codexUsage={
+                  usageEvent?.payload.type === 'codex.usage'
+                    ? { ...usageEvent.payload, measuredAt: usageEvent.createdAt }
+                    : null
+                }
                 native={nativeMode}
                 connected={connected}
                 busy={busy}

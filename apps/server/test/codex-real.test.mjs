@@ -26,6 +26,7 @@ test(
       USERPROFILE: root,
       HOME: root,
       CODEX_HOME: root,
+      NO_PROXY: '127.0.0.1,localhost',
       LOCALAPPDATA: root,
       APPDATA: root,
     };
@@ -34,12 +35,28 @@ test(
       () => spawn(cli, ['--no-daemon', 'app-server'], { env, stdio: ['pipe', 'pipe', 'ignore'] }),
     );
     try {
+      const catalog = await acc.models();
+      assert.ok(catalog.length > 0 && catalog.some((m) => m.supportedReasoningEfforts.length));
       await acc.configuration({
+        'features.memories': true,
+        tool_output_token_limit: 5000,
+        model_reasoning_summary: 'concise',
         model_auto_compact_token_limit: 43210,
         model: 'gpt-test',
         model_reasoning_effort: 'low',
       });
-      assert.equal((await acc.configuration()).model_auto_compact_token_limit, 43210);
+      const settings = await acc.configuration();
+      assert.equal(settings.model_auto_compact_token_limit, 43210);
+      assert.equal(settings['features.memories'], true);
+      assert.equal(settings.tool_output_token_limit, 5000);
+      assert.equal(settings.model_reasoning_summary, 'concise');
+      // Keep background memory jobs out of the subsequent two-response chat fixture.
+      const reset = await acc.configuration({
+        'features.memories': null,
+        model_reasoning_summary: null,
+      });
+      assert.notEqual(reset['features.memories'], true);
+      assert.equal(reset.tool_output_token_limit, 5000);
       assert.equal(
         (await acc.configuration({ model_auto_compact_token_limit: null }))
           .model_auto_compact_token_limit,

@@ -65,9 +65,11 @@ function ContextBreakdown({ context }: { context: NonNullable<NativeMetrics['con
 export default function ContextMeter({
   metrics,
   withPercent = false,
+  source = '原生摘要',
 }: {
   metrics: NativeMetrics | null;
   withPercent?: boolean;
+  source?: string;
 }) {
   const [hovered, setHovered] = useState(false);
   const container = useRef<HTMLDivElement>(null);
@@ -139,7 +141,9 @@ export default function ContextMeter({
                   ))}
                 </dl>
                 <ContextBreakdown context={context} />
-                <p>{new Date(context.measuredAt).toLocaleTimeString('zh-CN')} · 原生摘要</p>
+                <p>
+                  {new Date(context.measuredAt).toLocaleTimeString('zh-CN')} · {source}
+                </p>
               </>
             ) : (
               <p>{metrics?.errors?.context ?? '等待原生状态'}</p>
@@ -180,7 +184,9 @@ export default function ContextMeter({
                 {context.usedTokens.toLocaleString()} / {context.windowTokens.toLocaleString()}{' '}
                 tokens
               </span>
-              <small>{new Date(context.measuredAt).toLocaleTimeString('zh-CN')} · 原生摘要</small>
+              <small>
+                {new Date(context.measuredAt).toLocaleTimeString('zh-CN')} · {source}
+              </small>
             </>
           ) : (
             <span>{metrics?.errors?.context ?? '等待原生状态'}</span>

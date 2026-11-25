@@ -1,7 +1,13 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
-import { codexTokensSchema, type CodexTokens, type EventPayload } from '@cc-desk-tunnel/protocol';
+import {
+  codexTokensSchema,
+  type CodexConfig,
+  type CodexChoice,
+  type CodexTokens,
+  type EventPayload,
+} from '@cc-desk-tunnel/protocol';
 import type { codexTerminal } from './codex-terminal.ts';
 
 type Runtime = Pick<ReturnType<typeof codexTerminal>, 'args' | 'file' | 'cwd' | 'env'> & {
@@ -29,6 +35,7 @@ interface Item {
 }
 interface Chat {
   runtime: Runtime;
+  choice?: CodexChoice;
   thread?: string;
   message: string;
   messageId: string;
@@ -55,11 +62,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
     if (!child.stdin.destroyed && !child.stdin.writableEnded)
       child.stdin.write(JSON.stringify(frame) + '\n');
   };
-  let config: {
-    model?: string;
-    model_reasoning_effort?: string;
-    model_auto_compact_token_limit?: number;
-  } = {};
+  let config: Partial<CodexConfig> = {};
   const pending = new Map<number, { method: string; timer: ReturnType<typeof setTimeout> }>();
   let seq = 0,
     thread = chat.thread,
@@ -195,13 +198,20 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             ...(thread ? { threadId: thread, excludeTurns: true } : {}),
             cwd: runtime.cwd,
             developerInstructions: runtime.instructions,
-            model: config.model ?? undefined,
+            model: chat.choice?.model ?? config.model ?? undefined,
             config: config.model_auto_compact_token_limit
               ? { model_auto_compact_token_limit: config.model_auto_compact_token_limit }
               : undefined,
-            sandbox: 'workspace-write',
-            approvalPolicy: 'on-request',
-            approvalsReviewer: 'user',
+            sandbox: config.sandbox_mode === 'read-only' ? 'read-only' : 'workspace-write',
+            approvalPolicy:
+              chat.choice?.approval === 'auto_review'
+                ? 'on-request'
+                : (chat.choice?.approval ?? config.approval_policy ?? 'on-request'),
+            approvalsReviewer: chat.choice?.approval
+              ? chat.choice.approval === 'auto_review'
+                ? 'auto_review'
+                : 'user'
+              : (config.approvals_reviewer ?? 'user'),
           });
         switch (sent.method) {
           case 'initialize':
@@ -233,7 +243,12 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             chat.bind(thread);
             request('turn/start', {
               threadId: thread,
-              effort: config.model_reasoning_effort ?? undefined,
+              effort:
+                chat.choice?.effort ??
+                (chat.choice?.model && chat.choice.model !== config.model
+                  ? undefined
+                  : config.model_reasoning_effort) ??
+                undefined,
               input: [{ type: 'text', text: chat.message }],
               clientUserMessageId: chat.messageId,
             });

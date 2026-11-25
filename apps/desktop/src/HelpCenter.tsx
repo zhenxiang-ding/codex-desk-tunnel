@@ -17,6 +17,7 @@ import {
 import changelog from '../../../CHANGELOG.md?raw';
 import { articles, freshness, groups, newsOf, starters } from './help-content.ts';
 import type { Article, Block, News, Prompt, Target } from './help-content.ts';
+import { codexArticles } from './codex-help.ts';
 import Figure from './HelpFigures.tsx';
 import { CopyButton } from './copy.tsx';
 import { releaseSection } from './notes.ts';
@@ -27,6 +28,7 @@ import { openProject, project } from './project.tsx';
 import './help.css';
 
 type Context = {
+  codex: boolean;
   here: string;
   others: string[];
   browser: boolean;
@@ -41,6 +43,7 @@ const NEWS = 'whats-new';
 // right. Articles link to each other (`article#heading` goes to a heading in it), to the settings they talk about and
 // to what they explain how to do. What the program's version brought is marked, and has a page of its own.
 export default function HelpCenter({
+  codex = false,
   article: place,
   here,
   others,
@@ -50,6 +53,7 @@ export default function HelpCenter({
   run,
   tryPrompt,
 }: {
+  codex?: boolean;
   article?: string;
   here: string;
   others: string[];
@@ -60,11 +64,32 @@ export default function HelpCenter({
   tryPrompt?: (text: string) => void;
 }) {
   const [query, setQuery] = useState('');
-  const [id, anchor] = (place ?? '').split('#');
-  const shown = useMemo(() => articles.filter((item) => !browser || !item.desktop), [browser]);
+  const [requested, anchor] = (place ?? '').split('#');
+  const aliases: Record<string, string> = {
+    modes: 'approval',
+    permissions: 'approval',
+    memory: 'settings',
+    cache: 'context',
+    devices: 'how-it-works',
+    connection: 'first-steps',
+    files: 'projects',
+    upgrade: 'updates',
+    execution: 'how-it-works',
+    remote: 'how-it-works',
+  };
+  const id =
+    codex && requested && requested !== NEWS
+      ? codexArticles.some((a) => a.id === requested)
+        ? requested
+        : (aliases[requested] ?? 'settings')
+      : requested;
+  const shown = useMemo(
+    () => (codex ? codexArticles : articles).filter((item) => !browser || !item.desktop),
+    [browser, codex],
+  );
   const news = useMemo(() => newsOf(version, shown), [version, shown]);
   const current = shown.find((item) => item.id === id);
-  const context: Context = { here, others, browser, version, go, run, tryPrompt };
+  const context: Context = { codex, here, others, browser, version, go, run, tryPrompt };
   const found = useMemo(() => search(shown, query, context), [shown, query, here, others]);
   const page = useRef<HTMLElement>(null);
   // An article opens at its top, or at the heading asked for, which is flashed to be found.
@@ -199,7 +224,7 @@ function summary(version: string) {
 // The front page: what this is in one picture, how to begin, what to try, and every subject.
 function Home({ list, news, context }: { list: Article[]; news: News[]; context: Context }) {
   const { here, others, go, run, version } = context;
-  const offered = starters.filter(
+  const offered = (context.codex ? [] : starters).filter(
     (item) => (!item.device || others.length > 0) && list.some((a) => a.id === item.article),
   );
   return (
@@ -208,11 +233,11 @@ function Home({ list, news, context }: { list: Article[]; news: News[]; context:
         <div className="help-hero-text">
           <span className="help-kicker">Codex Desk Tunnel 帮助</span>
           <h1>
-            Claude Code 住在服务器上，
-            <br />
-            你的每台电脑都是它的手
+            {context.codex
+              ? '在本机项目中使用远程 Codex'
+              : 'Claude Code 住在服务器上，你的每台电脑都是它的手'}
           </h1>
-          <p>会话、记忆和账号集中在服务端；项目、文件和命令留在各自的电脑上。</p>
+          <p>会话与账号保存在服务端，项目文件通过 SSH 访问。</p>
           <div className="help-hero-actions">
             <button type="button" className="button primary" onClick={() => go('first-steps')}>
               第一次使用
@@ -223,7 +248,9 @@ function Home({ list, news, context }: { list: Article[]; news: News[]; context:
             </button>
           </div>
         </div>
-        <Figure name="map" here={here} others={others} browser={context.browser} />
+        {!context.codex && (
+          <Figure name="map" here={here} others={others} browser={context.browser} />
+        )}
       </header>
       {news.length > 0 && (
         <button type="button" className="help-banner" onClick={() => go(NEWS)}>
@@ -241,17 +268,19 @@ function Home({ list, news, context }: { list: Article[]; news: News[]; context:
           {[
             {
               title: '添加项目',
-              text: '选电脑上的一个文件夹，Claude 在那里干活。',
+              text: '选择这台电脑上的项目文件夹。',
               target: { doing: 'addProject' } as Target,
             },
             {
               title: '说出任务',
-              text: '新建会话，像在终端里用 Claude Code 一样说话。',
+              text: '新建会话，在输入框中发送任务。',
               target: { doing: 'newSession' } as Target,
             },
             {
               title: '看着它做',
-              text: '每一步折成一行；要动手时按审批模式问你。',
+              text: context.codex
+                ? '展开命令查看执行结果，审批请求会显示在对话里。'
+                : '每一步折成一行；要动手时按审批模式问你。',
               target: { article: 'approval' } as Target,
             },
           ].map((step, index) => (

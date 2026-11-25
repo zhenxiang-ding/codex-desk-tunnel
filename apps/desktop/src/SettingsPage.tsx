@@ -1,4 +1,3 @@
-import { ChartColumn as SettingsIconForUsage } from 'lucide-react';
 import { CodexSettings } from './CodexSettings.tsx';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -131,13 +130,6 @@ export const sections: {
     group: 'Claude Code',
     icon: UserRound,
     words: '登录 退出 订阅 用量 调用日志 重置 读取额度',
-  },
-  {
-    id: 'codexUsage',
-    name: '用量统计',
-    group: 'Claude Code',
-    icon: SettingsIconForUsage,
-    words: 'Codex token 用量 统计 缓存 输入 输出',
   },
   {
     id: 'claude',
@@ -980,13 +972,20 @@ export default function SettingsPage({
     .map((item) =>
       browser && item.id === 'account'
         ? { ...item, name: '订阅用量', words: '订阅 用量 额度 周期统计 重置 自动读取额度' }
-        : item,
+        : codex && item.id === 'claude'
+          ? {
+              ...item,
+              words:
+                'Codex CLI 自动压缩上下文 窗口 记忆 默认模型 推理强度 摘要 沙箱 网页搜索 权限 工具输出',
+            }
+          : codex && item.id === 'account'
+            ? { ...item, words: 'Codex 账号 登录 订阅用量 记录 额度 重置' }
+            : item,
     )
     .filter(
       (item) =>
         (!back || item.group === '本机') &&
-        (codex || item.id !== 'codexUsage') &&
-        (!codex || item.id !== 'instructions') &&
+        (!codex || !['instructions', 'context'].includes(item.id)) &&
         (item.id !== 'connection' || window.desktop) &&
         (item.id !== 'install' ||
           (browser && /Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent))) &&
@@ -1054,10 +1053,10 @@ export default function SettingsPage({
       </aside>
       <main className="workspace">
         <PageHelp.Provider value={back ? null : (pageHelp[section] ?? 'settings')}>
-          {indexOnly ? null : codex &&
-            (section === 'claude' || section === 'context' || section === 'codexUsage') ? (
-            <CodexSettings key={section} section={section} client={client} />
-          ) : section === 'account' || (codex && section === 'instructions') ? (
+          {indexOnly ? null : codex && (section === 'claude' || section === 'context') ? (
+            <CodexSettings client={client} />
+          ) : section === 'account' ||
+            (codex && (section === 'instructions' || section === 'codexUsage')) ? (
             account
           ) : section === 'claude' ? (
             native ? (

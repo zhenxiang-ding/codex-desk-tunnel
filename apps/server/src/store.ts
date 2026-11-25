@@ -444,6 +444,21 @@ export class SessionStore {
       .prepare('UPDATE codex_threads SET usage=? WHERE session_id=?')
       .run(JSON.stringify(usage), sessionId);
   }
+  recentCodexUsage() {
+    const rows = this.database
+      .prepare(
+        "SELECT session_id,data FROM events WHERE json_extract(data,'$.payload.type')='codex.usage' ORDER BY rowid DESC LIMIT 50",
+      )
+      .all();
+    return rows.map((r) => {
+      const e = JSON.parse(String(r.data)) as SessionEvent;
+      return {
+        session: this.get(String(r.session_id)).session.title,
+        at: e.createdAt,
+        tokens: (e.payload as Extract<EventPayload, { type: 'codex.usage' }>).last,
+      };
+    });
+  }
   codexUsageSummary() {
     const totals: CodexTokens = {
       inputTokens: 0,
@@ -829,10 +844,12 @@ export class SessionStore {
     permissionMode: PermissionMode,
     model?: string | null,
     effort?: Effort | null,
+    codex?: Session['codex'],
   ) {
     const { session } = this.get(sessionId);
     if (session.activeRun) throw new DomainError('run_active', '请先结束当前运行再修改审批模式。');
     setMode(session, permissionMode);
+    if (codex) session.codex = { ...session.codex, ...codex };
     if (model !== undefined) session.model = model;
     if (effort !== undefined) session.effort = effort;
     session.updatedAt = new Date().toISOString();

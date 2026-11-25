@@ -12,6 +12,7 @@ const script = `
 import {createInterface} from 'node:readline';
 const thread='10000000-0000-4000-8000-000000000001',turn='test-turn';
 const send=v=>console.log(JSON.stringify(v));
+let resumed=false;
 const note=(method,params)=>send({method,params:{threadId:thread,turnId:turn,...params}});
 createInterface({input:process.stdin}).on('line',line=>{
  const {id,method,params,result}=JSON.parse(line);
@@ -28,11 +29,12 @@ createInterface({input:process.stdin}).on('line',line=>{
  if(method==='config/read')return send({id,result:{config:{model:'fixture-model',model_reasoning_effort:'low'}}});
  if(method==='thread/list')return send({id,result:{data:[]}});
  if(method==='thread/start'||method==='thread/resume'){
-   if(params.model!=='fixture-model'||params.sandbox!=='workspace-write'||params.approvalPolicy!=='on-request'||(method==='thread/resume'&&params.threadId!==thread))return process.exit(7);
+   resumed=method==='thread/resume';
+   if(params.model!==(method==='thread/resume'?'second-model':'fixture-model')||params.approvalsReviewer!==(method==='thread/resume'?'auto_review':'user')||params.sandbox!=='workspace-write'||params.approvalPolicy!=='on-request'||(method==='thread/resume'&&params.threadId!==thread))return process.exit(7);
    return send({id,result:{thread:{id:thread}}});
  }
  if(method==='turn/start'){
-  if(params.effort!=='low')return process.exit(8);
+  if(params.effort!==(resumed?'high':'low'))return process.exit(8);
   send({id,result:{turn:{id:turn}}});
   note('item/started',{item:{id:'shell',type:'commandExecution',command:'ssh device hostname'}});
   send({method:'item/commandExecution/requestApproval',id:'approval',params:{threadId:thread,turnId:turn,itemId:'shell',reason:'test approval',command:'ssh device hostname'}});
@@ -50,6 +52,7 @@ function fixture(signal: AbortSignal, approve: () => Promise<boolean>, thread?: 
       env: { PATH: process.env.PATH ?? '', TERM: 'xterm-256color' },
     },
     thread,
+    choice: thread ? { model: 'second-model', effort: 'high', approval: 'auto_review' } : undefined,
     message: 'test',
     messageId: randomUUID(),
     signal,
@@ -111,12 +114,22 @@ test('Codex thread bindings and cumulative usage survive restart without countin
     reasoningOutputTokens: 1,
     totalTokens: 11,
   };
+  store.configure(first.id, first.permissionMode, undefined, undefined, {
+    model: 'm',
+    effort: 'high',
+  });
+  store.configure(first.id, first.permissionMode, undefined, undefined, { approval: 'on-request' });
   store.codexUsage(first.id, tokens);
   store.bindCodexThread(first.id, id);
   store.codexUsage(first.id, tokens);
   store.bindCodexThread(second.id, randomUUID());
   store.close();
   store = new SessionStore(root);
+  assert.deepEqual(store.get(first.id).session.codex, {
+    model: 'm',
+    effort: 'high',
+    approval: 'on-request',
+  });
   assert.equal(store.codexThread(first.id), id);
   assert.deepEqual(store.codexUsageSummary(), { sessions: 1, totals: tokens });
 });

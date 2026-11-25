@@ -4,13 +4,14 @@ import { webCertificateStateSchema } from './web-certificate.ts';
 export * from './web.ts';
 export * from './web-certificate.ts';
 
-export const PROTOCOL_VERSION = 31;
+export const PROTOCOL_VERSION = 32;
 // The release each protocol version began with, from 0.2.4 on: a client newer than its service signs in with
 // the service's number to have it upgrade (see the README). A new number adds its line here.
 export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
   '0.1.0': 29, // Codex Desk Tunnel's first release.
   '0.1.1': 30,
   '0.1.2': 31,
+  '0.1.3': 32,
   '0.2.4': 10,
   '0.2.6': 11,
   '0.2.9': 12,
@@ -97,12 +98,42 @@ const codexLimitWindow = z
     resetsAt: z.number().nullish(),
   })
   .nullish();
+export const codexEffortSchema = z.string().trim().min(1).max(80);
+export const codexChoiceSchema = z
+  .object({
+    model: z.string().trim().min(1).max(160).nullable().optional(),
+    effort: codexEffortSchema.nullable().optional(),
+    approval: z.enum(['on-request', 'untrusted', 'auto_review', 'never']).nullable().optional(),
+  })
+  .strict();
+export type CodexChoice = z.infer<typeof codexChoiceSchema>;
+export const codexModelSchema = z.object({
+  model: z.string(),
+  displayName: z.string(),
+  description: z.string(),
+  isDefault: z.boolean(),
+  serviceTiers: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+  defaultReasoningEffort: codexEffortSchema,
+  supportedReasoningEfforts: z.array(
+    z.object({ reasoningEffort: codexEffortSchema, description: z.string() }),
+  ),
+});
+export type CodexModel = z.infer<typeof codexModelSchema>;
 export const codexConfigSchema = z
   .object({
     model: z.string().trim().min(1).max(160).nullable(),
-    model_reasoning_effort: z
-      .enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
-      .nullable(),
+    model_reasoning_effort: codexEffortSchema.nullable(),
+    model_reasoning_summary: z.enum(['auto', 'concise', 'detailed', 'none']).nullish(),
+    model_verbosity: z.enum(['low', 'medium', 'high']).nullish(),
+    web_search: z.enum(['disabled', 'cached', 'indexed', 'live']).nullish(),
+    tool_output_token_limit: z.number().int().positive().nullish(),
+    'memories.generate_memories': z.boolean().nullish(),
+    'memories.use_memories': z.boolean().nullish(),
+    'features.memories': z.boolean().nullish(),
+    service_tier: z.string().max(80).nullish(),
+    approval_policy: z.enum(['untrusted', 'on-request', 'never', 'on-failure']).nullish(),
+    approvals_reviewer: z.enum(['user', 'auto_review', 'guardian_subagent']).nullish(),
+    sandbox_mode: z.enum(['workspace-write', 'read-only']).nullish(),
     model_auto_compact_token_limit: z
       .number()
       .int()
@@ -122,6 +153,8 @@ export const codexTokensSchema = z.object({
 export type CodexTokens = z.infer<typeof codexTokensSchema>;
 export const accountStateSchema = z.object({
   loggedIn: z.boolean(),
+  codexLimitsAt: z.string().datetime().optional(),
+  codexProvider: z.string().optional(),
   codexLimits: z.object({ primary: codexLimitWindow, secondary: codexLimitWindow }).optional(),
   authMethod: z.string().optional(),
   email: z.string().optional(),
@@ -556,6 +589,7 @@ export const sessionSchema = z.object({
   modeBeforePlan: planModeSchema.optional(),
   model: z.string().trim().min(1).max(200).nullable().default(null),
   effort: effortSchema.nullable().default(null),
+  codex: codexChoiceSchema.optional(),
   // The directory on the service that Claude Code works in, under its native/ folder: the one of the session's
   // project, which all sessions of the project share. A fork keeps it from the session it was forked from.
   // Sessions from before projects had one leave it out and work in a directory named after themselves.
@@ -681,7 +715,9 @@ export const commandSchema = z.discriminatedUnion('type', [
       plain: z.literal(true).optional(),
     })
     .strict(),
-  z.object({ type: z.literal('account.status'), ...request }).strict(),
+  z
+    .object({ type: z.literal('account.status'), automatic: z.boolean().optional(), ...request })
+    .strict(),
   z
     .object({
       type: z.literal('account.login'),
@@ -713,6 +749,7 @@ export const commandSchema = z.discriminatedUnion('type', [
     .strict(),
   z.object({ type: z.literal('account.cancel'), ...request }).strict(),
   z.object({ type: z.literal('account.logout'), ...request }).strict(),
+  z.object({ type: z.literal('codex.models.get'), ...request }).strict(),
   z.object({ type: z.literal('codex.settings.get'), ...request }).strict(),
   z
     .object({
@@ -721,7 +758,9 @@ export const commandSchema = z.discriminatedUnion('type', [
       ...request,
     })
     .strict(),
-  z.object({ type: z.literal('codex.usage.get'), ...request }).strict(),
+  z
+    .object({ type: z.literal('codex.usage.get'), recent: z.boolean().optional(), ...request })
+    .strict(),
   z.object({ type: z.literal('settings.get'), ...request }).strict(),
   z
     .object({
@@ -797,6 +836,7 @@ export const commandSchema = z.discriminatedUnion('type', [
       permissionMode: permissionModeSchema,
       model: z.string().trim().min(1).max(200).nullable().optional(),
       effort: effortSchema.nullable().optional(),
+      codex: codexChoiceSchema.optional(),
     })
     .strict(),
   // Points a session at a directory on the computer that asks, which the session is on from then and which becomes
@@ -1098,11 +1138,20 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('account.state'), ...accountStateSchema.shape }),
   // One-time result for the connection that generated it; never part of broadcast account state or history.
   z.object({ type: z.literal('account.token.created'), ...setupTokenResultSchema.shape }),
+  z.object({
+    type: z.literal('codex.models.state'),
+    requestId: id,
+    models: z.array(codexModelSchema),
+    defaults: codexConfigSchema,
+  }),
   z.object({ type: z.literal('codex.settings.state'), requestId: id, values: codexConfigSchema }),
   z.object({
     type: z.literal('codex.usage.state'),
     requestId: id,
     totals: codexTokensSchema,
+    recent: z
+      .array(z.object({ session: z.string(), at: z.string(), tokens: codexTokensSchema }))
+      .optional(),
     sessions: z.number().int().nonnegative(),
   }),
   z.object({ type: z.literal('settings.state'), requestId: id, values: nativeSettingsSchema }),
