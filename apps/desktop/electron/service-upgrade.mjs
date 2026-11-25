@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { WebSocket } from 'ws';
-import { PROTOCOL_HISTORY, PROTOCOL_VERSION } from '@cc-desk-tunnel/protocol';
+import { protocolForRelease, PROTOCOL_VERSION } from '@cc-desk-tunnel/protocol';
 import { certificateMatches, connectService } from './proxy-bridge.mjs';
 
 // Has a service older than this client, which refuses it at sign-in, upgrade itself the way its own clients
@@ -76,9 +76,7 @@ export function upgradeService(
   { url, fingerprint, token, deviceName, service, force },
   options = {},
 ) {
-  const protocolVersion = Object.entries(PROTOCOL_HISTORY).findLast(
-    ([release]) => release.localeCompare(service, undefined, { numeric: true }) <= 0,
-  )?.[1];
+  const protocolVersion = protocolForRelease(service);
   if (!protocolVersion)
     return Promise.reject(
       new Error(

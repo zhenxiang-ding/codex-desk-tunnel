@@ -23,7 +23,7 @@ test('the embedded Codex terminal relays keys, acknowledges rendered output and 
         return send({
           type: 'ready',
           protocolVersion: PROTOCOL_VERSION,
-          version: '0.3.20',
+          version: '0.1.0',
           connectionId: randomUUID(),
           sessions: [],
           projects: [],

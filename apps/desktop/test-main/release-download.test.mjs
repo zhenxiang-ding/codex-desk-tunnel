@@ -9,7 +9,7 @@ import { downloadRelease } from '../electron/release-download.mjs';
 
 const installer = Buffer.from(Array.from({ length: 20_000 }, (_, index) => index % 251));
 const sha256 = createHash('sha256').update(installer).digest('hex');
-const name = 'CC-Desk-Tunnel-Setup-9.8.7-x64.exe';
+const name = 'Codex-Desk-Tunnel-Setup-9.8.7-x64.exe';
 // A stand-in for the release page. `serve` answers the installer request; the manifest is `manifest`.
 async function page(
   t,

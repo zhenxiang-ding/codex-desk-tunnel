@@ -11,8 +11,8 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const directory = resolve(process.argv[2] ?? 'artifacts/release');
 const version = JSON.parse(readFileSync(join(root, 'apps/desktop/package.json'), 'utf8')).version;
 export const releaseFiles = (version) => [
-  `CC-Desk-Tunnel-Setup-${version}-x64.exe`,
-  `cc-desk-tunnel-server-${version}.tar.gz`,
+  `Codex-Desk-Tunnel-Setup-${version}-x64.exe`,
+  `codex-desk-tunnel-server-${version}.tar.gz`,
   `CC-Desk-Tunnel-${version}-linux-amd64.deb`,
   `CC-Desk-Tunnel-${version}-mac-arm64.dmg`,
   `CC-Desk-Tunnel-${version}-mac-x64.dmg`,

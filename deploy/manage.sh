@@ -154,9 +154,9 @@ fetch_release() {
     echo "读不到发布页（检查这台机器能否访问 github.com），不下载新版本，用当前的 $(version_of) 继续。"
     return
   fi
-  name="$(awk '$2 ~ /^cc-desk-tunnel-server-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/ { print $2 }' "$FETCHED/SHA256SUMS" | head -n 1)"
+  name="$(awk '$2 ~ /^codex-desk-tunnel-server-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz$/ { print $2 }' "$FETCHED/SHA256SUMS" | head -n 1)"
   [[ -n "$name" ]] || fail "The release has no server archive."
-  version="${name#cc-desk-tunnel-server-}"; version="${version%.tar.gz}"
+  version="${name#codex-desk-tunnel-server-}"; version="${version%.tar.gz}"
   # Nothing newer, or the version asked for is here already. This is also how a manage.sh from before the images hands
   # over: it unpacks the archive it was given and runs this one without saying so.
   current="$(version_of)"
@@ -451,8 +451,8 @@ case "$command" in
     summary ;;
   summary) summary ;;
   client)
-    [[ $# = 1 && -f "$1" && "$(basename -- "$1")" =~ ^CC-Desk-Tunnel-Setup-[0-9]+\.[0-9]+\.[0-9]+-x64\.exe$ ]] \
-      || fail "Specify the installer as built: CC-Desk-Tunnel-Setup-X.Y.Z-x64.exe"
+    [[ $# = 1 && -f "$1" && "$(basename -- "$1")" =~ ^Codex-Desk-Tunnel-Setup-[0-9]+\.[0-9]+\.[0-9]+-x64\.exe$ ]] \
+      || fail "Specify the installer as built: Codex-Desk-Tunnel-Setup-X.Y.Z-x64.exe"
     mkdir -p "$DATA_DIR/state/client"
     install -m 644 "$1" "$DATA_DIR/state/client/"
     [[ "$(id -u)" != 0 ]] || chown -R 1000:1000 "$DATA_DIR/state/client"

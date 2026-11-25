@@ -255,7 +255,7 @@ export class ServiceUpdates {
     await rename(partial, target);
   }
   private async installer(manifest: Manifest) {
-    const name = `CC-Desk-Tunnel-Setup-${manifest.version}-x64.exe`;
+    const name = `Codex-Desk-Tunnel-Setup-${manifest.version}-x64.exe`;
     const target = join(this.options.clientDir, name);
     if (existsSync(target)) return;
     mkdirSync(this.options.clientDir, { recursive: true });
@@ -318,7 +318,7 @@ export class ServiceUpdates {
         await this.clearPrograms();
         mkdirSync(work, { recursive: true });
         const archive = join(root, `${version}.tar.gz`);
-        await this.download(manifest, `cc-desk-tunnel-server-${version}.tar.gz`, archive);
+        await this.download(manifest, `codex-desk-tunnel-server-${version}.tar.gz`, archive);
         const { stdout } = await run('tar', ['-tzf', archive], { maxBuffer: 16 << 20 });
         if (
           stdout.split('\n').some((path) => path.startsWith('/') || /(^|\/)\.\.(\/|$)/.test(path))

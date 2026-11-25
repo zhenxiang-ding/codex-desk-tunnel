@@ -21,7 +21,7 @@ import { ServiceUpdates, isNewer, serviceVersion } from '../src/updates.ts';
 // A stand-in for the GitHub releases API: one latest release with a manifest and an installer.
 async function feed(t: TestContext, version: string, runtime = 1) {
   const installer = Buffer.from(`installer ${version}`);
-  const name = `CC-Desk-Tunnel-Setup-${version}-x64.exe`;
+  const name = `Codex-Desk-Tunnel-Setup-${version}-x64.exe`;
   const manifest = {
     version,
     runtime,
@@ -134,7 +134,7 @@ test('the installer of the running version is fetched for clients and checked ag
 test('an installer download that slows to a halt is continued on new connections, and tried again after the page fails', async (t) => {
   const version = serviceVersion();
   const installer = Buffer.from(Array.from({ length: 20_000 }, (_, index) => index % 251));
-  const name = `CC-Desk-Tunnel-Setup-${version}-x64.exe`;
+  const name = `Codex-Desk-Tunnel-Setup-${version}-x64.exe`;
   const manifest = {
     version,
     runtime: 1,
@@ -237,14 +237,14 @@ test('starting clears the programs of other versions and unfinished downloads, a
     join(program, serviceVersion(), 'apps'),
     join(program, 'current'),
     join(program, 'notes'),
-    join(client, 'CC-Desk-Tunnel-Setup-0.0.1-x64.exe'),
+    join(client, 'Codex-Desk-Tunnel-Setup-0.0.1-x64.exe'),
     join(client, 'readme.txt'),
   ];
   const stale = [
     join(program, '0.0.1', 'apps'),
     join(program, '9.9.9.new', 'apps'),
     join(program, '9.9.9.tar.gz'),
-    join(client, 'CC-Desk-Tunnel-Setup-0.0.1-x64.exe.part'),
+    join(client, 'Codex-Desk-Tunnel-Setup-0.0.1-x64.exe.part'),
   ];
   for (const path of [...kept, ...stale]) {
     mkdirSync(join(path, '..'), { recursive: true });

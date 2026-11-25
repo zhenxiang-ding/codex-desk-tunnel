@@ -20,7 +20,7 @@ irm https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/depl
 `cxdt` 要与服务端**同一版本**。脚本默认装最新的正式版；服务端是别的版本时，先指定版本再运行，例如：
 
 ```powershell
-$env:CXDT_VERSION = '0.3.20'; irm https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install-cxdt.ps1 | iex
+$env:CXDT_VERSION = '0.1.0'; irm https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install-cxdt.ps1 | iex
 ```
 
 装错了版本也不要紧：连接时 `cxdt` 会提示版本不一致，并问你是否换成服务端的版本。设置 `CXDT_DOWNLOAD_ONLY=1` 时，脚本只把校验过的包解压到当前目录，不安装。
@@ -47,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1
 
 装好后打开一个新的终端窗口。Windows 上在 PowerShell、cmd 和 Git Bash 里都可以直接运行 `cxdt`。不安装也可以直接运行包里的 `cxdt.cmd`（Windows；Git Bash 里是同一目录下的 `cxdt`）或 `bin/cxdt`。包里自带运行所需的一切：Node.js，Windows 上还有与图形客户端安装包相同的 PowerShell 7 和 OpenSSH，所以 Windows 的包有一百多 MB。
 
-**升级**：运行 `cxdt upgrade`，见下面的[升级](#升级)。0.3.8 及更早的 `cxdt` 没有这个命令：下载新版本的包，再运行一次安装脚本。
+**升级**：运行 `cxdt upgrade`，见下面的[升级](#升级)。
 
 **装了图形客户端就不用另装**：Windows 安装时把自带的 `cxdt` 加入当前用户的 PATH；macOS、Linux 上图形客户端启动时把 `~/.local/bin/cxdt` 链接到自带的那份，PATH 的处理与安装脚本相同。macOS 要先把应用拖进“应用程序”再打开，见 [macOS 客户端](macos.md#终端客户端-cxdt)。
 
@@ -211,7 +211,7 @@ Windows 上 acpx 只接受可执行文件，写 `cxdt` 自带的 node 和脚本�
 `cxdt` 只能连接与自己同一版本的服务端。版本不一致时，在终端里运行的 `cxdt` 会直接问是否升级；也可以运行 `cxdt upgrade`，它依次做两件事：
 
 1. **服务端**：有更新的正式版本时，先问你是否升级（`--yes` 不问），确认后服务端下载并安装新版本，然后重启，约一分钟后可以重新连接。这和图形客户端“设置 → 关于与更新”里的升级相同：有会话正在运行（正在回答、等你确认，或终端里的 Claude Code 正在执行）时，`cxdt` 列出这些会话，可以选择强行升级，正在运行的会被中断（`--force` 直接强行升级）；只是开着终端、或在等后台任务的，不挡升级，它们随重启结束，会话本身保留。服务端是 0.3.14 及更早的版本时，开着的终端和后台任务也会挡住升级，不能强行升级；需要更新镜像的版本，会提示在服务器上执行 `sudo cc-desk-tunnel upgrade`。服务端比这个 `cxdt` 新时，跳过这一步。
-2. **`cxdt` 自己**：从发布页下载与服务端相同版本的包，按发布页的 `SHA256SUMS` 校验后，用包里的安装脚本装到原来的位置。其他开着的 `cxdt` 窗口不影响安装，关掉重开就是新版本。服务端比 `cxdt` 旧、又没有升级时，`cxdt` 换回服务端的版本，最早到 0.3.9。
+2. **`cxdt` 自己**：从发布页下载与服务端相同版本的包，按发布页的 `SHA256SUMS` 校验后，用包里的安装脚本装到原来的位置。其他开着的 `cxdt` 窗口不影响安装，关掉重开就是新版本。服务端比 `cxdt` 旧、又没有升级时，`cxdt` 换回服务端的版本，最早到 0.1.0。
 
 下载走 GitHub。需要代理时，设置 `HTTPS_PROXY` 并加上 `NODE_USE_ENV_PROXY=1`。从源码运行的 `cxdt` 只升级服务端，不替换自己。图形客户端自带的 `cxdt` 也只升级服务端，然后提示升级图形客户端：图形客户端连接时会提供服务端版本的安装包，`cxdt` 随它更新。
 
@@ -236,7 +236,7 @@ Windows 上 acpx 只接受可执行文件，写 `cxdt` 自带的 node 和脚本�
 
 - **第一次在一个项目里打开时，Claude Code 问是否信任工作目录**：这是 Claude Code 自己的对话框，用方向键选“Yes, I trust this folder”再回车；默认选项是退出。每个项目只问一次。
 - **连不上**：报错会说明原因（凭据、证书指纹、网络、版本）。原因不明时设置 `CXDT_LOG` 再试一次，日志里有每一步。
-- **提示版本不一致**：在终端里选“升级”，或运行 `cxdt upgrade`；0.3.8 及更早的 `cxdt` 要下载同一版本的包，再运行一次安装脚本。
+- **提示版本不一致**：在终端里选“升级”，或运行 `cxdt upgrade`。
 
 ## 已验证与未验证
 

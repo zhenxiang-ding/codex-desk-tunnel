@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 // Where this client's releases are published. The service normally hands out the installer; this is the other
 // way to get it, for when the service has not fetched it or cannot.
-export const releasePage = 'https://github.com/sun168567/cc-desk-tunnel/releases/download';
+export const releasePage = 'https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download';
 // A connection to the release host can start fast and then slow to a crawl, or stop without closing. The file
 // is fetched in stretches: each connection is used for `stretch` milliseconds at most and the next continues
 // where it ended; one that delivers nothing for `stall` is given up at once, and after `attempts` connections
@@ -35,7 +35,7 @@ export async function downloadRelease(
   } = {},
 ) {
   if (!/^\d+\.\d+\.\d+$/.test(String(version))) throw new Error('版本号不正确。');
-  const name = `CC-Desk-Tunnel-Setup-${version}-x64.exe`;
+  const name = `Codex-Desk-Tunnel-Setup-${version}-x64.exe`;
   let manifest;
   try {
     const response = await fetch(`${page}/v${version}/release.json`, {

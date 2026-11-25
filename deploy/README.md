@@ -16,12 +16,12 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/sun168567/cc-desk-t
 
 以 root 安装后多一个命令 `/usr/local/bin/cc-desk-tunnel`，就是 `deploy/manage.sh` 的快捷方式，下文的 `sudo bash deploy/manage.sh …` 都可以写成 `sudo cc-desk-tunnel …`，在任何目录下运行。卸载时一并删除。
 
-也可以手动准备：从项目的 GitHub 发布页取同一版本的三个文件：服务端程序包 `cc-desk-tunnel-server-X.Y.Z.tar.gz`、Windows 安装包 `CC-Desk-Tunnel-Setup-X.Y.Z-x64.exe` 和 `SHA256SUMS`。放到 VPS 的同一目录后先校验，再把程序包解压到专用程序目录：
+也可以手动准备：从项目的 GitHub 发布页取同一版本的三个文件：服务端程序包 `codex-desk-tunnel-server-X.Y.Z.tar.gz`、Windows 安装包 `Codex-Desk-Tunnel-Setup-X.Y.Z-x64.exe` 和 `SHA256SUMS`。放到 VPS 的同一目录后先校验，再把程序包解压到专用程序目录：
 
 ```sh
 sha256sum -c SHA256SUMS
 sudo mkdir -p /opt/cc-desk-tunnel
-sudo tar -xzf cc-desk-tunnel-server-X.Y.Z.tar.gz -C /opt/cc-desk-tunnel
+sudo tar -xzf codex-desk-tunnel-server-X.Y.Z.tar.gz -C /opt/cc-desk-tunnel
 cd /opt/cc-desk-tunnel
 ```
 
@@ -41,7 +41,7 @@ sudo bash deploy/manage.sh upgrade
 # 用手上的程序包升级（例如服务器连不上 GitHub）
 sudo bash deploy/manage.sh upgrade --from /path/cc-desk-tunnel-server.tar.gz
 # 把 Windows 安装包交给服务端；已连接的旧客户端下次连接时在左下角连接菜单看到“升级到 x.y.z”
-sudo bash deploy/manage.sh client /path/CC-Desk-Tunnel-Setup-X.Y.Z-x64.exe
+sudo bash deploy/manage.sh client /path/Codex-Desk-Tunnel-Setup-X.Y.Z-x64.exe
 # 更换服务凭据（留空则随机生成）并重启；已保存旧凭据的客户端需重新填写
 sudo bash deploy/manage.sh token
 # 随时重看汇总

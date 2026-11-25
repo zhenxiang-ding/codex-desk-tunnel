@@ -14,7 +14,7 @@ async function upgrade(found, service = '0.3.2', confirm) {
     socket.on('message', (raw) => {
       const message = JSON.parse(raw.toString());
       received.push(message);
-      if (message.type === 'auth' && message.protocolVersion !== 17)
+      if (message.type === 'auth' && message.protocolVersion !== (service === '0.1.0' ? 29 : 17))
         send({ type: 'connection.error', code: 'version_mismatch', message: '版本不一致' });
       else if (message.type === 'auth') send({ type: 'ready', update: { state: 'idle' } });
       else if (message.type === 'service.update.check')
@@ -59,7 +59,8 @@ test('a service that cannot upgrade from here says why', async () => {
   const idle = (await upgrade('idle')).result;
   assert.match(idle.message, /没有找到/);
   assert.equal(idle.code, 'current');
-  assert.match((await upgrade('available', '0.1.0')).result.message, /太旧/);
+  assert.equal((await upgrade('available', '0.1.0')).received[0].protocolVersion, 29);
+  assert.match((await upgrade('available', '0.0.1')).result.message, /太旧/);
 });
 
 test('the install waits for a yes, and a no leaves the service as it is', async () => {

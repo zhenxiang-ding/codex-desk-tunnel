@@ -425,7 +425,7 @@ test("a downloaded package is used only when it matches the release's checksum",
   assert.deepEqual(fetched.body, body);
   assert.equal(
     asked[0],
-    'https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/codex-v0.3.9/SHA256SUMS',
+    'https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.3.9/SHA256SUMS',
   );
   await assert.rejects(
     download('0.3.9', { system: 'linux-x64', get: release(`${sum}  ${name}\n`, 'tampered') }),

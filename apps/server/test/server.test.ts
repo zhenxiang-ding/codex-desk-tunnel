@@ -1118,9 +1118,9 @@ test('a service that follows no releases says so and reports its version at sign
 test('the newest client installer is announced on sign-in and downloads only with the token', async (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'cc-desk-tunnel-test-'));
   mkdirSync(join(directory, 'client'));
-  writeFileSync(join(directory, 'client', 'CC-Desk-Tunnel-Setup-0.9.0-x64.exe'), 'old');
+  writeFileSync(join(directory, 'client', 'Codex-Desk-Tunnel-Setup-0.9.0-x64.exe'), 'old');
   writeFileSync(
-    join(directory, 'client', 'CC-Desk-Tunnel-Setup-0.10.1-x64.exe'),
+    join(directory, 'client', 'Codex-Desk-Tunnel-Setup-0.10.1-x64.exe'),
     'installer bytes',
   );
   writeFileSync(join(directory, 'client', 'notes.txt'), 'ignored');
@@ -1405,7 +1405,7 @@ test('the quota is the account’s: a new connection is handed what the service 
 
 test('clients connected before the installer for clients has arrived are told of it once it has', async (t) => {
   const version = serviceVersion();
-  const name = `CC-Desk-Tunnel-Setup-${version}-x64.exe`;
+  const name = `Codex-Desk-Tunnel-Setup-${version}-x64.exe`;
   const installer = Buffer.alloc(5000, 7);
   const sha256 = createHash('sha256').update(installer).digest('hex');
   // The release page holds the installer back until the client has connected.

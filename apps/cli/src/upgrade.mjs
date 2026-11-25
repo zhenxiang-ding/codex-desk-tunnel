@@ -7,7 +7,7 @@ import { packageName } from './runtime.mjs';
 
 const RELEASES = 'https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download';
 // The first release whose install script replaces a cxdt while it runs; an earlier one's would leave it half removed.
-export const FIRST_UPGRADABLE = '0.3.9';
+export const FIRST_UPGRADABLE = '0.1.0';
 
 // The cxdt package of a release for this system, checked against the release's SHA256SUMS as the server bundle is.
 export async function download(release, { system, get = fetch } = {}) {
@@ -19,7 +19,7 @@ export async function download(release, { system, get = fetch } = {}) {
   const fetched = async (file) => {
     let response;
     try {
-      response = await get(`${RELEASES}/codex-v${release}/${file}`, {
+      response = await get(`${RELEASES}/v${release}/${file}`, {
         signal: AbortSignal.timeout(300_000),
       });
     } catch (error) {

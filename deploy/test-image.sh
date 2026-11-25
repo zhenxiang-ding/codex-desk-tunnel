@@ -18,7 +18,7 @@ trap cleanup EXIT
 version="$(docker run --rm --entrypoint node "$IMAGE" -p "require('/app/apps/desktop/package.json').version")"
 docker run --rm --entrypoint bash "$IMAGE" -c '
   test ! -d /app/node_modules/electron
-  test -z "$(find /app /opt/runtime -type f \( -name "CC-Desk-Tunnel-Setup-*.exe" -o -name "*.dmg" -o -name "*.deb" \) -print -quit)"
+  test -z "$(find /app /opt/runtime -type f \( -name "Codex-Desk-Tunnel-Setup-*.exe" -o -name "*.dmg" -o -name "*.deb" \) -print -quit)"
   test -s /app/apps/server/web/index.html
 '
 manage init --host 127.0.0.1 --mode nginx --data "$TEMP/data" --control-port 19874

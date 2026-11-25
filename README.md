@@ -1,5 +1,7 @@
 # Codex Desk Tunnel
 
+当前正式版本为 **v0.1.0**。已部署的 Codex Desk Tunnel 0.3.20 开发版服务端可直接连接新版客户端。
+
 Codex CLI 在 Ubuntu VPS 上运行，通过 SSH 读写你选定的 Windows 项目。Windows 主动连接 VPS，项目文件留在本机。首次使用先部署 VPS，再安装 Windows 客户端。
 
 ## 1. 在 Ubuntu 24.04 VPS 安装服务端
@@ -26,7 +28,7 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/code
 
 ### 用桌面客户端连接
 
-1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/codex-v0.3.20-ui.1/Codex-Desk-Tunnel-Setup-0.3.20-x64.exe)，自带 OpenSSH、PowerShell 和 `cxdt`。
+1. 下载并运行 [Codex Desk Tunnel Windows x64 安装包（.exe）](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.0/Codex-Desk-Tunnel-Setup-0.1.0-x64.exe)，自带 OpenSSH、PowerShell 和 `cxdt`。
 2. 添加服务，粘贴 VPS 显示的服务地址和服务凭据。选了自签证书时，也填入对应的证书指纹。
 3. 连接后添加本机项目文件夹。创建或选中该项目的会话，在会话菜单选择 **打开 Codex 终端**，即可在桌面窗口内使用 VPS 上的 Codex。要在系统终端接着同一会话，选择 **用 cxdt 打开**。原作者的 0.3.20 客户端中，对应菜单叫 **用 ccdt 打开**。
 4. 在 Codex 终端输入“请通过 SSH 列出当前 Windows 项目的顶层文件，并报告项目路径”。核对结果是否与本机目录一致。
@@ -43,7 +45,7 @@ cxdt
 
 登录时选刚才保存的 VPS 服务，按提示输入服务凭据。如果从 PowerShell 进入项目，第一行用 `Set-Location E:\Codex_default`。
 
-只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/codex-v0.3.20-ui.1/cxdt-0.3.20-windows-x64.zip)，解压后在 `cxdt` 目录打开 PowerShell 并运行：
+只用命令行时，从发布页下载 [Windows x64 终端客户端 ZIP](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/download/v0.1.0/cxdt-0.1.0-windows-x64.zip)，解压后在 `cxdt` 目录打开 PowerShell 并运行：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1

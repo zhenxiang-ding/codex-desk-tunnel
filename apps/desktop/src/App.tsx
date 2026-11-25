@@ -43,7 +43,7 @@ import type {
   Session,
   SessionEvent,
 } from '@cc-desk-tunnel/protocol';
-import { FORCED_UPGRADE_SINCE, platformOf, projectOf, runWorking } from '@cc-desk-tunnel/protocol';
+import { supportsForcedUpgrade, platformOf, projectOf, runWorking } from '@cc-desk-tunnel/protocol';
 import { browserSession, browserSocket, watchActivity } from './browser-api.ts';
 import { CertificateWarning } from './WebGate.tsx';
 import { hostCapabilities } from './host-capabilities.ts';
@@ -500,14 +500,21 @@ export function App({
   const actionError = error instanceof RequestInterruptedError ? error.describe(connected) : error;
   const currentError = actionError ?? state.error;
   // Offered when the service holds a newer installer than the running client.
+  // Development builds identified themselves with the upstream version, on the same protocol.
+  const legacyService = !state.mismatch && state.service === '0.3.20' && version === '0.1.0';
   const upgrade =
-    selfUpdating && version && state.release && isNewer(state.release, version)
+    !legacyService && selfUpdating && version && state.release && isNewer(state.release, version)
       ? state.release
       : null;
   // A service newer than this client that holds no installer for it yet, as just after its own upgrade: the
   // release page has it. The service tells when its own arrives.
   const behind =
-    selfUpdating && version && state.service && isNewer(state.service, version) && !upgrade
+    !legacyService &&
+    selfUpdating &&
+    version &&
+    state.service &&
+    isNewer(state.service, version) &&
+    !upgrade
       ? state.service
       : null;
   const upgrading = useClientUpgrade(setError);
@@ -560,9 +567,7 @@ export function App({
       .slice(0, 3)
       .map((item) => `「${item.title}」`)
       .join('') + (sessions.length > 3 ? ` 等 ${sessions.length} 个会话` : '');
-  const forcible =
-    !!state.service &&
-    state.service.localeCompare(FORCED_UPGRADE_SINCE, undefined, { numeric: true }) >= 0;
+  const forcible = !!state.service && supportsForcedUpgrade(state.service);
   const serviceUpdate = !nativeMode
     ? null
     : update?.state === 'available'

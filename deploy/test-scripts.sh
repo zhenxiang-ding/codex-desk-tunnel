@@ -21,8 +21,8 @@ program() {
 release() {
   rm -rf "$TEMP/archive" "$MOCK_RELEASE"/*
   program "$TEMP/archive" "$1"
-  tar -czf "$MOCK_RELEASE/cc-desk-tunnel-server-$1.tar.gz" -C "$TEMP/archive" deploy apps
-  (cd "$MOCK_RELEASE" && sha256sum "cc-desk-tunnel-server-$1.tar.gz" | sed 's/ \*/  /' > SHA256SUMS)
+  tar -czf "$MOCK_RELEASE/codex-desk-tunnel-server-$1.tar.gz" -C "$TEMP/archive" deploy apps
+  (cd "$MOCK_RELEASE" && sha256sum "codex-desk-tunnel-server-$1.tar.gz" | sed 's/ \*/  /' > SHA256SUMS)
 }
 cat > "$TEMP/bin/docker" <<'MOCK'
 #!/usr/bin/env bash
@@ -51,7 +51,7 @@ while (($#)); do
 done
 file="$MOCK_RELEASE/${url##*/}"
 [[ "$url" == https://github.com/sun168567/cc-desk-tunnel/releases/* && -f "$file" ]] || exit 22
-version="$(ls "$MOCK_RELEASE" | sed -n 's/^cc-desk-tunnel-server-\(.*\)\.tar\.gz$/\1/p')"
+version="$(ls "$MOCK_RELEASE" | sed -n 's/^codex-desk-tunnel-server-\(.*\)\.tar\.gz$/\1/p')"
 [[ "$url" == */latest/download/* || "$url" == */download/v$version/* ]] || exit 22
 if [[ -n "$output" ]]; then cp "$file" "$output"; else cat "$file"; fi
 MOCK
@@ -148,7 +148,7 @@ test "$(image)" = old:1
 test ! -s "$MOCK_LOG"
 # An archive that does not match SHA256SUMS is not unpacked.
 release 1.3.0
-echo tampered >> "$MOCK_RELEASE/cc-desk-tunnel-server-1.3.0.tar.gz"
+echo tampered >> "$MOCK_RELEASE/codex-desk-tunnel-server-1.3.0.tar.gz"
 deployment 1.2.3 old:1
 if manage upgrade > /dev/null 2>&1; then echo 'A tampered archive was accepted.' >&2; exit 1; fi
 grep -q '"version": "1.2.3"' "$DEPLOYED/apps/desktop/package.json"
@@ -212,7 +212,7 @@ commit_source() {
   git -C "$source_repo" -c user.name=fixture -c user.email=fixture@example.org commit -qm fixture
 }
 commit_source
-git -C "$source_repo" tag codex-v0.3.20-ui.1
+git -C "$source_repo" tag v0.1.0
 # Use a real clone and fast-forward, with an isolated URL rewrite in place of the network.
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.file://$source_repo.insteadOf"
 export GIT_CONFIG_VALUE_0=https://github.com/zhenxiang-ding/codex-desk-tunnel.git

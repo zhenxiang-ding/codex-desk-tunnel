@@ -1,5 +1,7 @@
 # Codex Desk Tunnel
 
+The first official Codex Desk Tunnel release is **v0.1.0**.
+
 Run Codex CLI on an Ubuntu VPS and use it with projects on your computer over SSH. This adaptation builds on [CC Desk Tunnel](https://github.com/sun168567/cc-desk-tunnel) v0.3.20. Thank you to [sun168567](https://github.com/sun168567) and the upstream contributors for the desktop client, device tunnel, and terminal forwarding. The project retains the [Apache-2.0 license](LICENSE) and [original notices](NOTICE).
 
 The five upstream GitHub Actions workflows are preserved as [templates](.github/upstream-workflows).

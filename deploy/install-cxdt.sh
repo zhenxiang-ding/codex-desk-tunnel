@@ -4,7 +4,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install-cxdt.sh | sh
 #
 # It downloads the package of the newest release for this system, checks it against the release's SHA256SUMS and puts
-# it in place with the install script the package carries. No root is needed. CXDT_VERSION=0.3.20 takes that release
+# it in place with the install script the package carries. No root is needed. CXDT_VERSION=0.1.0 takes that release
 # instead, the one of the service; CXDT_DOWNLOAD_ONLY=1 only unpacks the checked package into the current directory.
 set -eu
 repository=zhenxiang-ding/codex-desk-tunnel
@@ -23,13 +23,18 @@ if [ -z "$version" ]; then
   version=$(curl -fsSL "https://api.github.com/repos/$repository/releases/latest" |
     sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
   if [ -z "$version" ]; then
-    echo "读不到最新的版本号；可以用 CXDT_VERSION 指定版本，例如 CXDT_VERSION=0.3.20。" >&2
+    echo "读不到最新的版本号；可以用 CXDT_VERSION 指定版本，例如 CXDT_VERSION=0.1.0。" >&2
     exit 1
   fi
 fi
+case "$version" in
+  v*|codex-v*) tag=$version ;;
+  0.3.20) tag=codex-v$version ;;
+  *) tag=v$version ;;
+esac
 version=${version#codex-}
 version=${version#v}
-base="https://github.com/$repository/releases/download/codex-v$version"
+base="https://github.com/$repository/releases/download/$tag"
 version=${version%-ui.*}
 name="cxdt-$version-$system.tar.gz"
 folder=$(mktemp -d)

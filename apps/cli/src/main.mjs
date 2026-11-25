@@ -2,7 +2,7 @@ import { appendFileSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { FORCED_UPGRADE_SINCE, projectOf } from '@cc-desk-tunnel/protocol';
+import { supportsForcedUpgrade, projectOf } from '@cc-desk-tunnel/protocol';
 import { upgradeService } from '../../desktop/electron/service-upgrade.mjs';
 import { Config, hostOf, sameService, serviceKey } from './config.mjs';
 import { Service, proxyFor } from './connection.mjs';
@@ -397,6 +397,10 @@ async function upgrade(config, values) {
     const service = await signIn(config, values);
     current = service.version;
     await service.close();
+    if (version === '0.1.0' && current === '0.3.20') {
+      say('当前 VPS 使用兼容的 0.3.20 开发版，cxdt 已是 0.1.0 正式版。');
+      return 0;
+    }
   } catch (error) {
     // A service of another release says which it is.
     if (error.code !== 'version_mismatch' || !error.service) throw error;
@@ -408,7 +412,7 @@ async function upgrade(config, values) {
     say(dim(`服务端是 ${current}，正在检查新版本……`));
     let installing = false;
     // Sessions at work hold the upgrade back; a service that can be forced past them is, when asked to.
-    const forcible = !older(current, FORCED_UPGRADE_SINCE);
+    const forcible = supportsForcedUpgrade(current);
     const attempt = (force) =>
       upgradeService(
         {

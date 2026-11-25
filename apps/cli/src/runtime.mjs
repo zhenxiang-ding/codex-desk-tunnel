@@ -57,4 +57,4 @@ export const packageName = (release, system = `${process.platform}-${process.arc
 };
 
 export const releasePage = (release) =>
-  `https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/tag/codex-v${release}`;
+  `https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/tag/v${release}`;

@@ -1,6 +1,6 @@
 import { ChevronDown, Download, Settings, SquareTerminal, Unplug, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { FORCED_UPGRADE_SINCE } from '@cc-desk-tunnel/protocol';
+import { supportsForcedUpgrade } from '@cc-desk-tunnel/protocol';
 import type { ClientUpgrade } from './client-upgrade.ts';
 import UpgradeProgress from './UpgradeProgress.tsx';
 import { thisDevice } from './device.ts';
@@ -169,9 +169,7 @@ export default function LoginPage({
             : {
                 phase: 'failed',
                 text: error ?? '服务端升级失败。',
-                forcible:
-                  code === 'busy' &&
-                  service.localeCompare(FORCED_UPGRADE_SINCE, undefined, { numeric: true }) >= 0,
+                forcible: code === 'busy' && supportsForcedUpgrade(service),
               },
         );
       })

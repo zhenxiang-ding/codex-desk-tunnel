@@ -4,7 +4,7 @@
 #
 # It downloads the Windows package of the newest release, checks it against the release's SHA256SUMS and puts it in
 # place with the install script the package carries, which adds cxdt to the user's PATH; this window can use it at
-# once. No administrator rights are needed. $env:CXDT_VERSION = '0.3.20' takes that release instead, the one of the
+# once. No administrator rights are needed. $env:CXDT_VERSION = '0.1.0' takes that release instead, the one of the
 # service; $env:CXDT_DOWNLOAD_ONLY = '1' only unpacks the checked package into the current folder.
 & {
   $ErrorActionPreference = 'Stop'
@@ -16,8 +16,9 @@
   if (-not $version) {
     $version = (Invoke-RestMethod "https://api.github.com/repos/$repository/releases/latest").tag_name
   }
-  $version = $version -replace '^(codex-)?v', ''
-  $base = "https://github.com/$repository/releases/download/codex-v$version"
+  $tag = if ($version -match '^(codex-)?v') { $version } elseif ($version -eq '0.3.20') { "codex-v$version" } else { "v$version" }
+  $base = "https://github.com/$repository/releases/download/$tag"
+  $version = $tag -replace '^(codex-)?v', ''
   # UI-only releases keep the same client/server compatibility version.
   $version = $version -replace '-ui\.[0-9]+$', ''
   $name = "cxdt-$version-windows-x64.zip"

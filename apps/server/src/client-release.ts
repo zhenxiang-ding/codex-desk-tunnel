@@ -3,7 +3,7 @@ import { createReadStream, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export type ClientRelease = { version: string; size: number; sha256: string; path: string };
-const installer = /^CC-Desk-Tunnel-Setup-(\d+)\.(\d+)\.(\d+)-x64\.exe$/;
+const installer = /^Codex-Desk-Tunnel-Setup-(\d+)\.(\d+)\.(\d+)-x64\.exe$/;
 
 // The Windows installers in the data directory, placed by an administrator or fetched with a release. Connected
 // clients are told the newest one's version and hash, and may download it with the service token. Only the

@@ -76,7 +76,7 @@ try {
 const alert = /^> \[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n(?:>.*(?:\n|$))*/gm;
 const alerts = section.match(alert)?.map((block) => block.trim()) ?? [];
 const body = section.replace(alert, '').replace(/\n{3,}/g, '\n\n');
-const repository = 'https://github.com/sun168567/cc-desk-tunnel';
+const repository = 'https://github.com/zhenxiang-ding/codex-desk-tunnel';
 const [
   installer,
   server,
@@ -92,7 +92,7 @@ const [
 // A file of this release, downloaded by following the link.
 const file = (name) => `${repository}/releases/download/${tag}/${name}`;
 const link = (words, name) => `[${words}](${file(name)})`;
-const raw = 'https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/main/deploy';
+const raw = 'https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy';
 // Every release reads the same way: how to get and upgrade to it first, each file a link that downloads it; then
 // what the project is, this version's section of the change log with its headings one level up, and where each
 // system stands. A preview carries the same text, so that making it the release later changes nothing a reader has
@@ -101,7 +101,7 @@ const notes = [
   ...alerts.flatMap((block) => [block, '']),
   '## 下载与升级',
   '',
-  '**图形客户端**是桌面应用，自带终端客户端 `cxdt`；只用终端时（例如没有图形界面的机器）单独下载 `cxdt`。`cxdt` 在自己的终端里使用原版 Claude Code，与图形客户端共用会话。都要与服务端同一版本。',
+  '**图形客户端**是桌面应用，自带终端客户端 `cxdt`；只用终端时（例如没有图形界面的机器）单独下载 `cxdt`。`cxdt` 在自己的终端里使用 Codex CLI，与图形客户端共用会话。都要与服务端同一版本。',
   '',
   '| | Windows | macOS（实验性） | Linux（实验性） |',
   '| --- | --- | --- | --- |',
@@ -121,7 +121,7 @@ const notes = [
   '```',
   '',
   '- **已在使用**：在图形客户端的“设置 → 关于与更新”里先升级服务端，再按提示升级客户端；图形客户端自带的 `cxdt` 随它升级；单独安装的 `cxdt` 运行 `cxdt upgrade`，服务端与它自己一起升级。',
-  `- **新部署服务端**：在服务器上用一条命令安装，见[快速开始](${repository}#快速开始)；镜像为 \`ghcr.io/sun168567/cc-desk-tunnel:${version}\`，${link('服务端程序包', server)}是安装和升级时下载的。`,
+  `- **新部署服务端**：在服务器上用一条命令安装，见[快速开始](${repository}#快速开始)；安装时在 VPS 上构建 Codex 镜像。${link('服务端程序包', server)}是安装和升级时下载的。`,
   `- **校验**：${link('SHA256SUMS', 'SHA256SUMS')} · ${link('release.json', 'release.json')}。Windows 安装包没有代码签名，SmartScreen 与杀毒软件的提示见[说明](${repository}/blob/main/docs/troubleshooting.md#杀毒软件与-smartscreen)。`,
   '',
   '---',
@@ -173,7 +173,7 @@ if (dryRun) {
       '--target',
       commit,
       '--title',
-      `CC Desk Tunnel ${version}`,
+      `Codex Desk Tunnel ${version}`,
       '--notes-file',
       join(output, 'notes.md'),
     ]).trim();
