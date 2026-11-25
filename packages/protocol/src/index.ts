@@ -4,11 +4,12 @@ import { webCertificateStateSchema } from './web-certificate.ts';
 export * from './web.ts';
 export * from './web-certificate.ts';
 
-export const PROTOCOL_VERSION = 29;
+export const PROTOCOL_VERSION = 30;
 // The release each protocol version began with, from 0.2.4 on: a client newer than its service signs in with
 // the service's number to have it upgrade (see the README). A new number adds its line here.
 export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
   '0.1.0': 29, // Codex Desk Tunnel's first release.
+  '0.1.1': 30,
   '0.2.4': 10,
   '0.2.6': 11,
   '0.2.9': 12,
@@ -88,8 +89,16 @@ export const nativeAccountSchema = z.object({
   apiKeySource: z.string().optional(),
   tokenSource: z.string().optional(),
 });
+const codexLimitWindow = z
+  .object({
+    usedPercent: z.number(),
+    windowDurationMins: z.number().nullish(),
+    resetsAt: z.number().nullish(),
+  })
+  .nullish();
 export const accountStateSchema = z.object({
   loggedIn: z.boolean(),
+  codexLimits: z.object({ primary: codexLimitWindow, secondary: codexLimitWindow }).optional(),
   authMethod: z.string().optional(),
   email: z.string().optional(),
   organization: z.string().optional(),
@@ -99,7 +108,11 @@ export const accountStateSchema = z.object({
   loginExpiresAt: z.string().optional(),
   // Present while the official sign-in command waits for the code shown after browser authorization.
   login: z
-    .object({ url: z.url(), method: z.enum(['browser', 'setup-token']).optional() })
+    .object({
+      url: z.url(),
+      deviceCode: z.string().optional(),
+      method: z.enum(['browser', 'setup-token']).optional(),
+    })
     .nullable(),
   notice: z.string().optional(),
 });
@@ -996,6 +1009,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     protocolVersion: z.literal(PROTOCOL_VERSION),
     connectionId: id,
     adapter: z.enum(['simulation', 'claude-code']),
+    accountProvider: z.literal('codex').optional(),
     model: z.string().optional(),
     // The service's own release version, and where it stands against the published releases if it follows them.
     version: versionSchema,

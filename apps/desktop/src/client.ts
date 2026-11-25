@@ -146,6 +146,7 @@ export type ClientState = {
   selectedId: string | null;
   error: string | null;
   adapter: 'simulation' | 'claude-code';
+  accountProvider?: 'codex';
   // The Windows installer version the service offers, if any.
   release: string | null;
   // The service's version and where it stands against the published releases, if it follows them.
@@ -523,6 +524,7 @@ export class ProxyClient {
           selectedId,
           error: null,
           adapter: message.adapter,
+          accountProvider: message.accountProvider,
           release: message.client?.version ?? null,
           service: message.version,
           update: message.update ?? null,
@@ -703,6 +705,7 @@ export class ProxyClient {
       clearTimeout(timeout);
       if (this.socket !== socket) return;
       this.socket = null;
+      if (this.state.accountProvider === 'codex') this.update({ account: null });
       if (credentials.browser && event.code === 4001) {
         this.credentials = null;
         credentials.browser();
@@ -759,7 +762,13 @@ export class ProxyClient {
     socket?.close();
     this.rejectPending();
     this.retryAttempt = 0;
-    this.update({ status: 'disconnected', connectionId: null, setupToken: null });
+    this.update({
+      status: 'disconnected',
+      connectionId: null,
+      setupToken: null,
+      account: null,
+      accountProvider: undefined,
+    });
   }
   private rejectPending() {
     for (const [requestId, request] of this.pending) {

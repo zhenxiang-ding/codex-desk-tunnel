@@ -19,7 +19,7 @@ for (const file of ['openssh/sshd.exe', 'openssh/ssh-keygen.exe', 'pwsh/pwsh.exe
     throw new Error(`Missing bundled component: ${file}. Run npm run prepare:windows:package.`);
 }
 await stageDesktop(root, app, {
-  description: 'Windows client for a native remote Claude Code session',
+  description: 'Codex Desk Tunnel client for remote Codex CLI sessions',
   files: ['prepare-ssh.ps1', 'component-host.ps1'],
 });
 // cxdt comes with the client, as its own package has it: the same cxdt.mjs, Node and launchers, with the OpenSSH and

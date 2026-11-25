@@ -1,3 +1,4 @@
+import { SshKeySetup } from './SshKeySetup.tsx';
 import { ChevronDown, Download, Settings, SquareTerminal, Unplug, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { supportsForcedUpgrade } from '@cc-desk-tunnel/protocol';
@@ -404,6 +405,7 @@ export default function LoginPage({
             </button>
           )}
         </form>
+        <SshKeySetup />
         <div className="login-links">
           {openSettings && (
             <button className="project-link" type="button" onClick={openSettings}>

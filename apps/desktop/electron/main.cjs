@@ -360,7 +360,11 @@ handle('external:open', async (event, target) => {
   const url = new URL(String(target));
   if (
     url.protocol !== 'https:' ||
-    !/(^|\.)(claude\.com|claude\.ai|anthropic\.com)$|^github\.com$/.test(url.hostname)
+    !(
+      url.origin === 'https://auth.openai.com' ||
+      url.origin === 'https://chatgpt.com' ||
+      /(^|\.)(claude\.com|claude\.ai|anthropic\.com)$|^github\.com$/.test(url.hostname)
+    )
   )
     throw new Error('Unexpected link');
   await shell.openExternal(url.toString());

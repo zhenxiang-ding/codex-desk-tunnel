@@ -1,4 +1,5 @@
 import { randomUUID, createHash, timingSafeEqual } from 'node:crypto';
+import { CodexAccount } from './codex-account.ts';
 import { codexTerminal } from './codex-terminal.ts';
 import {
   createReadStream,
@@ -306,6 +307,12 @@ export function createProxyServer(options: ServerOptions) {
   armCompactions();
   const graceMs = options.graceMs ?? (options.claude ? 300_000 : 0);
   let login: Login | undefined;
+  const codexAccount =
+    options.terminalRuntime === 'codex'
+      ? new CodexAccount((notice) => {
+          if (!closing) track(publishAccount(undefined, notice).catch(() => {}));
+        })
+      : undefined;
   // Each run or terminal is a CLI process that keeps some 250 MB; more of them than the memory holds would
   // take the machine down, and every one of them with it.
   const capacity =
@@ -835,6 +842,14 @@ export function createProxyServer(options: ServerOptions) {
   }
 
   async function publishAccount(target?: Peer, notice?: string) {
+    if (codexAccount) {
+      const state = await codexAccount.state(target, true);
+      if (closing) return;
+      const message = { type: 'account.state', ...state, notice } as const;
+      if (target) send(target, message);
+      else for (const peer of peers) if (peer.authenticated && !peer.browser) send(peer, message);
+      return;
+    }
     const { accountStatus } = await import('./native-account.ts');
     const state: AccountState = {
       ...(await accountStatus(options.claude!.executable)),
@@ -845,11 +860,35 @@ export function createProxyServer(options: ServerOptions) {
     else broadcast({ type: 'account.state', ...state });
   }
   async function account(peer: Peer, command: CommandOf<`account.${string}` & Command['type']>) {
-    if (!options.claude) throw new DomainError('native_unavailable', '离线模拟没有原生账号。');
+    if (!options.claude && !codexAccount)
+      throw new DomainError('native_unavailable', '离线模拟没有原生账号。');
     if (command.type === 'account.status') {
       await publishAccount(peer);
       return;
     }
+    if (codexAccount) {
+      if (command.type === 'account.login' && (!command.method || command.method === 'browser')) {
+        await codexAccount.begin(peer).catch(() => {
+          throw new DomainError(
+            'codex_auth',
+            '无法开始 Codex 设备登录。请检查是否已有登录正在进行、VPS 是否能访问 OpenAI，以及 ChatGPT 安全设置是否允许设备码登录。',
+          );
+        });
+      } else if (command.type === 'account.cancel') {
+        codexAccount.cancel(peer);
+      } else if (command.type === 'account.logout') {
+        if (terminals.size || runs.size || mutations.size)
+          throw new DomainError('native_busy', '请先结束运行中的终端或任务。');
+        await codexAccount.logout();
+        await publishAccount();
+        return;
+      } else {
+        throw new DomainError('codex_auth', '请在 OpenAI 授权页输入服务端显示的设备码。');
+      }
+      await publishAccount(peer);
+      return;
+    }
+    if (!options.claude) throw new DomainError('native_unavailable', '当前服务没有配置原生 CLI。');
     if (command.type === 'account.code') {
       if (!login?.url) throw new DomainError('login_inactive', '登录流程已结束，请重新获取链接。');
       login.process.submit(command.code);
@@ -1987,6 +2026,7 @@ export function createProxyServer(options: ServerOptions) {
         protocolVersion: PROTOCOL_VERSION,
         connectionId: peer.id,
         adapter,
+        accountProvider: codexAccount ? 'codex' : undefined,
         model: options.claude?.model,
         version,
         sessions: store.list(),
@@ -2043,6 +2083,7 @@ export function createProxyServer(options: ServerOptions) {
       protocolVersion: PROTOCOL_VERSION,
       connectionId: peer.id,
       adapter,
+      accountProvider: codexAccount ? 'codex' : undefined,
       model: options.claude?.model,
       version,
       update: updates?.state,
@@ -2288,6 +2329,7 @@ export function createProxyServer(options: ServerOptions) {
   function release(peer: Peer) {
     peers.delete(peer);
     peer.history?.cancel();
+    codexAccount?.cancel(peer);
     if (login?.owner === peer) login.process.cancel();
     for (const terminal of terminals.values())
       if (terminal.owner !== peer) continue;
@@ -2540,6 +2582,7 @@ export function createProxyServer(options: ServerOptions) {
     },
     async close() {
       closing = true;
+      codexAccount?.stop();
       web.close();
       updates?.stop();
       login?.process.cancel();

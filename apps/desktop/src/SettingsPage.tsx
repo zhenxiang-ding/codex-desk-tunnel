@@ -919,6 +919,7 @@ export default function SettingsPage({
   client,
   section,
   indexOnly = false,
+  codex = false,
   go,
   native,
   account,
@@ -946,6 +947,7 @@ export default function SettingsPage({
   client: ProxyClient;
   section: Section;
   indexOnly?: boolean;
+  codex?: boolean;
   go: (section: Section) => void;
   native: boolean;
   // The account page is rendered by the caller, which owns its data.
@@ -973,6 +975,7 @@ export default function SettingsPage({
     .filter(
       (item) =>
         (!back || item.group === '本机') &&
+        (!codex || !['context', 'claude', 'instructions'].includes(item.id)) &&
         (item.id !== 'connection' || window.desktop) &&
         (item.id !== 'install' ||
           (browser && /Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent))) &&
@@ -1008,7 +1011,9 @@ export default function SettingsPage({
           {shown.map((item, index) => (
             <div key={item.id}>
               {item.group !== shown[index - 1]?.group && (
-                <div className="list-heading">{item.group}</div>
+                <div className="list-heading">
+                  {codex && item.group === 'Claude Code' ? 'Codex CLI' : item.group}
+                </div>
               )}
               <button
                 type="button"
@@ -1036,7 +1041,8 @@ export default function SettingsPage({
       </aside>
       <main className="workspace">
         <PageHelp.Provider value={back ? null : (pageHelp[section] ?? 'settings')}>
-          {indexOnly ? null : section === 'account' ? (
+          {indexOnly ? null : section === 'account' ||
+            (codex && ['context', 'claude', 'instructions'].includes(section)) ? (
             account
           ) : section === 'claude' ? (
             native ? (

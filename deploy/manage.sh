@@ -379,7 +379,7 @@ case "$command" in
       write_var PROXY_CERT_NAME "$CERT_NAME"
       write_var PROXY_DATA_DIR /data/state
       write_var PROXY_TERMINAL_RUNTIME codex
-      write_var PROXY_RELEASE_REPO none
+      write_var PROXY_RELEASE_REPO zhenxiang-ding/codex-desk-tunnel
       write_var CLAUDE_CONTEXT_RETENTION_DAYS 3650
       write_var CLAUDE_SETTINGS_PATH /data/config/provider.json
     } > "$DATA_DIR/config/service.env"

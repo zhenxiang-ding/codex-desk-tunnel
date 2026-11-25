@@ -47,6 +47,7 @@ import { supportsForcedUpgrade, platformOf, projectOf, runWorking } from '@cc-de
 import { browserSession, browserSocket, watchActivity } from './browser-api.ts';
 import { CertificateWarning } from './WebGate.tsx';
 import { hostCapabilities } from './host-capabilities.ts';
+import CodexAccountPanel from './CodexAccountPanel.tsx';
 import AccountPanel from './AccountPanel.tsx';
 import { QuotaSummary } from './QuotaSummary.tsx';
 import { ProxyClient, RequestInterruptedError } from './client.ts';
@@ -280,6 +281,7 @@ export function App({
   const [repointProject, setRepointProject] = useState<string | null>(null);
 
   const nativeMode = state.adapter === 'claude-code';
+  const codexMode = state.accountProvider === 'codex';
   const connected = state.status === 'connected';
   const selfSigned = !!browser && (state.browser?.selfSigned ?? browser.selfSigned);
   const othersBusy = useShared('busy');
@@ -747,14 +749,19 @@ export function App({
     void refreshStatus(selected.id);
   }, [nativeMode, selected?.id, connected, history?.loading, selected?.activeRun, anyChat]);
   useEffect(() => {
-    if (nativeMode && connected) void client.request({ type: 'account.status' }).catch(() => {});
-  }, [nativeMode, connected, accountOpen]);
+    if (nativeMode && connected && !(codexMode && inBrowser))
+      void client.request({ type: 'account.status' }).catch(() => {
+        if (codexMode && accountOpen)
+          setError('读取 VPS 上的 Codex 登录状态失败。请检查服务端的 Codex CLI 后点击刷新。');
+      });
+  }, [nativeMode, codexMode, connected, inBrowser, accountOpen]);
   // The browser has no local sessions; before it opens a conversation it shows the quota the service holds, as the
   // desktop account page does. Only the refresh button asks the service to read it anew.
   useEffect(() => {
     if (!connected || signedOut) quotaPrimed.current = null;
     if (
       !inBrowser ||
+      codexMode ||
       !nativeMode ||
       !connected ||
       (selected && !accountOpen) ||
@@ -782,13 +789,14 @@ export function App({
   ]);
   // The service's idle compaction setting decides which reminder a session shows.
   useEffect(() => {
-    if (nativeMode && connected) void client.request({ type: 'compaction.get' }).catch(() => {});
-  }, [nativeMode, connected]);
+    if (!codexMode && nativeMode && connected)
+      void client.request({ type: 'compaction.get' }).catch(() => {});
+  }, [codexMode, nativeMode, connected]);
   // Each connection tells the service anew whether this client wants the quota kept current.
   useEffect(() => {
-    if (nativeMode && connected)
+    if (!codexMode && nativeMode && connected)
       void client.request({ type: 'quota.watch', active: prefs.quotaReads }).catch(() => {});
-  }, [nativeMode, connected, prefs.quotaReads]);
+  }, [codexMode, nativeMode, connected, prefs.quotaReads]);
   useEffect(() => {
     if (
       !accountOpen ||
@@ -976,7 +984,7 @@ export function App({
     quota = false,
     reportError: (error: string | RequestInterruptedError) => void = setError,
   ) {
-    if (!sessionId || statusPending.current) return;
+    if (codexMode || !sessionId || statusPending.current) return;
     statusPending.current = true;
     setRefreshing(true);
     try {
@@ -1475,7 +1483,7 @@ export function App({
       ],
     }));
   }
-  const adapterName = nativeMode ? 'Claude Code' : 'Simulation';
+  const adapterName = codexMode ? 'Codex CLI' : nativeMode ? 'Claude Code' : 'Simulation';
   const accountName = signedOut
     ? '未登录'
     : (state.account?.email ?? capabilities?.account.email ?? (nativeMode ? '账号' : '离线模拟'));
@@ -1532,7 +1540,9 @@ export function App({
             label: `账号 · ${accountName}`,
             icon: <UserRound />,
             detail: signedOut
-              ? '点击登录 Claude 账号'
+              ? codexMode
+                ? '点击登录 Codex 账号'
+                : '点击登录 Claude 账号'
               : (state.account?.subscriptionType ??
                 capabilities?.account.subscriptionType ??
                 '账号与额度'),
@@ -1755,7 +1765,7 @@ export function App({
       <QuotaSummary
         quota={quota}
         connected={connected}
-        emptyMessage={signedOut ? '尚未登录 Claude' : undefined}
+        emptyMessage={signedOut ? (codexMode ? '尚未登录 Codex' : '尚未登录 Claude') : undefined}
         onOpen={() => open('settings', 'account')}
       />
     ) : undefined;
@@ -1841,26 +1851,36 @@ export function App({
           adapterName={adapterName}
           updates={host.serviceManagement ? updates : []}
           showNotes={setNotes}
+          codex={codexMode}
           account={
-            <AccountPanel
-              client={client}
-              usageOnly={!!browser}
-              quotaUnavailable={
-                inBrowser && !state.sessions.length ? '开始会话后可读取额度' : undefined
-              }
-              account={nativeMode ? state.account : null}
-              capabilities={signedOut ? null : capabilities}
-              quota={quota}
-              refreshing={refreshing}
-              disabled={
-                !state.sessions.length || !connected || refreshing || (inBrowser && signedOut)
-              }
-              error={inBrowser ? quotaError : currentError}
-              refresh={() => {
-                if (inBrowser) refreshQuota();
-                else void refreshStatus(undefined, true);
-              }}
-            />
+            codexMode ? (
+              <CodexAccountPanel
+                account={state.account}
+                client={client}
+                connected={connected}
+                browser={inBrowser}
+              />
+            ) : (
+              <AccountPanel
+                client={client}
+                usageOnly={!!browser}
+                quotaUnavailable={
+                  inBrowser && !state.sessions.length ? '开始会话后可读取额度' : undefined
+                }
+                account={nativeMode ? state.account : null}
+                capabilities={signedOut ? null : capabilities}
+                quota={quota}
+                refreshing={refreshing}
+                disabled={
+                  !state.sessions.length || !connected || refreshing || (inBrowser && signedOut)
+                }
+                error={inBrowser ? quotaError : currentError}
+                refresh={() => {
+                  if (inBrowser) refreshQuota();
+                  else void refreshStatus(undefined, true);
+                }}
+              />
+            )
           }
         />
       ) : place.page === 'help' ? (
@@ -2108,7 +2128,7 @@ export function App({
                 <p>设备“{selected.device?.name ?? '未知设备'}”未连接，当前只能查看会话。</p>
               </div>
             )}
-            {nativeMode && selected && !selected.activeRun && (!away || remote) && (
+            {!codexMode && nativeMode && selected && !selected.activeRun && (!away || remote) && (
               <IdleReminder
                 events={events}
                 settings={state.compaction}
@@ -2122,7 +2142,29 @@ export function App({
                 }}
               />
             )}
-            {selected && (!away || remote) && (
+            {codexMode && selected && (!away || remote) && (
+              <div className="card account-card">
+                {signedOut ? (
+                  <button className="button primary" onClick={() => open('settings', 'account')}>
+                    登录 Codex
+                  </button>
+                ) : host.terminalClient ? (
+                  <button
+                    className="button primary"
+                    disabled={
+                      !connected ||
+                      (!!selected.activeRun && selected.activeRun.surface !== 'terminal')
+                    }
+                    onClick={() => setCodexSession(selected)}
+                  >
+                    进入 Codex 终端
+                  </button>
+                ) : (
+                  <p>请使用桌面客户端或 cxdt 进入 Codex 终端。</p>
+                )}
+              </div>
+            )}
+            {!codexMode && selected && (!away || remote) && (
               <Composer
                 openAccount={() => open('settings', 'account')}
                 session={selected}
