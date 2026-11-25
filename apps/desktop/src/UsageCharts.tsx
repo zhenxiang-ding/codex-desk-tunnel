@@ -6,7 +6,7 @@ type Kinds = Pick<
   Bucket,
   'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'cacheCreationTokens'
 >;
-const kinds = [
+const allKinds = [
   ['inputTokens', '输入'],
   ['outputTokens', '输出'],
   ['cacheReadTokens', '缓存读取'],
@@ -50,14 +50,17 @@ function path(values: (number | null)[], top: number, height: number) {
 // Tokens by kind over time and, below on the same time axis, how much of the prompt came from the cache. They
 // are two plots because they are two scales.
 export function TokenTrend({
+  codex = false,
   buckets,
   label,
   format,
 }: {
+  codex?: boolean;
   buckets: Bucket[];
   label: (at: string) => string;
   format: (value: number) => string;
 }) {
+  const kinds = codex ? allKinds.slice(0, 3) : allKinds;
   const [hover, setHover] = useState<number | null>(null);
   const top = ceiling(Math.max(...buckets.flatMap((item) => kinds.map(([key]) => item[key])), 0));
   const rates = buckets.map(cacheHitRate);
@@ -145,7 +148,7 @@ export function TokenTrend({
       </div>
       <figcaption className="usage-second">
         <span>缓存命中率</span>
-        <small>缓存读取 ÷（输入 + 缓存读取 + 缓存写入）</small>
+        <small>{codex ? '缓存读取 ÷ 总输入' : '缓存读取 ÷（输入 + 缓存读取 + 缓存写入）'}</small>
       </figcaption>
       <div
         className="usage-lines usage-rate"
@@ -186,10 +189,12 @@ export function TokenTrend({
 // range cost nothing.
 export function ModelBreakdown({
   models,
+  codex = false,
   tokens,
   dollars,
 }: {
   models: UsagePage['byModel'];
+  codex?: boolean;
   tokens: (value: number) => string;
   dollars: (value: number) => string;
 }) {
@@ -209,7 +214,7 @@ export function ModelBreakdown({
             <th>请求数</th>
             <th>Token</th>
             <th>缓存命中率</th>
-            <th>等价费用</th>
+            {!codex && <th>等价费用</th>}
           </tr>
         </thead>
         <tbody>
@@ -227,7 +232,7 @@ export function ModelBreakdown({
                 <td>{item.requests.toLocaleString('zh-CN')}</td>
                 <td>{tokens(sum(item))}</td>
                 <td>{percent(cacheHitRate(item))}</td>
-                <td>{dollars(item.costUsd)}</td>
+                {!codex && <td>{dollars(item.costUsd)}</td>}
               </tr>
             );
           })}

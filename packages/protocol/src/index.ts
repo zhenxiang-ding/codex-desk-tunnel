@@ -4,7 +4,7 @@ import { webCertificateStateSchema } from './web-certificate.ts';
 export * from './web.ts';
 export * from './web-certificate.ts';
 
-export const PROTOCOL_VERSION = 32;
+export const PROTOCOL_VERSION = 33;
 // The release each protocol version began with, from 0.2.4 on: a client newer than its service signs in with
 // the service's number to have it upgrade (see the README). A new number adds its line here.
 export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
@@ -12,6 +12,7 @@ export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
   '0.1.1': 30,
   '0.1.2': 31,
   '0.1.3': 32,
+  '0.1.6': 33,
   '0.2.4': 10,
   '0.2.6': 11,
   '0.2.9': 12,
@@ -440,6 +441,8 @@ export const eventPayloadSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('codex.usage'),
+    model: z.string().optional(),
+    threadId: z.string().optional(),
     total: codexTokensSchema,
     last: codexTokensSchema,
     window: z.number().int().positive().nullable(),

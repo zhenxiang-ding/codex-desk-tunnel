@@ -3,8 +3,6 @@ import type { MenuPosition } from './ui.tsx';
 
 export type Page = 'chat' | 'schedules' | 'settings' | 'help';
 
-// The narrow column of pages at the window's left edge. The update button is there only when there is
-// something to install.
 export default function Rail({
   page,
   schedules = true,

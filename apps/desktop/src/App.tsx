@@ -624,8 +624,8 @@ export function App({
                 update?.state === 'checking'
                   ? '正在检查更新…'
                   : update?.state === 'idle' && update.checkedAt
-                    ? `已是最新 ${state.service} · 再次检查`
-                    : '检查更新',
+                    ? `服务端已是最新 ${state.service} · 再次检查`
+                    : '检查服务端更新',
               icon: <RefreshCw />,
               disabled: busy || update?.state === 'checking',
               run: () => {
@@ -1498,6 +1498,10 @@ export function App({
     ? '未登录'
     : (state.account?.email ?? capabilities?.account.email ?? (nativeMode ? '账号' : '离线模拟'));
   // The client's upgrade, from the service or the release page; while one runs, how it goes and a way to stop it.
+  const githubClient =
+    selfUpdating && version && update?.latest && isNewer(update.latest, version)
+      ? update.latest
+      : null;
   const upgradeItems: MenuItem[] = upgrading.step
     ? [
         { label: upgrading.text!, icon: <Download />, disabled: true, run: () => undefined },
@@ -1505,7 +1509,7 @@ export function App({
           ? [{ label: '取消客户端升级', icon: <X />, run: upgrading.cancel }]
           : []),
       ]
-    : [upgrade, behind]
+    : [upgrade, behind ?? (githubClient !== upgrade ? githubClient : null)]
         .filter((target): target is string => !!target)
         .map((target) => ({
           label: `${target === upgrade ? '升级客户端到' : '从 GitHub 下载并升级到'} ${target}${working.length ? `（${working.length} 个会话正在运行）` : ''}`,
@@ -1530,9 +1534,26 @@ export function App({
         ]
       : []),
     ...upgradeItems,
+    ...(codexMode && selfUpdating && !upgradeItems.length && serviceUpdate
+      ? [
+          {
+            label:
+              (update?.checkedAt && update.state === 'idle'
+                ? '客户端已是最新 · 再次检查'
+                : '检查客户端更新') + (version ? ' · ' + version : ''),
+            icon: <RefreshCw />,
+            disabled: busy || !connected || update?.state === 'checking',
+            run: () => {
+              asked.current = true;
+              void act(async () => {
+                await client.request({ type: 'service.update.check' });
+              });
+            },
+          },
+        ]
+      : []),
     ...(serviceUpdate ? [serviceUpdate] : []),
   ];
-  // The rail shows its button only for an update that exists, not for the standing offer to look for one.
   const pendingUpdate =
     upgrading.text ??
     (upgrade || behind
@@ -1831,7 +1852,11 @@ export function App({
           if (narrow() && page === 'chat') changeSide(true);
         }}
         schedules={host.schedules}
-        update={host.serviceManagement ? pendingUpdate : null}
+        update={
+          host.serviceManagement
+            ? (pendingUpdate ?? (connected && codexMode ? '客户端与服务端更新' : null))
+            : null
+        }
         openUpdate={(position) => setMenu({ kind: 'update', ...position })}
         openSettings={(position) =>
           narrow()

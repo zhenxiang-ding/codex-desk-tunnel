@@ -1,3 +1,4 @@
+import { memoryPreference } from './codex-account.ts';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
@@ -62,7 +63,9 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
     if (!child.stdin.destroyed && !child.stdin.writableEnded)
       child.stdin.write(JSON.stringify(frame) + '\n');
   };
-  let config: Partial<CodexConfig> = {};
+  let config: Partial<CodexConfig> & { features?: { memories?: boolean } } = {};
+  let model: string | undefined;
+  let memoryDefault = false;
   const pending = new Map<number, { method: string; timer: ReturnType<typeof setTimeout> }>();
   let seq = 0,
     thread = chat.thread,
@@ -199,9 +202,12 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             cwd: runtime.cwd,
             developerInstructions: runtime.instructions,
             model: chat.choice?.model ?? config.model ?? undefined,
-            config: config.model_auto_compact_token_limit
-              ? { model_auto_compact_token_limit: config.model_auto_compact_token_limit }
-              : undefined,
+            config: {
+              ...(memoryDefault && { 'features.memories': true }),
+              ...(config.model_auto_compact_token_limit && {
+                model_auto_compact_token_limit: config.model_auto_compact_token_limit,
+              }),
+            },
             sandbox: config.sandbox_mode === 'read-only' ? 'read-only' : 'workspace-write',
             approvalPolicy:
               chat.choice?.approval === 'auto_review'
@@ -220,6 +226,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             break;
           case 'config/read':
             config = result.config;
+            memoryDefault = memoryPreference(result) === null;
             if (thread) open();
             else
               request('thread/list', {
@@ -237,6 +244,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
           }
           case 'thread/start':
           case 'thread/resume':
+            model = result.model ?? chat.choice?.model ?? config.model ?? undefined;
             thread = result.thread.id;
             if (!thread || !/^[a-f0-9-]{36}$/i.test(thread))
               throw new Error('Codex 返回的会话 ID 无效。');
@@ -290,6 +298,9 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
               text: p.delta.slice(i, i + 8192),
             });
           break;
+        case 'model/rerouted':
+          if (typeof p.toModel === 'string') model = p.toModel;
+          break;
         case 'thread/tokenUsage/updated': {
           const value = codexTokensSchema.safeParse(p.tokenUsage?.total);
           if (value.success) {
@@ -298,6 +309,8 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             if (last.success)
               emit({
                 type: 'codex.usage',
+                model,
+                threadId: thread,
                 total: value.data,
                 last: last.data,
                 window: p.tokenUsage.modelContextWindow ?? null,

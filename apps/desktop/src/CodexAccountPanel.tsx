@@ -5,7 +5,8 @@ import type { ProxyClient } from './client.ts';
 import { CopyButton } from './copy.tsx';
 import { UserRound, ListOrdered, LogOut, RefreshCw } from 'lucide-react';
 import { usePrefs, setPrefs } from './prefs.ts';
-import type { CodexTokens } from '@cc-desk-tunnel/protocol';
+import type { UsageSummary } from '@cc-desk-tunnel/protocol';
+import UsagePanel, { tokens } from './UsagePanel.tsx';
 import { Page, Row, Switch } from './ui.tsx';
 
 export default function CodexAccountPanel({
@@ -22,19 +23,23 @@ export default function CodexAccountPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const { quotaReads } = usePrefs();
-  const [log, setLog] = useState(false),
-    [usage, setUsage] = useState<{
-      sessions: number;
-      totals: CodexTokens;
-      recent?: { at: string; session: string; tokens: CodexTokens }[];
-    } | null>(null);
+  const [log, setLog] = useState(false);
+  const identity = JSON.stringify([
+    account?.email,
+    account?.organization,
+    account?.subscriptionType,
+  ]);
+  const [reading, setReading] = useState<{ identity: string; value: UsageSummary } | null>(null);
+  const summary = reading?.identity === identity ? reading.value : null;
   useEffect(() => {
     let active = true;
-    setUsage(null);
-    if (!log || !connected || browser) return;
-    client.fetch({ type: 'codex.usage.get', recent: true }).then(
-      (v) => {
-        if (active) setUsage(v);
+    if (!connected || browser || !account?.loggedIn) {
+      setReading(null);
+      return;
+    }
+    client.fetch({ type: 'usage.summary' }).then(
+      (value) => {
+        if (active) setReading({ identity, value });
       },
       (e) => {
         if (active) setError(e.message);
@@ -43,7 +48,7 @@ export default function CodexAccountPanel({
     return () => {
       active = false;
     };
-  }, [log, connected, browser, client, account?.codexLimitsAt]);
+  }, [connected, browser, client, account, identity, log]);
   async function run(
     command: Extract<
       Command,
@@ -64,6 +69,23 @@ export default function CodexAccountPanel({
   const limits = [account?.codexLimits?.primary, account?.codexLimits?.secondary].filter(
     (w) => !!w,
   );
+  const durations = [
+    ...new Set([
+      ...(account?.subscriptionType?.toLowerCase() === 'plus' ? [300, 10080] : []),
+      ...limits.map((w) => w.windowDurationMins ?? 0),
+      ...(summary?.windows.map((w) => (w.name === 'five_hour' ? 300 : 10080)) ?? []),
+    ]),
+  ].sort((a, b) => a - b);
+  if (log && connected && !browser && account?.loggedIn)
+    return (
+      <UsagePanel
+        codex
+        client={client}
+        summary={summary}
+        initial="today"
+        back={() => setLog(false)}
+      />
+    );
   return (
     <Page
       title="账号与额度"
@@ -199,32 +221,54 @@ export default function CodexAccountPanel({
                   onClick={() => setLog(!log)}
                 >
                   <ListOrdered />
-                  用量记录
+                  调用日志
                 </button>
               </div>
               <div className="settings-list card">
-                {limits.length ? (
-                  limits.map((w, i) => {
-                    const mins = w.windowDurationMins;
+                {durations.length ? (
+                  durations.map((mins) => {
+                    const w = limits.find((w) => (w.windowDurationMins ?? 0) === mins);
                     const name =
                       mins === 10080
                         ? '每周额度'
                         : mins && mins % 60 === 0
-                          ? Math.round(mins / 60) + ' 小时额度'
+                          ? mins / 60 + ' 小时额度'
                           : mins
                             ? mins + ' 分钟额度'
                             : '订阅额度';
+                    const period = summary?.windows.find(
+                      (p) =>
+                        p.name === (mins === 300 ? 'five_hour' : mins === 10080 ? 'seven_day' : ''),
+                    );
+                    const reset = w?.resetsAt
+                      ? new Date(w.resetsAt * 1000)
+                      : period?.resetsAt
+                        ? new Date(period.resetsAt)
+                        : null;
+                    const used =
+                      reset && reset.getTime() <= Date.now()
+                        ? null
+                        : (w?.usedPercent ?? period?.utilization);
                     return (
-                      <div key={i} className="quota-row">
+                      <div className="quota-row" key={mins}>
                         <div>
                           <strong>{name}</strong>
                           <span>
-                            {w.usedPercent}% 已用 · {Math.max(0, 100 - w.usedPercent)}% 剩余
+                            {used == null
+                              ? '等待 Codex 上报'
+                              : used + '% 已用 · ' + Math.max(0, 100 - used) + '% 剩余'}
                           </span>
                         </div>
-                        <progress aria-label={name} value={w.usedPercent} max={100} />
-                        {w.resetsAt && (
-                          <small>重置于 {new Date(w.resetsAt * 1000).toLocaleString()}</small>
+                        {used != null && <progress aria-label={name} value={used} max={100} />}
+                        {reset && <small>重置于 {reset.toLocaleString()}</small>}
+                        {period && (
+                          <small>
+                            本期桌面对话 {period.requests} 次调用 ·{' '}
+                            {tokens(
+                              period.inputTokens + period.cacheReadTokens + period.outputTokens,
+                            )}{' '}
+                            tokens
+                          </small>
                         )}
                       </div>
                     );
@@ -243,34 +287,6 @@ export default function CodexAccountPanel({
                   />
                 </Row>
               </div>
-              {log && (
-                <section>
-                  <h2 className="page-heading">桌面会话用量记录</h2>
-                  <div className="settings-list card">
-                    {usage ? (
-                      <>
-                        <Row
-                          title="已保留会话的累计用量"
-                          detail={usage.sessions + ' 个会话 · 包含历次账号登录期间的记录'}
-                        >
-                          {usage.totals.totalTokens.toLocaleString()} tokens
-                        </Row>
-                        {usage.recent?.map((r, i) => (
-                          <Row key={i} title={r.session} detail={new Date(r.at).toLocaleString()}>
-                            <span className="setting-value">
-                              输入 {r.tokens.inputTokens.toLocaleString()}（含缓存{' '}
-                              {r.tokens.cachedInputTokens.toLocaleString()}） · 输出{' '}
-                              {r.tokens.outputTokens.toLocaleString()}
-                            </span>
-                          </Row>
-                        ))}
-                      </>
-                    ) : (
-                      <p>{error ? '无法读取用量记录。' : '正在读取记录…'}</p>
-                    )}
-                  </div>
-                </section>
-              )}
             </>
           )}
           <SshKeySetup />

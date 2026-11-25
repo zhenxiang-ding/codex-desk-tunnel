@@ -284,8 +284,17 @@ export function createProxyServer(options: ServerOptions) {
       'Native mode requires TLS or explicit reverse proxy mode, and the execution channel.',
     );
   const store = new SessionStore(options.dataDir);
-  const usage = new UsageLog(store.database);
+  const usage = new UsageLog(
+    store.database,
+    undefined,
+    undefined,
+    options.terminalRuntime === 'codex',
+  );
   const usageReceiver = options.claude ? createUsageReceiver(usage) : undefined;
+  const codexUsagePrune =
+    options.terminalRuntime === 'codex'
+      ? setInterval(() => usage.prune(), 3600_000).unref()
+      : undefined;
   const peers = new Set<Peer>();
   quotas.wanted = () => [...peers].some((peer) => peer.quotaWanted);
   // The quota is the account's: every connection hears each change, and the usage periods follow it.
@@ -895,6 +904,7 @@ export function createProxyServer(options: ServerOptions) {
     if (codexAccount) {
       const state = await codexAccount.state(target, true, automatic);
       if (closing) return;
+      usage.codexAccount(state);
       const message = { type: 'account.state', ...state, notice } as const;
       if (target) send(target, message);
       else for (const peer of peers) if (peer.authenticated && !peer.browser) send(peer, message);
@@ -1906,6 +1916,8 @@ export function createProxyServer(options: ServerOptions) {
         return undefined;
       }
       case 'usage.summary':
+        if (codexAccount && peer.browser)
+          throw new DomainError('desktop_required', '请在桌面客户端查看 Codex 调用记录。');
         send(peer, { type: 'usage.summary', requestId: command.requestId, ...usage.summary() });
         return undefined;
       case 'quota.watch':
@@ -1938,6 +1950,8 @@ export function createProxyServer(options: ServerOptions) {
         return undefined;
       }
       case 'usage.query': {
+        if (codexAccount && peer.browser)
+          throw new DomainError('desktop_required', '请在桌面客户端查看 Codex 调用记录。');
         const titles = new Map(store.list().map((session) => [session.id, session.title]));
         send(peer, {
           type: 'usage.page',
@@ -2706,6 +2720,7 @@ export function createProxyServer(options: ServerOptions) {
       await terminalCleanup;
       await Promise.all([...tunnelTasks]);
       await Promise.all(cleanup);
+      clearInterval(codexUsagePrune);
       await usageReceiver?.close();
       await new Promise<void>((resolve) => wss.close(() => resolve()));
       await new Promise<void>((resolve, reject) =>

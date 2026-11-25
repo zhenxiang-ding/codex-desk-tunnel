@@ -1,8 +1,10 @@
 import { createServer } from 'node:http';
 import type { DatabaseSync } from 'node:sqlite';
-import type { ServerMessage } from '@cc-desk-tunnel/protocol';
+import { createHash } from 'node:crypto';
+import type { AccountState, ServerMessage } from '@cc-desk-tunnel/protocol';
 
 type Summary = Omit<Extract<ServerMessage, { type: 'usage.summary' }>, 'type' | 'requestId'>;
+type Period = Pick<Summary['windows'][number], 'name' | 'startedAt' | 'resetsAt' | 'utilization'>;
 type Page = Omit<Extract<ServerMessage, { type: 'usage.page' }>, 'type' | 'requestId'>;
 type RateLimits = {
   windows: { name: string; utilization: number | null; resetsAt: string | null }[];
@@ -29,6 +31,18 @@ const totals = `COUNT(*) AS requests, COALESCE(SUM(input_tokens), 0) AS inputTok
   COALESCE(SUM(cache_read_tokens), 0) AS cacheReadTokens, COALESCE(SUM(cache_creation_tokens), 0) AS cacheCreationTokens,
   COALESCE(SUM(cost_usd), 0) AS costUsd`;
 
+// Codex includes cache reads in inputTokens and reasoning in outputTokens.
+const codexInsert = (events: string) => `INSERT OR IGNORE INTO api_requests
+  (at, session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
+   cost_usd, duration_ms, source, request_id)
+  SELECT ROUND(unixepoch(at, 'subsec') * 1000), session_id, COALESCE(payload ->> 'model','未记录'),
+    MAX(0, (last ->> 'inputTokens') - (last ->> 'cachedInputTokens')), last ->> 'outputTokens',
+    last ->> 'cachedInputTokens', 0, 0, 0, 'codex',
+    'codex:' || COALESCE(payload ->> 'threadId',session_id) || ':' || (payload ->> '$.total.totalTokens')
+  FROM (SELECT session_id, data ->> 'createdAt' AS at, data -> 'payload' AS payload,
+    data -> '$.payload.last' AS last FROM ${events})
+  WHERE payload ->> 'type' = 'codex.usage' AND last ->> 'totalTokens' > 0`;
+
 // Averages over the requests that report a first-token time; the speed counts only the time spent streaming.
 const streaming = `AVG(ttft_ms) AS ttftMs,
   SUM(CASE WHEN ttft_ms IS NOT NULL AND duration_ms > ttft_ms THEN output_tokens END) AS streamedTokens,
@@ -52,8 +66,11 @@ export class UsageLog {
   database: DatabaseSync;
   retentionDays: number;
   maxRows: number;
-  constructor(database: DatabaseSync, retentionDays = 35, maxRows = 200_000) {
+  private readonly codex: boolean;
+  private codexWindows: Period[] = [];
+  constructor(database: DatabaseSync, retentionDays = 35, maxRows = 200_000, codex = false) {
     this.database = database;
+    this.codex = codex;
     this.retentionDays = retentionDays;
     this.maxRows = maxRows;
     database.exec(`
@@ -75,6 +92,24 @@ export class UsageLog {
       database.exec('ALTER TABLE api_requests ADD COLUMN prompt_id TEXT');
     database.exec('CREATE INDEX IF NOT EXISTS api_requests_prompt ON api_requests(prompt_id)');
     database.exec('CREATE INDEX IF NOT EXISTS api_requests_session ON api_requests(session_id)');
+    if (codex) {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS codex_limits(account TEXT, mins INTEGER, percent REAL, reset INTEGER, observed INTEGER, PRIMARY KEY(account, mins));
+        CREATE TRIGGER IF NOT EXISTS log_codex_usage AFTER INSERT ON events
+        WHEN NEW.data ->> '$.payload.type' = 'codex.usage' BEGIN
+          ${codexInsert('(SELECT NEW.data AS data, NEW.session_id AS session_id)')};
+        END;`);
+      if (!database.prepare("SELECT 1 FROM migrations WHERE name='codex-call-log'").get()) {
+        database.exec('BEGIN');
+        try {
+          database.exec(codexInsert('events'));
+          database.exec("INSERT INTO migrations VALUES ('codex-call-log'); COMMIT");
+        } catch (error) {
+          database.exec('ROLLBACK');
+          throw error;
+        }
+      }
+    }
     this.restoreStarts();
     this.prune();
   }
@@ -267,7 +302,58 @@ export class UsageLog {
         );
     }
   }
+  // Official subscription readings belong to the signed-in account. Local request counts cover this VPS.
+  codexAccount(state: AccountState, now = Date.now()) {
+    this.codexWindows = [];
+    if (!state.loggedIn || state.authMethod !== 'chatgpt' || !state.email) return;
+    const account = createHash('sha256')
+      .update(JSON.stringify([state.email, state.organization, state.subscriptionType]))
+      .digest('hex');
+    this.database.prepare('DELETE FROM codex_limits WHERE reset <= ?').run(now / 1000);
+    const save = this.database.prepare(`INSERT INTO codex_limits VALUES (?,?,?,?,?)
+      ON CONFLICT(account,mins) DO UPDATE SET percent=excluded.percent,reset=excluded.reset,observed=excluded.observed
+      WHERE excluded.observed >= observed`);
+    const observed = state.codexLimitsAt && Date.parse(state.codexLimitsAt);
+    for (const w of [state.codexLimits?.primary, state.codexLimits?.secondary]) {
+      if (observed && w?.windowDurationMins && w.resetsAt && w.resetsAt > now / 1000)
+        save.run(account, w.windowDurationMins, w.usedPercent, w.resetsAt, observed);
+    }
+    const readings = this.database
+      .prepare('SELECT mins,percent,reset FROM codex_limits WHERE account=? ORDER BY mins')
+      .all(account) as { mins: number; percent: number; reset: number }[];
+    for (const r of readings) {
+      const name = r.mins === 300 ? 'five_hour' : r.mins === 10080 ? 'seven_day' : null;
+      if (!name) continue;
+      this.codexWindows.push({
+        name,
+        startedAt: new Date(r.reset * 1000 - r.mins * 60000).toISOString(),
+        resetsAt: new Date(r.reset * 1000).toISOString(),
+        utilization: r.percent,
+      });
+    }
+  }
   summary(now = Date.now()): Summary {
+    if (this.codex) {
+      const counts = this.database.prepare(
+        `SELECT ${totals} FROM api_requests WHERE source='codex' AND at >= ? AND at <= ?`,
+      );
+      const first = this.database
+        .prepare("SELECT MIN(at) AS at FROM api_requests WHERE source='codex'")
+        .get()?.at as number | null;
+      return {
+        retentionDays: this.retentionDays,
+        firstRecordAt: first ? new Date(first).toISOString() : null,
+        windows: this.codexWindows
+          .filter((w) => w.resetsAt && Date.parse(w.resetsAt) > now)
+          .map((w) => ({
+            ...w,
+            ...(counts.get(Date.parse(w.startedAt), now) as Omit<
+              Summary['windows'][number],
+              keyof Period
+            >),
+          })),
+      };
+    }
     const windows = this.database
       .prepare('SELECT name, started_at, resets_at, utilization FROM usage_windows ORDER BY rowid')
       .all() as {
@@ -302,7 +388,11 @@ export class UsageLog {
     };
   }
   query(query: UsageQuery, title: (sessionId: string) => string | null): Page {
-    const conditions = ['at >= ?', 'at < ?'];
+    const conditions = [
+      'at >= ?',
+      'at < ?',
+      this.codex ? "source = 'codex'" : "source IS NOT 'codex'",
+    ];
     const range: (string | number)[] = [
       query.from ? Date.parse(query.from) : 0,
       query.to ? Date.parse(query.to) : Number.MAX_SAFE_INTEGER,

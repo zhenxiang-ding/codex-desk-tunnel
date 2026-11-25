@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { test } from 'node:test';
 import { once, EventEmitter } from 'node:events';
 import { serverMessageSchema } from '@cc-desk-tunnel/protocol';
-import { CodexAccount } from '../src/codex-account.ts';
+import { CodexAccount, subscriptionLimits, memoryPreference } from '../src/codex-account.ts';
 
 // Exercise the wire protocol over a real pair of pipes without starting an OAuth grant.
 function fixture(mode = 'pending') {
@@ -85,4 +85,21 @@ test('logout uses the CLI and unexpected verification sites are rejected', async
   assert.equal((await signed.state()).loggedIn, false);
   await assert.rejects(invalid.begin({}));
   assert.equal((await invalid.state()).login, null);
+});
+
+test('selects the shared Codex pool and distinguishes inherited memory defaults', () => {
+  const short = { windowDurationMins: 300, usedPercent: 15 },
+    week = { windowDurationMins: 10080, usedPercent: 7 };
+  const other = { ...short, usedPercent: 98 };
+  assert.deepEqual(
+    subscriptionLimits({
+      rateLimits: { secondary: week },
+      rateLimitsByLimitId: { codex: { primary: short }, spark: { primary: other } },
+    }),
+    { primary: short, secondary: week },
+  );
+  assert.equal(subscriptionLimits({ rateLimits: { limitId: 'spark', primary: other } }), undefined);
+  const config = { features: { memories: false } };
+  assert.equal(memoryPreference({ config, origins: {} }), null);
+  assert.equal(memoryPreference({ config, origins: { 'features.memories': {} } }), false);
 });

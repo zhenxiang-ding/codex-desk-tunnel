@@ -11,6 +11,36 @@ import {
 
 type Process = ChildProcessByStdio<Writable, Readable, null>;
 type Limits = NonNullable<AccountState['codexLimits']>;
+type LimitBucket = Limits & { limitId?: string | null };
+export function subscriptionLimits(response: {
+  rateLimits?: LimitBucket;
+  rateLimitsByLimitId?: Record<string, LimitBucket> | null;
+}): Limits | undefined {
+  const main = response.rateLimitsByLimitId?.codex;
+  const legacy = response.rateLimits;
+  const windows = [main, legacy?.limitId && legacy.limitId !== 'codex' ? undefined : legacy]
+    .flatMap((bucket) => [bucket?.primary, bucket?.secondary])
+    .filter((w) => !!w);
+  if (!windows.length) return undefined;
+  const primary = windows.find((w) => w.windowDurationMins === 300) ?? windows[0];
+  const secondary = windows.find(
+    (w) => w !== primary && w.windowDurationMins !== primary.windowDurationMins,
+  );
+  return { primary, secondary };
+}
+// config/read materializes the CLI's built-in false even for an empty profile.
+export function memoryPreference(read: {
+  config: { features?: { memories?: boolean } };
+  origins?: Record<string, unknown>;
+}) {
+  if (
+    read.origins &&
+    !Object.hasOwn(read.origins, 'features.memories') &&
+    !Object.hasOwn(read.origins, 'features')
+  )
+    return null;
+  return read.config.features?.memories ?? null;
+}
 type Challenge = { loginId: string; url: string; deviceCode: string };
 
 type Flow = {
@@ -137,9 +167,13 @@ export class CodexAccount {
         })),
         reloadUserConfig: true,
       });
-    const { config } = await this.rpc<{ config: Partial<CodexConfig> }>('config/read', {
+    const read = await this.rpc<{
+      config: Partial<CodexConfig> & { features?: { memories?: boolean } };
+      origins?: Record<string, unknown>;
+    }>('config/read', {
       includeLayers: false,
     });
+    const { config } = read;
     const flat: Record<string, unknown> = {};
     for (const [key, schema] of Object.entries(codexConfigSchema.shape)) {
       const value = key
@@ -153,6 +187,7 @@ export class CodexAccount {
     }
     return codexConfigSchema.parse({
       ...flat,
+      'features.memories': memoryPreference(read),
       model: config.model ?? null,
       model_reasoning_effort: config.model_reasoning_effort ?? null,
       model_auto_compact_token_limit: config.model_auto_compact_token_limit ?? null,
@@ -169,12 +204,8 @@ export class CodexAccount {
     if (readLimits && account?.type === 'chatgpt') {
       const key = JSON.stringify([account.email, account.workspaceName, account.planType]);
       if (!automatic || this.quotaRead?.key !== key || Date.now() - this.quotaRead.time >= 60000) {
-        const result = this.rpc<{ rateLimits: Limits }>('account/rateLimits/read')
-          .then((r) =>
-            r.rateLimits
-              ? { primary: r.rateLimits.primary, secondary: r.rateLimits.secondary }
-              : undefined,
-          )
+        const result = this.rpc<Parameters<typeof subscriptionLimits>[0]>('account/rateLimits/read')
+          .then(subscriptionLimits)
           .catch(() => undefined);
         this.quotaRead = { key, time: Date.now(), result };
       }

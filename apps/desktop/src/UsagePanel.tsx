@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import type { UsagePage, UsageSummary } from '@cc-desk-tunnel/protocol';
 import type { ProxyClient } from './client.ts';
@@ -49,17 +49,19 @@ export default function UsagePanel({
   summary,
   initial,
   back,
+  codex = false,
 }: {
   client: ProxyClient;
   summary: UsageSummary | null;
   initial: string;
   back: () => void;
+  codex?: boolean;
 }) {
   const [preset, setPreset] = useState(initial);
   const [customFrom, setCustomFrom] = useState(() => localInput(new Date(Date.now() - 24 * hour)));
   const [customTo, setCustomTo] = useState(() => localInput(new Date()));
   const [model, setModel] = useState('');
-  const [measure, setMeasure] = useState<Measure>('costUsd');
+  const [measure, setMeasure] = useState<Measure>(codex ? 'tokens' : 'costUsd');
   const [page, setPage] = useState<UsagePage | null>(null);
   // Which page of the records is shown, from the newest.
   const [index, setIndex] = useState(0);
@@ -94,8 +96,10 @@ export default function UsagePanel({
   }, [preset, customFrom, customTo, summary, loadedAt]);
   // The range ends where it was last read, so records arriving meanwhile do not shift the pages; refreshing
   // moves the end.
+  const requestNumber = useRef(0);
   const load = useCallback(
     async (index: number) => {
+      const number = ++requestNumber.current;
       setLoading(true);
       setError(null);
       try {
@@ -109,18 +113,23 @@ export default function UsagePanel({
           bucketMinutes: range.bucketMinutes,
           offsetMinutes: -new Date().getTimezoneOffset(),
         });
+        if (number !== requestNumber.current) return;
         setPage(result);
         setIndex(index);
       } catch (error) {
-        setError(error instanceof Error ? error.message : '读取失败。');
+        if (number === requestNumber.current)
+          setError(error instanceof Error ? error.message : '读取失败。');
       } finally {
-        setLoading(false);
+        if (number === requestNumber.current) setLoading(false);
       }
     },
     [client, range, model],
   );
   useEffect(() => {
     void load(0);
+    return () => {
+      ++requestNumber.current;
+    };
   }, [load]);
   // Empty buckets are drawn too, so the time axis stays even.
   const bars = useMemo(() => {
@@ -172,6 +181,11 @@ export default function UsagePanel({
         </IconButton>
       </header>
       <div className="account-body usage-body">
+        {codex && (
+          <p className="account-updated">
+            统计此 VPS 的桌面对话，每条记录对应一次有 token 用量的模型调用。输入与缓存读取分开计数。
+          </p>
+        )}
         <div className="usage-filters">
           <div className="segmented" role="group" aria-label="时间范围">
             {[
@@ -238,7 +252,7 @@ export default function UsagePanel({
           <div
             title={
               totals
-                ? `输入 ${totals.inputTokens.toLocaleString()} · 输出 ${totals.outputTokens.toLocaleString()} · 缓存读取 ${totals.cacheReadTokens.toLocaleString()} · 缓存写入 ${totals.cacheCreationTokens.toLocaleString()}`
+                ? `输入 ${totals.inputTokens.toLocaleString()} · 输出 ${totals.outputTokens.toLocaleString()} · 缓存读取 ${totals.cacheReadTokens.toLocaleString()}`
                 : undefined
             }
           >
@@ -250,26 +264,32 @@ export default function UsagePanel({
                 : ''}
             </small>
           </div>
-          <div title="缓存读取 ÷（输入 + 缓存读取 + 缓存写入）">
+          <div title={codex ? '缓存读取 ÷ 总输入' : '缓存读取 ÷（输入 + 缓存读取 + 缓存写入）'}>
             <span>缓存命中率</span>
             <strong>{percent(totals ? cacheHitRate(totals) : null)}</strong>
             <small>{totals ? `读取 ${tokens(totals.cacheReadTokens)}` : ''}</small>
           </div>
-          <div>
-            <span>等价 API 费用</span>
-            <strong>{totals ? dollars(totals.costUsd) : '—'}</strong>
-            <small>官方 CLI 按 API 价格估算，非订阅账单</small>
-          </div>
-          <div>
-            <span>平均首字延迟</span>
-            <strong>{seconds(totals?.ttftMs ?? null)}</strong>
-          </div>
-          <div>
-            <span>平均输出速度</span>
-            <strong>
-              {totals?.outputPerSecond != null ? `${totals.outputPerSecond.toFixed(1)} tok/s` : '—'}
-            </strong>
-          </div>
+          {!codex && (
+            <>
+              <div>
+                <span>等价 API 费用</span>
+                <strong>{totals ? dollars(totals.costUsd) : '—'}</strong>
+                <small>官方 CLI 按 API 价格估算，非订阅账单</small>
+              </div>
+              <div>
+                <span>平均首字延迟</span>
+                <strong>{seconds(totals?.ttftMs ?? null)}</strong>
+              </div>
+              <div>
+                <span>平均输出速度</span>
+                <strong>
+                  {totals?.outputPerSecond != null
+                    ? `${totals.outputPerSecond.toFixed(1)} tok/s`
+                    : '—'}
+                </strong>
+              </div>
+            </>
+          )}
         </div>
         <figure className="usage-chart">
           <figcaption>
@@ -282,16 +302,18 @@ export default function UsagePanel({
               {measures[measure]}
             </span>
             <div className="segmented" role="group" aria-label="图表指标">
-              {(Object.keys(measures) as Measure[]).map((key) => (
-                <button
-                  type="button"
-                  key={key}
-                  aria-pressed={measure === key}
-                  onClick={() => setMeasure(key)}
-                >
-                  {measures[key]}
-                </button>
-              ))}
+              {(Object.keys(measures) as Measure[])
+                .filter((key) => !codex || key !== 'costUsd')
+                .map((key) => (
+                  <button
+                    type="button"
+                    key={key}
+                    aria-pressed={measure === key}
+                    onClick={() => setMeasure(key)}
+                  >
+                    {measures[key]}
+                  </button>
+                ))}
             </div>
           </figcaption>
           <div className="usage-plot" onMouseLeave={() => setHover(null)}>
@@ -325,7 +347,7 @@ export default function UsagePanel({
                 <strong>{bucketLabel(bars[hover].at)}</strong>
                 <span>{bars[hover].requests.toLocaleString('zh-CN')} 次请求</span>
                 <span>{tokens(bars[hover].tokens)} tokens</span>
-                <span>{dollars(bars[hover].costUsd)}</span>
+                {!codex && <span>{dollars(bars[hover].costUsd)}</span>}
               </div>
             )}
           </div>
@@ -334,9 +356,9 @@ export default function UsagePanel({
             <span>{bars.length > 1 && bucketLabel(bars.at(-1)!.at)}</span>
           </div>
         </figure>
-        <TokenTrend buckets={bars} label={bucketLabel} format={tokens} />
+        <TokenTrend codex={codex} buckets={bars} label={bucketLabel} format={tokens} />
         {page && page.byModel.length > 0 && (
-          <ModelBreakdown models={page.byModel} tokens={tokens} dollars={dollars} />
+          <ModelBreakdown codex={codex} models={page.byModel} tokens={tokens} dollars={dollars} />
         )}
         <div className="usage-table usage-log">
           <h2 className="usage-section">调用记录</h2>
@@ -349,11 +371,15 @@ export default function UsagePanel({
                 <th>输入</th>
                 <th>输出</th>
                 <th>缓存读取</th>
-                <th>缓存写入</th>
-                <th>等价费用</th>
-                <th>首字</th>
-                <th>总用时</th>
-                <th>速度</th>
+                {!codex && (
+                  <>
+                    <th>缓存写入</th>
+                    <th>等价费用</th>
+                    <th>首字</th>
+                    <th>总用时</th>
+                    <th>速度</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -380,15 +406,19 @@ export default function UsagePanel({
                     <td>{row.inputTokens.toLocaleString()}</td>
                     <td>{row.outputTokens.toLocaleString()}</td>
                     <td>{row.cacheReadTokens.toLocaleString()}</td>
-                    <td>{row.cacheCreationTokens.toLocaleString()}</td>
-                    <td>{dollars(row.costUsd)}</td>
-                    <td>{seconds(row.ttftMs)}</td>
-                    <td>{seconds(row.durationMs)}</td>
-                    <td>
-                      {streaming
-                        ? `${(row.outputTokens / (streaming / 1000)).toFixed(1)} tok/s`
-                        : '—'}
-                    </td>
+                    {!codex && (
+                      <>
+                        <td>{row.cacheCreationTokens.toLocaleString()}</td>
+                        <td>{dollars(row.costUsd)}</td>
+                        <td>{seconds(row.ttftMs)}</td>
+                        <td>{seconds(row.durationMs)}</td>
+                        <td>
+                          {streaming
+                            ? `${(row.outputTokens / (streaming / 1000)).toFixed(1)} tok/s`
+                            : '—'}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}

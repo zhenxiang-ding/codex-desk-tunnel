@@ -501,3 +501,68 @@ test('a question is summed over the prompts of every turn it took, late subagent
   // The same prompt named twice is counted once.
   assert.equal(log.turnStats(session, turn(['p1', 'p2', 'p3', 'p3'])).requests, 7);
 });
+
+test('Codex backfills retained calls, deduplicates token notifications and restores account-specific quota windows', () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec('CREATE TABLE events(session_id TEXT, data TEXT)');
+    const add = db.prepare('INSERT INTO events VALUES (?,?)');
+    const now = Date.now();
+    const event = (total: number, model?: string) =>
+      JSON.stringify({
+        createdAt: new Date(now - 1000).toISOString(),
+        payload: {
+          type: 'codex.usage',
+          model,
+          total: { totalTokens: total },
+          last: { inputTokens: 10, cachedInputTokens: 6, outputTokens: 2, totalTokens: 12 },
+        },
+      });
+    add.run('s', event(12));
+    const log = new UsageLog(db, 35, 200000, true);
+    add.run('s', event(12));
+    add.run('s', event(24, 'new-model'));
+    const query = { limit: 50, bucketMinutes: 60, offsetMinutes: 0 };
+    const page = log.query(query, () => 'Project');
+    assert.equal(page.totals.requests, 2);
+    assert.equal(page.series[0].tokens, 24);
+    assert.equal(page.totals.cacheReadTokens, 12);
+    assert.equal(page.totals.inputTokens, 8);
+    assert.equal(log.query({ ...query, model: 'new-model' }, () => null).rows.length, 1);
+    const account = {
+      loggedIn: true,
+      login: null,
+      authMethod: 'chatgpt',
+      email: 'one@example.test',
+      subscriptionType: 'plus',
+    };
+    const quota = (mins: number, usedPercent: number) => ({
+      windowDurationMins: mins,
+      usedPercent,
+      resetsAt: Math.floor(now / 1000) + 90,
+    });
+    log.codexAccount(
+      {
+        ...account,
+        codexLimitsAt: new Date(now).toISOString(),
+        codexLimits: { primary: quota(10080, 24), secondary: quota(300, 7) },
+      },
+      now,
+    );
+    const reopened = new UsageLog(db, 35, 200000, true);
+    reopened.codexAccount(account, now);
+    assert.deepEqual(
+      reopened.summary(now).windows.map((w) => [w.name, w.utilization, w.requests]),
+      [
+        ['five_hour', 7, 2],
+        ['seven_day', 24, 2],
+      ],
+    );
+    reopened.codexAccount({ ...account, email: 'other@example.test' }, now);
+    assert.equal(reopened.summary(now).windows.length, 0);
+    reopened.codexAccount(account, now + 120000);
+    assert.equal(reopened.summary(now + 120000).windows.length, 0);
+  } finally {
+    db.close();
+  }
+});

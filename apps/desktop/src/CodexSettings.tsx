@@ -101,10 +101,8 @@ const groups: { name: string; fields: Field[] }[] = [
 ];
 export function CodexSettings({ client }: { client: ProxyClient }) {
   const [current, setCurrent] = useState<CodexConfig | null>(null),
-    [changes, setChanges] = useState<Partial<CodexConfig>>({}),
     [message, setMessage] = useState(''),
-    [busy, setBusy] = useState(false),
-    [revision, refresh] = useState(0);
+    [busy, setBusy] = useState(false);
   const [models, setModels] = useState<CodexModel[]>([]);
   useEffect(() => {
     let active = true;
@@ -119,8 +117,8 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
     return () => {
       active = false;
     };
-  }, [client, revision]);
-  const selectedModel = 'model' in changes ? changes.model : current?.model;
+  }, [client]);
+  const selectedModel = current?.model;
   const model = selectedModel
     ? models.find((m) => m.model === selectedModel)
     : models.find((m) => m.isDefault);
@@ -134,7 +132,6 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
         (r) => {
           if (active) {
             setCurrent(r.values);
-            setChanges({});
           }
         },
         (e) => {
@@ -147,15 +144,13 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
     return () => {
       active = false;
     };
-  }, [client, revision]);
-  async function save() {
+  }, [client]);
+  async function save(values: Partial<CodexConfig>) {
     setBusy(true);
     setMessage('');
     try {
-      const r = await client.fetch({ type: 'codex.settings.update', values: changes });
+      const r = await client.fetch({ type: 'codex.settings.update', values });
       setCurrent(r.values);
-      setChanges({});
-      setMessage('已保存。后续启动的 Codex 对话使用新设置。');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : '保存失败。');
     } finally {
@@ -165,30 +160,16 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
   return (
     <Page
       title="CLI 设置"
-      intro="VPS 上 Codex CLI 的默认配置。"
-      actions={
-        <button
-          className="button secondary"
-          disabled={busy || Object.keys(changes).length > 0}
-          onClick={() => refresh((v) => v + 1)}
-        >
-          刷新
-        </button>
-      }
+      intro="VPS 上 Codex CLI 的默认配置。修改后自动保存，下次启动对话时生效。"
     >
       {current && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void save();
-          }}
-        >
+        <>
           {groups.map((group) => (
             <section className="settings-section" key={group.name}>
               <h2 className="page-heading">{group.name}</h2>
               <div className="settings-list card">
                 {group.fields.map((f) => {
-                  const value = f.key in changes ? changes[f.key] : current[f.key];
+                  const value = current[f.key];
                   const opts: Record<string, string> | undefined =
                     f.key === 'model_reasoning_effort'
                       ? Object.fromEntries(
@@ -202,9 +183,9 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
                         : f.kind === 'bool'
                           ? { true: '开启', false: '关闭' }
                           : f.options;
-                  const change = (raw: string) =>
-                    setChanges((v) => ({
-                      ...v,
+                  const change = (raw: string) => {
+                    if (raw === String(value ?? '')) return;
+                    void save({
                       [f.key]:
                         raw === ''
                           ? null
@@ -213,7 +194,8 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
                             : f.kind === 'bool'
                               ? raw === 'true'
                               : raw,
-                    }));
+                    });
+                  };
                   return (
                     <Row key={f.key} title={f.name} detail={f.detail}>
                       {opts ? (
@@ -223,7 +205,9 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
                           value={String(value ?? '')}
                           onChange={(e) => change(e.target.value)}
                         >
-                          <option value="">CLI 默认</option>
+                          <option value="">
+                            {f.key === 'features.memories' ? '桌面对话默认（开启）' : 'CLI 默认'}
+                          </option>
                           {value != null && !(String(value) in opts) && (
                             <option value={String(value)}>{String(value)}</option>
                           )}
@@ -242,9 +226,24 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
                           step={f.kind === 'number' ? 1 : undefined}
                           maxLength={160}
                           disabled={busy}
-                          value={String(value ?? '')}
+                          key={String(value ?? '')}
+                          defaultValue={String(value ?? '')}
                           placeholder="CLI 默认"
-                          onChange={(e) => change(e.target.value)}
+                          onBlur={(e) => {
+                            if (e.currentTarget.validity.valid) {
+                              const input = e.currentTarget;
+                              const previous = String(value ?? '');
+                              const next = input.value.trim();
+                              input.value = previous;
+                              change(next);
+                            } else {
+                              setMessage('请输入大于零的整数。');
+                              e.currentTarget.value = String(value ?? '');
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                          }}
                         />
                       )}
                     </Row>
@@ -260,14 +259,7 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
               </option>
             ))}
           </datalist>
-          <button
-            type="submit"
-            className="button primary"
-            disabled={busy || !Object.keys(changes).length}
-          >
-            保存
-          </button>
-        </form>
+        </>
       )}
       {message && <p role="status">{message}</p>}
     </Page>
