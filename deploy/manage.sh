@@ -47,6 +47,7 @@ host_of() {
   printf '%s' "${host,,}"
 }
 valid_port() { [[ "$1" =~ ^[0-9]+$ ]] && ((10#$1 >= 1024 && 10#$1 <= 65535)); }
+valid_token() { ((${#1} >= 24 && ${#1} <= 512)) && [[ "$1" =~ ^[A-Za-z0-9._~+/=-]+$ ]]; }
 safe_value() { [[ "$1" != *"'"* && "$1" != *$'\n'* && "$1" != *$'\r'* && "$1" != *'$'* && "$1" != *'`'* ]]; }
 write_var() { safe_value "$2" || fail "Unsupported characters in $1"; printf "%s='%s'\n" "$1" "$2"; }
 dc() { docker compose --env-file "$CONFIG" -p "$PROJECT_NAME" -f "$COMPOSE" "$@"; }
@@ -304,7 +305,7 @@ case "$command" in
       options+=(--data "$data")
       while :; do
         token="$(ask "服务凭据（至少 24 位；留空自动生成）")"
-        [[ -z "$token" || "$token" =~ ^[A-Za-z0-9._~+/=-]{24,512}$ ]] && break
+        if [[ -z "$token" ]] || valid_token "$token"; then break; fi
         echo "凭据需要 24 到 512 位，只用字母、数字和 . _ ~ + / = -。" >&2
       done
       [[ -z "$token" ]] || options+=(--token "$token")
@@ -366,7 +367,7 @@ case "$command" in
       CERT_NAME="$HOST"
     fi
     [[ -n "$TOKEN" ]] || TOKEN="$(openssl rand -hex 32)"
-    [[ "$TOKEN" =~ ^[A-Za-z0-9._~+/=-]{24,512}$ ]] || fail "--token needs 24..512 characters from A-Z a-z 0-9 . _ ~ + / = -"
+    valid_token "$TOKEN" || fail "--token needs 24..512 characters from A-Z a-z 0-9 . _ ~ + / = -"
     {
       write_var PROXY_ADAPTER claude-code
       write_var PROXY_TOKEN "$TOKEN"
@@ -461,7 +462,7 @@ case "$command" in
     # Every saved client login stops working; the summary prints the new token.
     [[ $# -le 1 ]] || fail "Specify at most one token."
     TOKEN="${1:-$(openssl rand -hex 32)}"
-    [[ "$TOKEN" =~ ^[A-Za-z0-9._~+/=-]{24,512}$ ]] || fail "The token needs 24..512 characters from A-Z a-z 0-9 . _ ~ + / = -"
+    valid_token "$TOKEN" || fail "The token needs 24..512 characters from A-Z a-z 0-9 . _ ~ + / = -"
     temp="$(mktemp "$DATA_DIR/config/service.env.XXXXXX")"
     { grep -v '^PROXY_TOKEN=' "$DATA_DIR/config/service.env"; write_var PROXY_TOKEN "$TOKEN"; } > "$temp"
     chmod 600 "$temp"
