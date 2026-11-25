@@ -1,20 +1,33 @@
 # Codex Desk Tunnel
 
-在 Ubuntu 24.04 VPS 上运行 Codex CLI，通过已有的 CC Desk Tunnel 设备通道操作 Windows 上的项目。本分支基于上游 0.3.20，复用桌面客户端、`ccdt`、WSS、临时 SSH 密钥、终端转发和掉线重连。
+Codex CLI 在 Ubuntu VPS 上运行，通过 SSH 读写你选定的 Windows 项目。Windows 主动连接 VPS，项目文件留在本机。首次使用先部署 VPS，再安装 Windows 客户端。
 
-感谢原作者 [sun168567](https://github.com/sun168567) 和 [CC Desk Tunnel](https://github.com/sun168567/cc-desk-tunnel) 的贡献者开源了桌面客户端、设备隧道和终端转发。本项目在这些工作的基础上接入 Codex CLI，沿用 [Apache-2.0 许可证](LICENSE) 并保留[原始版权声明](NOTICE)。
+## 1. 在 Ubuntu 24.04 VPS 安装服务端
 
-上游的五份 GitHub Actions 工作流保存在 [.github/upstream-workflows](.github/upstream-workflows)，供维护者参考。
+在 Windows 的 CMD 或 PowerShell 里登录 VPS。把 `ubuntu` 和 `VPS_IP` 换成你的用户名和公网 IP。下面的 Linux 命令都在登录后的同一个终端执行。
 
-### 在 VPS 上安装
+```console
+ssh -t ubuntu@VPS_IP
+```
 
-在 Ubuntu 24.04 VPS 的交互式 SSH 终端运行以下命令。需要 Git、Docker Engine 和 Docker Compose v2。脚本从本仓库的 `main` 分支拉取源码到 `/opt/codex-desk-tunnel` 并构建镜像，默认端口为 `8788`。
+全新的 Ubuntu 24.04 可用系统软件源安装依赖。已有 Docker Engine 和 Compose v2 的机器可用 `sudo docker info` 和 `docker compose version` 检查，然后直接运行安装脚本。
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y git curl ca-certificates openssl docker.io docker-compose-v2
+sudo systemctl enable --now docker
+```
+
+从本仓库下载并运行服务端安装脚本：
+
+```bash
+cd ~
 curl -fsSLo codex-desk-install.sh https://raw.githubusercontent.com/zhenxiang-ding/codex-desk-tunnel/main/deploy/install.sh && sudo bash codex-desk-install.sh
 ```
 
-部署结束后，在同一个 VPS 终端完成 Codex 登录，按提示在浏览器输入设备码。
+按提示填写 Windows 能访问的公网 IP 或域名。只有 IP 时，入口选 **1（自签证书 + 指纹）**。默认直连端口是 **TCP 8788**，在云服务商的安全组和启用的主机防火墙中放行该端口。已有 nginx 反代时按部署汇总中列出的端口配置。
+
+脚本会把源码拉到 `/opt/codex-desk-tunnel`，在 VPS 构建包含 Codex CLI 的镜像。完成后记下**服务地址、证书指纹、服务凭据**，Windows 连接时要用。服务凭据请保密。随后登录容器里的 Codex：
 
 ```bash
 cd /opt/codex-desk-tunnel
@@ -22,17 +35,48 @@ sudo docker compose --env-file .local/docker.env -f deploy/compose.yml exec prox
 sudo docker compose --env-file .local/docker.env -f deploy/compose.yml exec proxy codex login status
 ```
 
-升级时重新运行安装命令。脚本会拉取最新源码，使用已有配置重建容器。
+第一条登录命令会显示验证网址和设备码。用浏览器完成授权，再运行最后一条检查登录状态。
 
-### 在 Windows 上使用
+## 2. 在 Windows 本机安装客户端
 
-1. 在 **CC Desk Tunnel 0.3.20** 桌面端添加服务，填写新服务显示的地址、证书指纹和服务凭据，选择本机项目。
-2. 使用本分支的桌面端时，在会话菜单点 **打开 Codex 终端**，即可在桌面窗口内输入消息、审批命令、查看输出。使用原版 0.3.20 桌面端时，点 **用 ccdt 打开**，同一套 Codex 界面会显示在系统终端窗口。原来的桌面聊天框仍使用 Claude。
-3. 也可以直接在本机项目目录运行 `ccdt login` 选择新服务，然后运行 `ccdt`。如果安装的是本分支构建的 CLI，可显式运行 `ccdt --codex`。首次验收可以让 Codex 经 SSH 读取当前项目的 README 并报告首行。
+### 用桌面客户端连接
 
-Codex 使用自己的会话历史。重新打开同一个 Desk 会话后，可在 Codex 内用 `/resume` 选择历史。不同 Desk 会话使用不同的 VPS 工作目录。账号保存在新服务的数据卷里。
+1. 在 Windows 10/11 x64 上下载并运行 [CC Desk Tunnel 0.3.20 安装包（.exe）](https://github.com/sun168567/cc-desk-tunnel/releases/download/v0.3.20/CC-Desk-Tunnel-Setup-0.3.20-x64.exe)。这是与本项目兼容的原作者客户端，自带 OpenSSH、PowerShell 和 `ccdt`。已经装过这个版本可以直接打开。
+2. 添加服务，粘贴 VPS 显示的服务地址和服务凭据。选了自签证书时，也填入对应的证书指纹。
+3. 连接后添加本机项目文件夹，例如 `E:\Codex_default`。创建或选中该项目的会话，右键选择 **用 ccdt 打开**。弹出的系统终端里运行的是 VPS 上的 Codex。桌面主聊天框仍使用 Claude。
+4. 在 Codex 终端输入“请通过 SSH 列出当前 Windows 项目的顶层文件，并报告项目路径”。核对结果是否与本机目录一致。
 
-需要内嵌终端时，在 Windows 上用 Node.js 24 和 PowerShell 7，从本分支仓库根目录运行：
+### 用 CMD 或 PowerShell 连接
+
+桌面安装包已经包含 `ccdt`。安装后新开一个 **CMD**，在你要操作的项目目录里运行：
+
+```bat
+cd /d E:\Codex_default
+ccdt login
+ccdt
+```
+
+登录时选刚才保存的 VPS 服务，按提示输入服务凭据。如果从 PowerShell 进入项目，第一行用 `Set-Location E:\Codex_default`。
+
+只用命令行时，也可以单独安装 `ccdt`。在 Windows **PowerShell** 运行以下两行。脚本会下载原作者的 0.3.20 客户端并核对发布包的 SHA-256。
+
+```powershell
+$env:CCDT_VERSION = '0.3.20'
+irm https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/v0.3.20/deploy/install-ccdt.ps1 | iex
+```
+
+新开 CMD，按上面的命令进入项目并执行 `ccdt login`。没有保存过服务时，按提示输入 VPS 显示的连接信息，再运行 `ccdt`。
+
+## 从源码构建
+
+如果想直接在桌面窗口中使用 **打开 Codex 终端**，可以运行本仓库的客户端。在 Windows x64 上准备 Git、Node.js 24 和 PowerShell 7，首次获取源码时运行：
+
+```powershell
+git clone https://github.com/zhenxiang-ding/codex-desk-tunnel.git
+cd codex-desk-tunnel
+```
+
+已有本仓库的用户直接进入仓库目录。从该目录运行：
 
 ```powershell
 npm.cmd ci
@@ -42,294 +86,15 @@ npm.cmd run build
 npm.cmd run desktop
 ```
 
-升级本分支使用源码构建。下方是上游项目说明，上游安装命令安装的是 Claude 版本。
+连接 VPS 后，在会话菜单选择 **打开 Codex 终端**。需要生成 Windows 安装包时，在同一仓库运行 `npm.cmd run package:windows`，产物位于 `artifacts/windows/`。
 
----
+## 日常使用
 
-<div align="center">
+- **查看服务**：在 VPS 运行 `sudo codex-desk-tunnel status`。需要重新查看客户端连接信息时运行 `sudo codex-desk-tunnel summary`。
+- **升级服务端**：回到 VPS 用户的家目录，重新运行第 1 节的下载安装命令。脚本更新源码，沿用已有配置重建容器。
+- **继续对话**：在本机打开原来的 Desk 会话，再在 Codex 终端用 `/resume` 选择历史。
+- **遇到 `stdin is not a terminal`**：在 Windows Terminal 或 CMD 中按第 1 节用 `ssh -t` 登录 VPS，再逐条执行交互命令。可先在 VPS 执行 `tty`，确认输出是 `/dev/pts/…` 等终端设备。启动本机 `ccdt` 时也要使用交互终端。
 
-<img src="apps/desktop/public/assets/icon-192.png" width="88" alt="CC Desk Tunnel 图标">
+## 致谢与许可
 
-# CC Desk Tunnel
-
-**一台服务器上的 Claude Code，做你所有电脑共同的大脑**
-
-Claude Code on your own server, working on every computer you own.
-
-[![最新版本](https://img.shields.io/github/v/release/sun168567/cc-desk-tunnel?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=2ea44f)](https://github.com/sun168567/cc-desk-tunnel/releases/latest)
-[![下载量](https://img.shields.io/github/downloads/sun168567/cc-desk-tunnel/total?label=%E4%B8%8B%E8%BD%BD)](https://github.com/sun168567/cc-desk-tunnel/releases)
-[![客户端](https://img.shields.io/badge/%E5%AE%A2%E6%88%B7%E7%AB%AF-Windows%20%7C%20macOS%20%7C%20Linux-0078d4)](#2-安装客户端)
-[![服务端](https://img.shields.io/badge/%E6%9C%8D%E5%8A%A1%E7%AB%AF-Linux%20%2B%20Docker-f0883e)](#1-部署服务端)
-[![许可](https://img.shields.io/github/license/sun168567/cc-desk-tunnel?label=%E8%AE%B8%E5%8F%AF)](LICENSE)
-
-**简体中文** · [English](README.en.md)
-
-[📥 下载](https://github.com/sun168567/cc-desk-tunnel/releases/latest) ·
-[🚀 快速开始](#快速开始) ·
-[🖼️ 界面预览](#界面预览) ·
-[🔒 安全须知](#安全须知) ·
-[📖 文档](#文档) ·
-[🩺 常见问题](docs/troubleshooting.md)
-
-</div>
-
-## 💡 这是什么
-
-Claude Code（简称 CC）运行在你自己的 Linux 服务器上，会话、上下文、记忆和 Claude 账号都集中在那里。你的每台电脑，包括没有公网 IP 的内网机器，主动连出一条加密通道，就成为 Claude 的执行端：项目代码、工具链和文件留在各自的电脑上，Claude 经通道在那里读写文件、运行命令。
-
-- 🧠 **集中在一处**：换一台电脑、打开浏览器或手机，都能接着同一个会话做。
-- 🔌 **不需要公网**：电脑主动连出，不开入站端口，不用 VPN 或内网穿透。
-- 🤝 **多端共用**：图形客户端、浏览器和手机、终端里的 `ccdt`、Codex 等其他 agent，用的是同一批会话。
-
-### 和常见做法有什么不同
-
-个人用的 agent 通常装在代码所在的电脑上，远程和网页端是这台电脑的延伸；要么在云端沙箱里另外克隆一份代码来跑。CC Desk Tunnel 反过来：**agent 常驻在服务器上，你的电脑是它的手。**
-
-| 常见做法 | 麻烦在哪 | 用 CC Desk Tunnel |
-| --- | --- | --- |
-| 每台电脑各装一份 Claude Code、各登录一次 | 会话和记忆留在各自的电脑上，换一台就接不上；登录凭据散在每台电脑上 | 会话、记忆和账号都在服务端，哪一端都能接着做；电脑上不存 Claude 的凭据 |
-| 把项目搬到服务器或云端沙箱里开发 | 工具链要重装；用不到本机的编辑器、模拟器、桌面软件和内网资源 | 项目和工具链留在原地，命令在原地执行；服务器只跑 Claude Code，低配即可 |
-| 经 VPN、内网穿透或远程桌面操作内网机器 | 要有公网入口或先组网，端口和密钥都要管；远程桌面延迟高 | 电脑主动连出；一个会话就能按名字操作你所有在线的电脑 |
-| 直接用命令行界面 | 多个项目和会话不好管理，过程挤在一屏滚动的文字里 | 按项目分组的会话列表，过程折叠成摘要；想用原版 CLI 时在 `ccdt` 里照常用 |
-
-### 适合怎么用
-
-- 🔁 **在几台电脑之间接力**：公司台式机上开的会话，回家在笔记本上、路上在手机上接着做。
-- 🗄️ **一站式管理一批内网设备**：NAS、家庭实验室、测试机、树莓派各自运行 `ccdt online` 保持在线。一句“看看这几台的磁盘和服务”，Claude 逐台 `ssh device-<名字>` 去查；要改动时先问你，审批卡片写着在哪台机器上执行什么。
-- 📱 **离开电脑也能跟进**：长任务在电脑上跑，人在外面用手机看进度、批准、追加指示；被操作的电脑不暴露任何端口。
-- 🤖 **和其他 agent 协作**：其他 agent 或脚本用 `ccdt -p` 把任务交给 Claude，审批交回调用方；编辑器用 `ccdt acp` 接入。反过来，Claude 也能调用你电脑上的 Codex 等命令行 agent。
-
-只有一台电脑、在本机跑 Claude Code 已经很顺手时，直接用本地版更简单，延迟也更低。
-
-> [!WARNING]
-> **本项目主要由 AI 编写**，个人维护，没有经过专业安全审计。它让一台服务器能在你的电脑上执行命令，使用前请读完[安全须知](#安全须知)和[账号须知](docs/account.md)，自行评估风险。
->
-> 本项目与 Anthropic 没有隶属或合作关系；“Claude”“Claude Code”是 Anthropic 的商标。
-
-<a id="界面预览"></a>
-
-## 🖼️ 界面预览
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/images/preview-files.png" alt="文件面板：在同一个面板里切换本机、服务端和其他在线电脑，浏览并预览 build-server 上的脚本"></td>
-    <td width="50%"><img src="docs/images/preview-mobile.png" alt="手机浏览器：左边是会话列表与其他设备，右边是一个等待审批的会话"></td>
-  </tr>
-  <tr>
-    <td align="center"><b>📂 文件面板</b><br><sub>本机、服务端和每台在线电脑的文件，一处浏览、预览、互相复制</sub></td>
-    <td align="center"><b>📱 浏览器与手机</b><br><sub>可选开启，看进度、批准、追加指示</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/images/preview-schedule.png" alt="定时任务：每日巡检、周报草稿等任务列表，以及编辑任务的表单"></td>
-    <td width="50%"><img src="docs/images/ccdt-session.png" alt="终端客户端 ccdt：在自己的终端里运行原版 Claude Code，在本机项目里新建并运行一个脚本"></td>
-  </tr>
-  <tr>
-    <td align="center"><b>⏰ 定时任务</b><br><sub>到点向会话发送预设的提示词，也可以让 Claude 帮你设置</sub></td>
-    <td align="center"><b>⌨️ 终端客户端 ccdt</b><br><sub>原版 Claude Code 的终端界面，与图形客户端共用会话</sub></td>
-  </tr>
-</table>
-
-## ✨ 功能
-
-| | |
-| --- | --- |
-| 🖥️ **多台电脑** | 每台电脑的项目和会话集中列出，离线的也在；在另一台在线电脑上新建会话、把会话移过去；一个会话按名字连到你其他在线的电脑；`ccdt online` 让没有图形界面的机器保持在线 |
-| 🗂️ **项目与会话** | 项目由服务端登记、各端共用，可改名、移除；新建、搜索、分叉、导出 Markdown；从任意一条自己的消息“编辑重发” |
-| 💬 **对话过程** | 流式回复、思考摘要、工具调用的入参与结果；运行中追加消息、随时停止；计划显示为文档，可修改后再执行 |
-| 🎛️ **原生控制** | 模型、推理强度、审批模式、上下文占用与主动压缩、Claude Code 常用设置；一键在 `ccdt` 里打开当前会话 |
-| ⌨️ **终端客户端** | `ccdt` 在自己的终端里打开原版 Claude Code，与图形客户端共用会话、上下文和调用统计；更省 5 小时额度（见[账号须知](docs/account.md)） |
-| 🤖 **与其他 agent 协作** | 其他 agent 和脚本经 `ccdt -p` 派发、跟进任务并处理审批，编辑器经 `ccdt acp` 接入；Claude 也能调用电脑上的命令行 agent |
-| 📂 **文件面板** | 浏览本机、服务端和其他在线电脑的文件：预览、上传下载、在不同位置之间复制粘贴 |
-| 📱 **浏览器与手机** | 可选开启：操作在线电脑上的会话，或新建在服务端执行的普通会话；手机上可安装为应用；不增加端口或容器 |
-| 📊 **账号与用量** | 在客户端里登录、退出服务端的 Claude 账号，查看额度、重置时间和调用统计；提示缓存过期前可自动压缩 |
-| ⏰ **定时任务** | 到点由客户端向指定会话或新会话发送预设提示词，也可以直接让 Claude 帮你设置 |
-| ⬆️ **升级与备份** | 在客户端里一键升级服务端和 Windows 客户端，不必登录服务器；服务端一条命令备份与还原 |
-| 🧩 **省心** | 托盘后台、记住凭据与自动登录、未发送的内容按会话保存 |
-
-## ⚙️ 工作方式
-
-- 服务器和每台电脑之间只有一条 **WSS 加密隧道**，用同一个地址和端口。里面有两类连接：客户端与服务端之间的对话，以及 Claude Code 经 SSH 操作这台电脑的执行通道。
-- 电脑**主动连出**，不需要公网 IP 或入站端口。每次连接临时生成 SSH 密钥，断开即销毁，电脑上不装常驻服务。
-- 每个会话在它的项目所在的电脑上执行，同时能按名字连到你其他在线的电脑。
-- 本项目只是官方 Claude Code 之上的一层胶水：图形客户端经官方 Agent SDK 运行它，`ccdt` 直接运行交互式的原版 CLI。不改 CLI 本体，不替换它的工具、审批和上下文管理。
-
-![工作方式：Windows 电脑与 Linux 服务器之间是一条 WSS 加密隧道，里面有两类连接。一类连接桌面客户端与代理服务，传用户消息、Claude 输出和审批请求；另一类是 SSH，连接本机的 OpenSSH 与服务器上的通道转发，传命令、文件和执行结果。Claude Code 的工具调用经通道转发和 SSH 到本机的项目里执行](docs/images/workflow.png)
-
-<p align="center"><sub>连接示意图，以一台 Windows 电脑为例；更多见<a href="docs/architecture.md">架构</a>。</sub></p>
-
-本仓库公开客户端、服务端和构建、部署脚本的全部自有源码，不另设闭源功能。**这不意味着 Claude Code 也被本项目开源**：官方 CLI 与 Agent SDK 由官方渠道安装，仍按 Anthropic 的条款使用；随包的第三方组件各自遵循其许可，见 [NOTICE](NOTICE)。
-
-<a id="快速开始"></a>
-
-## 🚀 快速开始
-
-**需要准备：**
-
-- 🐧 **服务器**：一台有公网 IP 或域名的 Linux 服务器，已装 Docker，推荐 Ubuntu；x86_64，arm64 为实验性支持。编译和测试都在你的电脑上跑，**2 核 1 GB 的入门机型就够**。
-- 💻 **电脑**：Windows 10 / 11 x64、macOS 13 及以上（Apple 芯片或 Intel）或 Linux x64。macOS、Linux 的图形客户端和 `ccdt` 为实验性支持；没有图形界面的 Linux 用 `ccdt`。
-
-### 1. 部署服务端
-
-在服务器上执行：
-
-```sh
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/main/deploy/install.sh)"
-```
-
-一路回车即可。装完会打印客户端要填的**服务地址、证书指纹、服务凭据**，以及要在防火墙放行的端口（默认 TCP 8787，只有这一个）。以后在客户端的“设置 → 关于与更新”里就能升级服务端，一般不用再登录服务器。
-
-<details>
-<summary>脚本做了什么 · 日常管理命令</summary>
-
-1. 检查 Docker、Docker Compose 等依赖。缺少时只告诉你安装命令，不替你安装系统软件。
-2. 从发布页下载最新的服务端程序包并校验，解压到 `/opt/cc-desk-tunnel`。
-3. 询问公网地址、证书方式、端口和数据目录（都有默认值），拉取这个版本的镜像并启动。镜像预先构建在 `ghcr.io/sun168567/cc-desk-tunnel`（x86_64 和 arm64 自动选择）；连不上 ghcr.io 时改为在服务器上构建，首次要多等几分钟。
-4. 打印客户端要填的三项信息和要放行的端口。脚本不修改防火墙、nginx 或 SSH 配置。
-
-日常管理用 `cc-desk-tunnel` 命令，在任何目录下都能运行：
-
-```sh
-sudo cc-desk-tunnel status    # 运行状态
-sudo cc-desk-tunnel logs      # 查看日志（Ctrl+C 退出）
-sudo cc-desk-tunnel upgrade   # 升级到最新版本；数据、账号和配置保留
-sudo cc-desk-tunnel help      # 全部命令：更换凭据、备份恢复、证书等
-```
-
-</details>
-
-手动安装、三种证书方式、备份恢复见[部署操作手册](deploy/README.md)；已有 nginx 和域名时见[用 nginx 反代](deploy/nginx.md)。
-
-### 2. 安装客户端
-
-两种客户端可以只装一种，也可以都装；都要与服务端是**同一版本**。
-
-| | 适合 | 获取 |
-| --- | --- | --- |
-| 🖥️ **图形客户端** | 按项目管理各台电脑上的会话，过程折叠成摘要 | [最新发布页](https://github.com/sun168567/cc-desk-tunnel/releases/latest)开头的表格：Windows `.exe`；macOS Apple 芯片或 Intel 的 `.dmg`、Linux `.deb`（实验性，见 [macOS](docs/macos.md) · [Linux](docs/linux.md)） |
-| ⌨️ **终端客户端** | 即 `ccdt`：在自己的终端里用原版 Claude Code；也适合没有图形界面的机器 | 图形客户端已自带；只用终端时，单独安装用下面的命令 |
-
-Windows 安装包自带 PowerShell 7、OpenSSH 和 `ccdt`，不用另装任何东西；启动后填入上一步的三项信息并连接。
-
-<a id="杀毒软件与-smartscreen"></a>
-
-> [!NOTE]
-> Windows 安装包没有代码签名。首次运行出现“Windows 已保护你的电脑”时，点“更多信息 → 仍要运行”；内置组件被安全软件拦截时先核对再放行，见[杀毒软件与 SmartScreen](docs/troubleshooting.md#杀毒软件与-smartscreen)。macOS 客户端使用临时签名，未经过 Apple 公证。macOS 与 Linux 用户升级时需要重新下载安装包。
-
-单独安装 `ccdt`（只为当前用户安装，不需要管理员权限，装好后运行 `ccdt login`）：
-
-```powershell
-# Windows（PowerShell）
-irm https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/main/deploy/install-ccdt.ps1 | iex
-```
-
-```sh
-# macOS、Linux（实验性）
-curl -fsSL https://raw.githubusercontent.com/sun168567/cc-desk-tunnel/main/deploy/install-ccdt.sh | sh
-```
-
-脚本安装最新正式版并按 `SHA256SUMS` 校验；服务端不是最新版时，指定与它相同的版本，见[终端客户端](docs/cli.md#安装)。
-
-### 3. 登录 Claude
-
-在客户端“设置 → 账号与额度”登录你的 Claude 账号，添加一个项目文件夹，开始对话。
-
-- **普通登录**：打开官方授权页，把页面给出的代码粘贴回来，与官方 `claude auth login` 相同。
-- **Setup token 登录**：由服务端运行官方命令生成，授权后自动保存；已有令牌也可以直接粘贴。令牌只存在服务端，图形客户端与 `ccdt` 共用。这种方式通常看不到账号资料和完整额度，见[登录方式差异](docs/native-runtime.md#登录方式)。
-
-### 4. 接入更多电脑
-
-- **其他电脑**：装图形客户端或 `ccdt`，登录同一个服务端。它们的项目和会话随即出现在每一端的“其他设备”下，会话也能按名字连到它们。没有图形界面的机器运行 `ccdt online` 保持在线，开机常驻见[保持在线](docs/cli.md#保持在线)。
-- **浏览器与手机**：在桌面客户端“设置 → 浏览器访问”中开启，用服务凭据登录显示的地址，建议开启两步验证。浏览器本身不是执行端：它操作在线电脑上的会话，或新建在服务端执行的普通会话。见[浏览器访问](docs/server-web.md)；不用时保持默认关闭。
-
-<a id="安全须知"></a>
-
-## 🔒 安全须知
-
-> [!IMPORTANT]
-> **服务器必须是你自己控制、可信的机器。** 连接期间，服务器能以你的用户身份在每台已连接的电脑上执行任意命令。服务器被攻陷，等于这些电脑都被攻陷；接入的电脑越多，影响面越大。
-
-1. 🔑 **服务凭据等同于完全控制权。** 拿到它的人能用你的 Claude 账号，并在你每台已连接的电脑上执行任意命令。用脚本生成的随机凭据，不要改成短口令，不要截图或贴到聊天、issue 里；泄漏后在服务器上运行 `sudo cc-desk-tunnel token` 更换。
-2. 🧱 **不是沙箱。** Claude 能访问你的用户在那台电脑上能访问的一切，不只是项目目录，也能连到你其他在线的电脑。项目只靠提示词引导它在项目内工作、到其他电脑上只做你要求的事，审批沿用 Claude Code 自己的机制。
-3. 📤 **数据会离开本机。** Claude 读取的文件片段和命令输出经你的服务器发往模型服务；服务器上存着会话记录和 Claude 登录凭据，备份文件同样包含这些秘密。
-4. 🔏 **指纹要从可信渠道取得。** 使用自签证书时，证书指纹应来自你自己登录服务器看到的安装汇总，而不是别人转发的消息。
-
-🌐 **端口**：服务器只需放行一个 TCP 端口（默认 8787；用 nginx 时是 443），通往你电脑的 SSH 端口只在容器内部监听，外部无法访问；电脑一侧不需要放行任何入站端口。可以再用云厂商的安全组只允许自己的出口 IP 访问。细节见[部署与安全边界](docs/deployment.md#端口与协议)。
-
-> 请 AI 助手帮你部署时，也让它先读这一节，并提醒你：只放行一个端口、保管好服务凭据、确认服务器可信。
-
-完整的威胁模型、已有防护和漏洞报告方式见 [SECURITY.md](SECURITY.md)。
-
-<a id="账号须知"></a>
-
-## 👤 账号须知
-
-本项目运行的是你服务器上的官方 Claude Code：官方流程登录，不修改 Claude Code，不经手也不改写它与模型服务之间的请求，不伪造地区、设备或客户端身份。这是对结构的说明，**不是对账号安全的保证**：
-
-- 📍 **服务器所在地就是你的使用地点**：全部请求都从服务器发出。请选择位于 [Anthropic 支持的国家和地区](https://www.anthropic.com/supported-countries)、来源正常的服务器；放在不支持的地区或被滥用过的 IP 上，可能触发风控。
-- 📜 **条款由你自己确认**：订阅登录和 Agent SDK 的使用范围见 Anthropic 的[法律与合规说明](https://code.claude.com/docs/en/legal-and-compliance)；拿不准时改用 API key。
-- ⏱️ **5 小时额度**：据社区实测（[#136](https://github.com/sun168567/cc-desk-tunnel/issues/136)），经 Agent SDK 运行时计入 5 小时额度的比例约为交互式 CLI 的两倍，每周额度不受影响；额度紧张时在 `ccdt` 里做长任务。
-- 👤 **单用户自用**：一个服务对应一个使用者，一个账号只给自己用，不共享、不转售。
-
-完整说明见[账号须知](docs/account.md)。
-
-<a id="文档"></a>
-
-## 📖 文档
-
-| 文档 | 内容 |
-| --- | --- |
-| 🩺 [常见问题与排查](docs/troubleshooting.md) | 连接失败、用着用着断开、杀毒软件与 SmartScreen |
-| 📦 [部署操作手册](deploy/README.md) | 安装、升级、三种 TLS 入口、备份恢复、日常运维 |
-| 🛡️ [部署与安全边界](docs/deployment.md) · [安全说明](SECURITY.md) | 端口、证书、凭据、信任边界；威胁模型、已知不足、漏洞报告 |
-| 👤 [账号须知](docs/account.md) | 在 Anthropic 看来这是什么、使用地点、条款、额度、使用边界 |
-| ⌨️ [终端客户端 ccdt](docs/cli.md) | 安装、登录、命令、保持在线、供其他 agent 使用 |
-| 🌐 [浏览器访问](docs/server-web.md) | 可选的 Web 工作台、登录、域名与路径、证书和反向代理 |
-| 🍎 [macOS 客户端](docs/macos.md) · 🐧 [Linux 客户端](docs/linux.md) | 实验性：安装、与 Windows 的不同、验证情况 |
-| 🏗️ [架构](docs/architecture.md) · [原生运行与会话存储](docs/native-runtime.md) | 组成与连接过程；如何驱动官方 CLI、上下文、审批、保留期 |
-| 🧭 [路线与现状](docs/roadmap.md) · [变更记录](CHANGELOG.md) | 已完成、待验证、计划；各版本的变化 |
-
-模块说明：[图形客户端](apps/desktop/README.md) · [服务端](apps/server/README.md) · [消息契约](packages/protocol/README.md)。文档目前只有中文。
-
-<a id="从源码构建"></a>
-
-## 🛠️ 从源码构建
-
-需要 Git、Node.js 24 与 npm；Windows 上使用 PowerShell 7。
-
-```powershell
-npm ci
-npm run dev               # 本地模拟服务 + 浏览器界面，不需要任何账号
-npm test                  # 单元测试；另有 typecheck、test:ui、check
-npm run package:windows   # 生成 Windows 安装包，准备步骤见 apps/desktop/README.md
-npm run package:macos     # 在 Mac 上生成当前芯片的 DMG，输出到 artifacts/macos/
-npm run package:server    # 生成服务端程序包，传到服务器后运行其中的 deploy/install.sh
-```
-
-<details>
-<summary>目录结构</summary>
-
-```text
-apps/desktop/       图形客户端：界面（React，浏览器访问共用）、Electron 主进程、连接桥与本机执行组件
-apps/cli/           终端客户端 ccdt
-apps/server/        服务端：会话与项目、Claude Code 适配、设备执行通道、文件、调用统计、版本跟踪
-packages/protocol/  两端消息契约（Zod）
-deploy/             Docker 部署与运维脚本
-scripts/            工程检查、开发启动、打包、发布
-docs/               跨模块的架构、部署、开发文档
-```
-
-</details>
-
-开发规范见[开发约定](docs/development.md)。
-
-## 🤝 社区
-
-认可 [LINUX DO](https://linux.do/) 社区倡导的真诚、友善、团结与专业，也感谢佬友们关于远程开发和开源工具的讨论。欢迎交流使用体验；反馈问题时请先遮盖账号、服务凭据、服务器地址和项目隐私。安全漏洞请走[私下报告入口](SECURITY.md#报告漏洞)。
-
-## ⭐ Star 趋势
-
-[![Star 趋势图](https://api.star-history.com/svg?repos=sun168567/cc-desk-tunnel&type=Date)](https://star-history.com/#sun168567/cc-desk-tunnel&Date)
-
-## 📄 许可
-
-[Apache License 2.0](LICENSE)。随包分发的第三方组件及其许可见 [NOTICE](NOTICE)。
+感谢原作者 [sun168567](https://github.com/sun168567) 和 [CC Desk Tunnel](https://github.com/sun168567/cc-desk-tunnel) 的贡献者。本项目基于上游 0.3.20，复用桌面端、设备隧道、SSH 和终端转发，并接入 Codex CLI。项目保留 [Apache-2.0 许可证](LICENSE) 和[原始版权声明](NOTICE)。原版的说明、截图和文档见[上游 README](https://github.com/sun168567/cc-desk-tunnel/blob/v0.3.20/README.md)。
