@@ -60,7 +60,12 @@ main() {
     if [[ -d "$TARGET/.git" ]]; then
       [[ "$(git -C "$TARGET" config --get remote.origin.url)" = "$url" && "$(git -C "$TARGET" branch --show-current)" = main ]] \
         || fail "$TARGET 需要是 $REPO 的 main 分支。"
-      [[ -z "$(git -C "$TARGET" status --porcelain)" ]] || fail "工作区有本地修改，请先保存。"
+      local changes
+      changes="$(git -C "$TARGET" status --porcelain=v1 --untracked-files=normal)" || fail "无法读取 $TARGET 的 Git 状态。"
+      if [[ -n "$changes" ]]; then
+        printf '安装目录 %s 中有以下本地改动：\n%s\n' "$TARGET" "$changes" >&2
+        fail "本次升级已停止。请先核对这些文件。若只需升级正在运行的服务，可在已连接的桌面端打开「设置 → 关于与更新」。"
+      fi
       git -C "$TARGET" fetch origin "$REF"
       git -C "$TARGET" merge-base --is-ancestor HEAD FETCH_HEAD || fail "本地有独立提交，请手动更新。"
       confirm "更新 ${TARGET}，使用新源码重新部署？" || exit 0

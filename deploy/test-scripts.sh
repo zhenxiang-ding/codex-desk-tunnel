@@ -233,6 +233,12 @@ commit_source
 git -C "$source_repo" tag test-next
 export CC_DESK_TUNNEL_REF=refs/tags/test-next
 : > "$MOCK_LOG"
+printf 'private fixture content\n' > "$TEMP/installed/operator-note.txt"
+if bash "$TEMP/install.sh" < /dev/null > "$TEMP/dirty.log" 2>&1; then echo 'Installer accepted local changes.' >&2; exit 1; fi
+grep -Fq '?? operator-note.txt' "$TEMP/dirty.log"
+if grep -Fq 'private fixture content' "$TEMP/dirty.log"; then echo 'Installer printed private file contents.' >&2; exit 1; fi
+test "$(cat "$TEMP/installed/operator-note.txt")" = 'private fixture content'
+rm -- "$TEMP/installed/operator-note.txt"
 printf 'y\n' | bash "$TEMP/install.sh" > "$TEMP/reinstall.log"
 test "$(git -C "$TEMP/installed" rev-parse HEAD)" = "$(git -C "$source_repo" rev-parse HEAD)"
 grep -q "PROXY_IMAGE='codex-desk-tunnel:local'" "$TEMP/installed/.local/docker.env"
