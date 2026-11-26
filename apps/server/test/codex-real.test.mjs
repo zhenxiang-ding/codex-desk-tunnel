@@ -2,7 +2,7 @@ import { CodexAccount } from '../src/codex-account.ts';
 import { runCodexChat } from '../src/codex-chat.ts';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
@@ -17,6 +17,12 @@ test(
       root = mkdtempSync(join(tmpdir(), 'cxdt-real-cli-')),
       cwd = join(root, 'work');
     mkdirSync(cwd);
+    const skillDir = join(root, 'skills', 'desk-test-skill');
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, 'SKILL.md'),
+      '---\nname: desk-test-skill\ndescription: A local test skill.\n---\nReport the result.\n',
+    );
     t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 6, retryDelay: 100 }));
     const env = {
       SystemRoot: process.env.SystemRoot,
@@ -37,6 +43,8 @@ test(
     try {
       const catalog = await acc.models();
       assert.ok(catalog.length > 0 && catalog.some((m) => m.supportedReasoningEfforts.length));
+      const skills = await acc.skills(cwd);
+      assert.ok(skills.some((s) => s.name === 'desk-test-skill' && s.path.endsWith('SKILL.md')));
       const initial = await acc.configuration();
       assert.equal(initial.approvals_reviewer, null);
       await acc.configuration({

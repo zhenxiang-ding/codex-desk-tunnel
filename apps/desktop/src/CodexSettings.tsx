@@ -86,7 +86,7 @@ export function CodexSettings({
 }: {
   legacy?: boolean;
   client: ProxyClient;
-  section?: 'cli' | 'context' | 'permissions';
+  section?: 'cli' | 'context' | 'permissions' | 'memories';
 }) {
   const visible =
     section === 'permissions'
@@ -95,7 +95,11 @@ export function CodexSettings({
           .map((group) => ({
             ...group,
             fields: group.fields.filter(
-              (f) => section === 'cli' || f.key === 'model_auto_compact_token_limit',
+              (f) =>
+                section === 'cli' ||
+                (section === 'memories'
+                  ? f.key.includes('memories')
+                  : f.key === 'model_auto_compact_token_limit'),
             ),
           }))
           .filter((group) => group.fields.length);
@@ -169,7 +173,7 @@ export function CodexSettings({
     <>
       {current && (
         <>
-          {section !== 'context' && (
+          {section !== 'context' && section !== 'memories' && (
             <section className="settings-section">
               <h2 className="page-heading">权限</h2>
               <div className="card">
@@ -180,7 +184,7 @@ export function CodexSettings({
                   <select
                     aria-label="默认审批模式"
                     value={currentPreset ?? 'custom'}
-                    disabled={busy || oldPermissions}
+                    disabled={busy}
                     onChange={(e) => {
                       const preset = e.target.value as CodexPreset;
                       if (
@@ -195,7 +199,15 @@ export function CodexSettings({
                   >
                     {!currentPreset && <option value="custom">自定义权限</option>}
                     {(Object.keys(approvalLabels) as CodexPreset[]).map((preset) => (
-                      <option key={preset} value={preset}>
+                      <option
+                        key={preset}
+                        value={preset}
+                        disabled={
+                          oldPermissions &&
+                          client.state.service !== '0.1.7' &&
+                          preset === 'full-access'
+                        }
+                      >
                         {approvalLabels[preset]}
                       </option>
                     ))}
@@ -308,7 +320,7 @@ export function CodexSettings({
       {message && <p role="status">{message}</p>}
     </>
   );
-  if (section === 'permissions') return controls;
+  if (section === 'permissions' || section === 'memories') return controls;
   return (
     <Page
       title={section === 'context' ? '上下文与缓存' : 'CLI 设置'}

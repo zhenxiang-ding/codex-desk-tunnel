@@ -4,7 +4,7 @@ import { webCertificateStateSchema } from './web-certificate.ts';
 export * from './web.ts';
 export * from './web-certificate.ts';
 
-export const PROTOCOL_VERSION = 35;
+export const PROTOCOL_VERSION = 36;
 // The release each protocol version began with, from 0.2.4 on: a client newer than its service signs in with
 // the service's number to have it upgrade (see the README). A new number adds its line here.
 export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
@@ -15,6 +15,7 @@ export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
   '0.1.6': 33,
   '0.1.7': 34,
   '0.1.8': 35,
+  '0.1.9': 36,
   '0.2.4': 10,
   '0.2.6': 11,
   '0.2.9': 12,
@@ -42,13 +43,15 @@ export const protocolForRelease = (version: string) =>
   )?.[1];
 // Ready, history and update frames from these Codex releases are compatible with this desktop.
 export const compatibleDesktopProtocol = (version?: string | null) =>
-  version === '0.1.7'
-    ? 34
-    : version === '0.1.6'
-      ? 33
-      : version && /^0\.1\.[345]$/.test(version)
-        ? 32
-        : undefined;
+  version === '0.1.8'
+    ? 35
+    : version === '0.1.7'
+      ? 34
+      : version === '0.1.6'
+        ? 33
+        : version && /^0\.1\.[345]$/.test(version)
+          ? 32
+          : undefined;
 export const MAX_FRAME_BYTES = 256 * 1024;
 // The longest global instructions edited here, in characters; it keeps a frame of them within MAX_FRAME_BYTES.
 export const INSTRUCTIONS_LIMIT = 64_000;
@@ -130,13 +133,21 @@ export const codexChoiceSchema = z
       .optional(),
   })
   .strict();
+export const skillMention = (skill: { name: string; path: string }) =>
+  '[$' +
+  skill.name +
+  '](' +
+  encodeURI(skill.path).replaceAll('(', '%28').replaceAll(')', '%29') +
+  ')';
 export type CodexChoice = z.infer<typeof codexChoiceSchema>;
 export const codexModelSchema = z.object({
   model: z.string(),
   displayName: z.string(),
   description: z.string(),
   isDefault: z.boolean(),
-  serviceTiers: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+  serviceTiers: z
+    .array(z.object({ id: z.string(), name: z.string(), description: z.string().optional() }))
+    .optional(),
   defaultReasoningEffort: codexEffortSchema,
   supportedReasoningEfforts: z.array(
     z.object({ reasoningEffort: codexEffortSchema, description: z.string() }),
@@ -843,6 +854,7 @@ export const commandSchema = z.discriminatedUnion('type', [
     .strict(),
   z.object({ type: z.literal('account.cancel'), ...request }).strict(),
   z.object({ type: z.literal('account.logout'), ...request }).strict(),
+  z.object({ type: z.literal('codex.skills.get'), sessionId: id, ...request }).strict(),
   z.object({ type: z.literal('codex.models.get'), ...request }).strict(),
   z.object({ type: z.literal('codex.settings.get'), ...request }).strict(),
   z
@@ -1237,6 +1249,11 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     requestId: id,
     models: z.array(codexModelSchema),
     defaults: codexConfigSchema,
+  }),
+  z.object({
+    type: z.literal('codex.skills.state'),
+    requestId: id,
+    skills: z.array(z.object({ name: z.string(), path: z.string(), description: z.string() })),
   }),
   z.object({ type: z.literal('codex.settings.state'), requestId: id, values: codexConfigSchema }),
   z.object({

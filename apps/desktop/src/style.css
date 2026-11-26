@@ -4678,3 +4678,24 @@ dialog:has(.codex-terminal) {
   display: block;
   padding: 6px 10px;
 }
+
+.codex-skills {
+  display: grid;
+  max-height: 55vh;
+  overflow: auto;
+  gap: 0.35rem;
+}
+.codex-skills button {
+  text-align: start;
+  padding: 0.6rem;
+  background: transparent;
+  color: inherit;
+  border: 0;
+}
+.codex-skills button:hover,
+.codex-skills button:focus-visible {
+  background: var(--hover);
+}
+.codex-skills small {
+  display: block;
+}

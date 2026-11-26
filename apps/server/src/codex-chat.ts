@@ -44,6 +44,7 @@ interface Chat {
   choice?: CodexChoice;
   thread?: string;
   message: string;
+  skills?: { name: string; path: string }[];
   messageId: string;
   signal: AbortSignal;
   bind: (id: string) => void;
@@ -223,8 +224,8 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
         if (frame.error)
           throw new Error(sent.method + ' 请求失败：' + print(frame.error.message).slice(0, 600));
         const result = frame.result;
-        const permissions = resolveCodexPermissions(config, chat.choice?.approval);
-        const open = () =>
+        const open = () => {
+          const permissions = resolveCodexPermissions(config, chat.choice?.approval);
           request(thread ? 'thread/resume' : 'thread/start', {
             ...(thread ? { threadId: thread, excludeTurns: true } : {}),
             cwd: runtime.cwd,
@@ -240,6 +241,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             approvalPolicy: permissions.approval_policy,
             approvalsReviewer: permissions.approvals_reviewer,
           });
+        };
         switch (sent.method) {
           case 'initialize':
             write({ method: 'initialized' });
@@ -283,7 +285,10 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
                   ? undefined
                   : config.model_reasoning_effort) ??
                 undefined,
-              input: [{ type: 'text', text: chat.message }],
+              input: [
+                { type: 'text', text: chat.message },
+                ...(chat.skills ?? []).map(({ name, path }) => ({ type: 'skill', name, path })),
+              ],
               clientUserMessageId: chat.messageId,
             });
             break;

@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowUp, Folder, Play, Plus, RefreshCw, Shrink, Square, SquareSlash } from 'lucide-react';
-import { isWindowsPath } from '@cc-desk-tunnel/protocol';
+import { isWindowsPath, skillMention } from '@cc-desk-tunnel/protocol';
 import type {
   AccountQuota,
+  CodexModel,
   Effort,
   NativeCapabilities,
   NativeMetrics,
@@ -11,6 +12,10 @@ import type {
   PermissionMode,
   Session,
 } from '@cc-desk-tunnel/protocol';
+import { codexCommandPrefix, codexCommands, parseCodexCommand } from './codex-commands.ts';
+import CodexSkillPicker from './CodexSkillPicker.tsx';
+import { CodexSettings } from './CodexSettings.tsx';
+import { Modal } from './ui.tsx';
 import { slashCommands } from './commands.ts';
 import { CodexToolbar } from './CodexToolbar.tsx';
 import type { ProxyClient } from './client.ts';
@@ -32,6 +37,8 @@ export default function Composer({
   projectName,
   chooseProject,
   localProject,
+  openCodexCommand,
+  codexAction,
   draft,
   setDraft,
   native,
@@ -67,6 +74,8 @@ export default function Composer({
   projectName: string | null;
   // Opens the list of projects the session can be moved to; absent while it cannot be moved.
   localProject: boolean;
+  openCodexCommand?: (command: string) => void;
+  codexAction: (name: 'config' | 'usage' | 'rename' | 'export' | 'new') => void;
   chooseProject?: (position: MenuPosition) => void;
   draft: string;
   setDraft: (text: string) => void;
@@ -186,7 +195,95 @@ export default function Composer({
       fill: `/${command.name} `,
     })),
   ];
-  const shownItems = codex ? items.filter((item) => item.key === 'compact') : items;
+  const [serviceTiers, setServiceTiers] = useState<NonNullable<CodexModel['serviceTiers']>>([]);
+  const [commandMenu, setCommandMenu] = useState<{
+    name: 'approval' | 'model';
+    sequence: number;
+  } | null>(null);
+  const [panel, setPanel] = useState<'skills' | 'memories' | null>(null);
+  const [slashError, setSlashError] = useState('');
+  useEffect(() => {
+    setPanel(null);
+    setSlashError('');
+    setCommandMenu(null);
+  }, [session.id]);
+  function dispatchCommand(text: string) {
+    const command = parseCodexCommand(text);
+    if (!command && text !== '/') return false;
+    const name = command?.name,
+      args = command?.args;
+    setSlashOpen(false);
+    setSlashError('');
+    if (!args && (name === 'permissions' || name === 'model')) {
+      setCommandMenu((v) => ({
+        name: name === 'permissions' ? 'approval' : 'model',
+        sequence: (v?.sequence ?? 0) + 1,
+      }));
+    } else if (!args && name === 'compact' && canCompact) {
+      compact();
+      return true;
+    } else if (
+      !args &&
+      name === 'skills' &&
+      window.desktop &&
+      !/^0\.1\.[0-8]$/.test(client.state.service ?? '')
+    ) {
+      setPanel('skills');
+    } else if (!args && name === 'memories' && window.desktop) {
+      setPanel('memories');
+    } else if (
+      !args &&
+      (name === 'config' ||
+        name === 'rename' ||
+        name === 'usage' ||
+        name === 'export' ||
+        name === 'new') &&
+      window.desktop
+    ) {
+      codexAction(name);
+    } else if (openCodexCommand) {
+      openCodexCommand(command?.text ?? '/');
+    } else {
+      setSlashError('此命令使用 VPS 上的原生 Codex 界面，请从桌面客户端打开。');
+      return true;
+    }
+    setDraft('');
+    return true;
+  }
+  function submit() {
+    if (tooLong || inputDisabled) return;
+    if (codex && dispatchCommand(draft)) return;
+    send();
+  }
+  const shownItems: typeof items = codex
+    ? [
+        ...codexCommands(typed, serviceTiers).map(({ name, description }) => ({
+          key: name,
+          title: '/' + name,
+          icon: <SquareSlash />,
+          detail: description,
+          disabled: inputDisabled,
+          fill: undefined,
+          run: () => dispatchCommand('/' + name),
+        })),
+        ...(openCodexCommand
+          ? [
+              {
+                key: 'native-picker',
+                title: typed ? '在 Codex CLI 中打开 /' + typed : '查看 VPS 上的完整命令菜单',
+                icon: <SquareSlash />,
+                detail: '包含模型档位、预设和当前启用的功能',
+                disabled: inputDisabled,
+                run: () => {
+                  setDraft('');
+                  setSlashOpen(false);
+                  openCodexCommand(typed ? '/' + typed : '/');
+                },
+              },
+            ]
+          : []),
+      ]
+    : items;
   const menuShown = native && slashOpen && shownItems.length > 0;
   const at =
     pick === null
@@ -231,6 +328,35 @@ export default function Composer({
   }
   return (
     <div className="composer-area">
+      {slashError && <p role="alert">{slashError}</p>}
+      {panel === 'skills' && (
+        <CodexSkillPicker
+          client={client}
+          sessionId={session.id}
+          close={() => setPanel(null)}
+          choose={(skill) => {
+            setPanel(null);
+            fill(skillMention(skill) + ' ');
+          }}
+        />
+      )}
+      {panel === 'memories' && (
+        <Modal title="Codex 记忆" onClose={() => setPanel(null)}>
+          <CodexSettings client={client} section="memories" />
+          {openCodexCommand && (
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                setPanel(null);
+                openCodexCommand('/memories');
+              }}
+            >
+              打开原生记忆菜单
+            </button>
+          )}
+        </Modal>
+      )}
       {menuShown && (
         <div className="slash-menu" role="listbox" aria-label="会话命令" ref={menu}>
           {shownItems.map((item, index) => (
@@ -283,7 +409,7 @@ export default function Composer({
         className={`composer ${dropping ? 'dropping' : ''}`}
         onSubmit={(event) => {
           event.preventDefault();
-          send();
+          submit();
         }}
         onDragOver={(event) => {
           if (!window.desktop || inputDisabled || !event.dataTransfer.types.includes('Files'))
@@ -311,7 +437,7 @@ export default function Composer({
           disabled={inputDisabled}
           onChange={(text) => {
             setDraft(text);
-            setSlashOpen(native && slashDraft.test(text));
+            setSlashOpen(native && (codex ? codexCommandPrefix : slashDraft).test(text));
             setPick(null);
           }}
           onPaste={(event) => {
@@ -341,7 +467,11 @@ export default function Composer({
             }
             if (menuShown && event.key === 'Tab' && !event.shiftKey) {
               event.preventDefault();
-              const command = shownItems[at].fill;
+              const command =
+                shownItems[at].fill ??
+                (codex && shownItems[at].key !== 'native-picker'
+                  ? '/' + shownItems[at].key + ' '
+                  : undefined);
               if (command) fill(command);
               return;
             }
@@ -350,7 +480,7 @@ export default function Composer({
               if (!menuShown && matchMedia('(pointer: coarse)').matches) return;
               event.preventDefault();
               if (!menuShown) {
-                if (!tooLong) send();
+                submit();
               } else if (!shownItems[at].disabled) shownItems[at].run();
             }
           }}
@@ -371,6 +501,8 @@ export default function Composer({
               client={client}
               session={session}
               disabled={controlsDisabled}
+              commandMenu={commandMenu}
+              setServiceTiers={setServiceTiers}
               usage={codexUsage}
               quota={quota}
               openAccount={openAccount}

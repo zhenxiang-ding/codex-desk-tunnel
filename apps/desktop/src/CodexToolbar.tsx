@@ -36,6 +36,8 @@ export function CodexToolbar({
   disabled,
   usage,
   configure,
+  commandMenu,
+  setServiceTiers,
   quota,
   openAccount,
 }: {
@@ -45,6 +47,8 @@ export function CodexToolbar({
   usage?: (Extract<EventPayload, { type: 'codex.usage' }> & { measuredAt: string }) | null;
   quota: import('@cc-desk-tunnel/protocol').AccountQuota | null;
   openAccount: () => void;
+  setServiceTiers: (tiers: NonNullable<CodexModel['serviceTiers']>) => void;
+  commandMenu: { name: 'approval' | 'model'; sequence: number } | null;
   configure: (choice: CodexChoice) => Promise<void>;
 }) {
   const { sessionBar } = usePrefs();
@@ -100,10 +104,16 @@ export function CodexToolbar({
       document.removeEventListener('keydown', escape);
     };
   }, []);
+  useEffect(() => {
+    if (commandMenu) open(commandMenu.name);
+  }, [commandMenu]);
   const choice = session.codex ?? {},
     current =
       models.find((m) => m.model === (choice.model ?? defaults?.model)) ??
       (!choice.model && !defaults?.model ? models.find((m) => m.isDefault) : undefined);
+  useEffect(() => {
+    setServiceTiers(current?.serviceTiers ?? []);
+  }, [current, setServiceTiers]);
   const modelLabel = current?.displayName || choice.model || defaults?.model || 'CLI 默认模型';
   const levels = current?.supportedReasoningEfforts ?? [];
   const actual =
@@ -148,8 +158,15 @@ export function CodexToolbar({
                 key={preset}
                 role="menuitemradio"
                 aria-checked={approval === preset}
-                disabled={legacy}
-                title={legacy ? '升级服务端后可选择原生权限预设' : undefined}
+                disabled={
+                  legacy &&
+                  (preset === 'full-access' ||
+                    preset === 'read-only' ||
+                    (!!defaults?.sandbox_mode && defaults.sandbox_mode !== 'workspace-write'))
+                }
+                title={
+                  legacy ? '旧服务端仅支持在工作区沙箱中切换审批人；升级可使用所有预设' : undefined
+                }
                 onClick={() => {
                   if (
                     preset === 'full-access' &&
@@ -158,14 +175,20 @@ export function CodexToolbar({
                     )
                   )
                     return;
-                  save({ approval: preset });
+                  save({
+                    approval: legacy
+                      ? preset === 'approve-for-me'
+                        ? 'auto_review'
+                        : 'on-request'
+                      : preset,
+                  });
                 }}
               >
                 {approvalLabels[preset]}
                 {approval === preset && <Check />}
               </button>
             ))}
-            {choice.approval && !legacy && (
+            {choice.approval && (
               <button type="button" onClick={() => save({ approval: null })}>
                 恢复服务端默认
               </button>

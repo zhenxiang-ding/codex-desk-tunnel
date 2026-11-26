@@ -51,12 +51,15 @@ export function configuredPermissions(read: {
   const keys = ['sandbox_mode', 'approval_policy', 'approvals_reviewer'] as const;
   if (
     !origins ||
-    keys.some((k) => Object.hasOwn(origins, k)) ||
     Object.hasOwn(origins, 'permissions') ||
     Object.hasOwn(origins, 'default_permissions')
   )
     return config;
-  return { ...config, sandbox_mode: null, approval_policy: null, approvals_reviewer: null };
+  const explicit = { ...config };
+  for (const key of keys) {
+    if (!Object.hasOwn(origins, key)) explicit[key] = null;
+  }
+  return explicit;
 }
 type Challenge = { loginId: string; url: string; deviceCode: string };
 
@@ -151,6 +154,29 @@ export class CodexAccount {
       this.pending.set(id, finish);
       this.child!.stdin.write(JSON.stringify({ id, method, params }) + '\n');
     });
+  }
+  async skills(cwd: string) {
+    await this.start();
+    const result = await this.rpc<{
+      data: {
+        skills: {
+          name: string;
+          path: string;
+          enabled: boolean;
+          description: string;
+          shortDescription?: string | null;
+        }[];
+      }[];
+    }>('skills/list', { cwds: [cwd] });
+    return result.data.flatMap((entry) =>
+      entry.skills
+        .filter((skill) => skill.enabled)
+        .map((skill) => ({
+          name: skill.name,
+          path: skill.path,
+          description: skill.shortDescription || skill.description,
+        })),
+    );
   }
   async models(): Promise<CodexModel[]> {
     await this.start();

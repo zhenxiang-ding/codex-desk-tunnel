@@ -272,7 +272,9 @@ export function App({
   }, []);
   // Opening a session in cxdt found it not installed (`{}`), or of another release (`installed`).
   const [cxdtNeeded, setCxdtNeeded] = useState<{ installed?: string } | null>(null);
-  const [codexSession, setCodexSession] = useState<Session | null>(null);
+  const [codexSession, setCodexSession] = useState<{ session: Session; command?: string } | null>(
+    null,
+  );
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const [createOpen, setCreateOpen] = useState(false);
@@ -1306,7 +1308,7 @@ export function App({
               label: '打开 Codex 终端',
               icon: <SquareTerminal />,
               disabled: !idle || (!!session.activeRun && session.activeRun.surface !== 'terminal'),
-              run: () => setCodexSession(session),
+              run: () => setCodexSession({ session }),
             },
             {
               label: '用 cxdt 打开',
@@ -2204,6 +2206,24 @@ export function App({
             )}
             {selected && (!away || remote) && (
               <Composer
+                openCodexCommand={
+                  host.terminalClient
+                    ? (command) => setCodexSession({ session: selected, command })
+                    : undefined
+                }
+                codexAction={(name) => {
+                  if (name === 'rename') setRenameSession(selected);
+                  else if (name === 'usage') open('settings', 'account');
+                  else if (name === 'config') open('settings', 'claude');
+                  else if (name === 'export')
+                    void act(async () => {
+                      await exportSession(client, selected);
+                    });
+                  else if (name === 'new')
+                    void (away && selected.device
+                      ? createElsewhere(selected.device.id, selected.projectPath)
+                      : createInProject(selected.projectPath));
+                }}
                 localProject={!away}
                 openAccount={() => open('settings', 'account')}
                 session={selected}
@@ -2395,7 +2415,8 @@ export function App({
         <Suspense fallback={null}>
           <CodexTerminal
             client={client}
-            session={codexSession}
+            session={codexSession.session}
+            command={codexSession.command}
             close={() => setCodexSession(null)}
           />
         </Suspense>

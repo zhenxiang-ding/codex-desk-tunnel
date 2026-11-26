@@ -9,14 +9,18 @@ import { Modal } from './ui.tsx';
 export default function CodexTerminal({
   client,
   session,
+  command,
   close,
 }: {
   client: ProxyClient;
   session: Session;
+  command?: string;
   close: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [notice, setNotice] = useState('正在连接…');
+  const insert = useRef<(() => void) | null>(null);
+  const [inserted, setInserted] = useState(false);
   const sessionId = session.id;
   useEffect(() => {
     const socket = client.socket;
@@ -55,13 +59,27 @@ export default function CodexTerminal({
         terminalId = message.terminalId;
         if (disposed) return end();
         setNotice('');
+        insert.current = () => {
+          if (!command || !terminalId || /[\x00-\x1f\x7f]/u.test(command)) return;
+          // Paste only; Enter and all native confirmations remain with the user.
+          insert.current = null;
+          term.paste(command);
+          setInserted(true);
+          term.focus();
+        };
         send({ type: 'terminal.resize', sessionId, terminalId, cols: term.cols, rows: term.rows });
         term.focus();
       } else if (message.terminalId === terminalId && !disposed) {
         if (message.type === 'terminal.data') {
           term.write(message.data, () => {
-            if (!disposed && terminalId === message.terminalId)
-              send({ type: 'terminal.ack', sessionId, terminalId, bytes: message.bytes });
+            if (disposed || terminalId !== message.terminalId) return;
+            send({ type: 'terminal.ack', sessionId, terminalId, bytes: message.bytes });
+            const screen = term.buffer.active;
+            const prefix = screen
+              .getLine(screen.baseY + screen.cursorY)
+              ?.translateToString(true, 0, screen.cursorX)
+              .trim();
+            if (prefix === '›') insert.current?.();
           });
         } else {
           terminalId = undefined;
@@ -123,10 +141,20 @@ export default function CodexTerminal({
       if (!opening) client.terminalListeners.delete(receive);
       term.dispose();
     };
-  }, [client, sessionId]);
+  }, [client, sessionId, command]);
   return (
     <Modal title={`Codex · ${session.title}`} onClose={close} closeOnEscape={false}>
       {notice && <p role="status">{notice}</p>}
+      {command && !notice && !inserted && (
+        <button type="button" className="button" onClick={() => insert.current?.()}>
+          在 Codex 提示符填入 {command}
+        </button>
+      )}
+      {command && !notice && inserted && (
+        <p role="status">
+          {command === '/' ? '使用方向键选择命令，按 Enter 打开。' : '在终端中按 Enter 执行命令。'}
+        </p>
+      )}
       <div className="codex-terminal" ref={container} aria-label="Codex 终端" />
     </Modal>
   );

@@ -166,6 +166,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      aria-label={title}
       onCancel={(event) => {
         event.preventDefault();
         if (closeOnEscape) onClose();

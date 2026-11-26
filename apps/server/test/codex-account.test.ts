@@ -103,3 +103,21 @@ test('selects the shared Codex pool and distinguishes inherited memory defaults'
   assert.equal(memoryPreference({ config, origins: {} }), null);
   assert.equal(memoryPreference({ config, origins: { 'features.memories': {} } }), false);
 });
+
+test('only an explicit reviewer overrides the Desk Tunnel default', async () => {
+  const { configuredPermissions } = await import('../src/codex-account.ts');
+  const { codexPreset } = await import('@cc-desk-tunnel/protocol');
+  const config = {
+    sandbox_mode: 'workspace-write',
+    approvals_reviewer: 'user',
+    approval_policy: 'on-request',
+  } as const;
+  assert.equal(
+    codexPreset(configuredPermissions({ config, origins: { sandbox_mode: {} } })),
+    'approve-for-me',
+  );
+  assert.equal(
+    codexPreset(configuredPermissions({ config, origins: { approvals_reviewer: {} } })),
+    'ask-for-approval',
+  );
+});

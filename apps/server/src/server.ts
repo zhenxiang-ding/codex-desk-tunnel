@@ -1,6 +1,7 @@
 import { randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { CodexAccount } from './codex-account.ts';
 import { runCodexChat } from './codex-chat.ts';
+import { skillMention } from '@cc-desk-tunnel/protocol';
 import { codexTerminal } from './codex-terminal.ts';
 import {
   createReadStream,
@@ -811,6 +812,12 @@ export function createProxyServer(options: ServerOptions) {
         compact,
         runtime,
         choice: session.codex,
+        skills:
+          text.includes('[$') && codexAccount
+            ? (await codexAccount.skills(runtime.cwd)).filter((skill) =>
+                text.includes(skillMention(skill)),
+              )
+            : undefined,
         thread: store.codexThread(session.id),
         message: text,
         messageId,
@@ -1877,6 +1884,15 @@ export function createProxyServer(options: ServerOptions) {
       case 'account.logout':
         await account(peer, command);
         return undefined;
+      case 'codex.skills.get': {
+        if (!codexAccount) throw new DomainError('codex_unavailable', '当前服务未启用 Codex。');
+        store.get(command.sessionId);
+        const cwd = join(store.directory, 'codex', command.sessionId);
+        mkdirSync(cwd, { recursive: true, mode: 0o700 });
+        const skills = await codexAccount.skills(cwd);
+        send(peer, { type: 'codex.skills.state', requestId: command.requestId, skills });
+        return undefined;
+      }
       case 'codex.models.get': {
         if (!codexAccount) throw new DomainError('codex_unavailable', '当前服务未启用 Codex。');
         const [models, defaults] = await Promise.all([

@@ -26,15 +26,16 @@ createInterface({input:process.stdin}).on('line',line=>{
  }
  if(method==='initialized')return;
  if(method==='initialize')return send({id,result:{}});
- if(method==='config/read')return send({id,result:{config:{model:'fixture-model',model_reasoning_effort:'low'}}});
+ if(method==='config/read')return send({id,result:{config:{model:'fixture-model',model_reasoning_effort:'low',approvals_reviewer:'user'}}});
  if(method==='thread/list')return send({id,result:{data:[]}});
  if(method==='thread/start'||method==='thread/resume'){
    resumed=method==='thread/resume';
    if(params.config?.['features.memories']!==true)return process.exit(9);
-   if(params.model!==(method==='thread/resume'?'second-model':'fixture-model')||params.approvalsReviewer!=='auto_review'||params.sandbox!=='workspace-write'||params.approvalPolicy!=='on-request'||(method==='thread/resume'&&params.threadId!==thread))return process.exit(7);
+   if(params.model!==(method==='thread/resume'?'second-model':'fixture-model')||params.approvalsReviewer!==(resumed?'user':'auto_review')||params.sandbox!=='workspace-write'||params.approvalPolicy!=='on-request'||(method==='thread/resume'&&params.threadId!==thread))return process.exit(7);
    return send({id,result:{thread:{id:thread}}});
  }
  if(method==='turn/start'){
+  if(params.input[1]?.type!=='skill'||params.input[1].name!=='fixture-skill')return process.exit(6);
   if(params.effort!==(resumed?'high':'low'))return process.exit(8);
   send({id,result:{turn:{id:turn}}});
   note('item/started',{item:{id:'shell',type:'commandExecution',command:'ssh device hostname'}});
@@ -53,7 +54,8 @@ function fixture(signal: AbortSignal, approve: () => Promise<boolean>, thread?: 
       env: { PATH: process.env.PATH ?? '', TERM: 'xterm-256color' },
     },
     thread,
-    choice: thread ? { model: 'second-model', effort: 'high', approval: 'auto_review' } : undefined,
+    choice: thread ? { model: 'second-model', effort: 'high' } : { approval: 'approve-for-me' },
+    skills: [{ name: 'fixture-skill', path: '/tmp/fixture-skill/SKILL.md' }],
     message: 'test',
     messageId: randomUUID(),
     signal,
