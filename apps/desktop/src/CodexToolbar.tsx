@@ -13,11 +13,12 @@ import { usePrefs } from './prefs.ts';
 import ContextMeter from './ContextMeter.tsx';
 import { IconButton } from './ui.tsx';
 
-const approvalLabels = {
-  'on-request': '按需询问',
-  untrusted: '非受信命令先询问',
-  auto_review: '自动审查',
-  never: '直接拒绝提权',
+import { codexPreset, type CodexPreset } from '@cc-desk-tunnel/protocol';
+export const approvalLabels = {
+  'ask-for-approval': 'Ask for approval',
+  'approve-for-me': 'Approve for me',
+  'full-access': 'Full access',
+  'read-only': 'Read only',
 } as const;
 export const effortLabels: Record<string, string> = {
   none: '关闭',
@@ -110,9 +111,11 @@ export function CodexToolbar({
     (!choice.model || choice.model === defaults?.model ? defaults?.model_reasoning_effort : null) ??
     current?.defaultReasoningEffort;
   const shown = preview === null ? actual : levels[preview]?.reasoningEffort;
-  const inherited =
-    defaults?.approvals_reviewer === 'auto_review' ? 'auto_review' : defaults?.approval_policy;
-  const approval = choice.approval ?? inherited;
+  const legacy = /^0\.1\.[0-7]$/.test(client.state.service ?? '');
+  const approval =
+    legacy && !choice.approval && !defaults?.approvals_reviewer
+      ? codexPreset({ ...defaults, approvals_reviewer: 'user' })
+      : codexPreset(defaults ?? {}, choice.approval);
   const metrics = codexContext(usage);
   function save(c: CodexChoice) {
     open(null);
@@ -134,25 +137,39 @@ export function CodexToolbar({
           onClick={() => open(menu === 'approval' ? null : 'approval')}
         >
           <ShieldCheck />
-          {approval && approval in approvalLabels
-            ? approvalLabels[approval as keyof typeof approvalLabels]
-            : 'CLI 默认审批'}
+          {approval ? approvalLabels[approval] : '自定义权限'}
           <ChevronDown />
         </button>
         {menu === 'approval' && (
           <div className="permission-menu" role="menu" aria-label="审批模式">
-            {([null, ...Object.keys(approvalLabels)] as CodexChoice['approval'][]).map((a) => (
+            {(Object.keys(approvalLabels) as CodexPreset[]).map((preset) => (
               <button
                 type="button"
-                key={a ?? 'default'}
+                key={preset}
                 role="menuitemradio"
-                aria-checked={(choice.approval ?? null) === a}
-                onClick={() => save({ approval: a })}
+                aria-checked={approval === preset}
+                disabled={legacy}
+                title={legacy ? '升级服务端后可选择原生权限预设' : undefined}
+                onClick={() => {
+                  if (
+                    preset === 'full-access' &&
+                    !window.confirm(
+                      '允许此会话在 VPS 服务账号的权限范围内完全访问文件和网络，且不再请求审批？',
+                    )
+                  )
+                    return;
+                  save({ approval: preset });
+                }}
               >
-                {a ? approvalLabels[a] : '跟随 CLI 设置'}
-                {(choice.approval ?? null) === a && <Check />}
+                {approvalLabels[preset]}
+                {approval === preset && <Check />}
               </button>
             ))}
+            {choice.approval && !legacy && (
+              <button type="button" onClick={() => save({ approval: null })}>
+                恢复服务端默认
+              </button>
+            )}
           </div>
         )}
       </div>

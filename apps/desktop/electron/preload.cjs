@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('desktop', {
   openFolder: (directory) => ipcRenderer.invoke('folder:open', directory),
   openLogs: () => ipcRenderer.invoke('log:open'),
   openDevTools: () => ipcRenderer.invoke('devtools:open'),
+  gitBranches: (directory) => ipcRenderer.invoke('git:branches', directory),
+  switchGitBranch: (directory, branch) => ipcRenderer.invoke('git:switch', directory, branch),
   gitBranch: (directory) => ipcRenderer.invoke('git:branch', directory),
   files: {
     list: (target, directory) => ipcRenderer.invoke('panel:list', target, directory),
@@ -94,6 +96,7 @@ contextBridge.exposeInMainWorld('desktop', {
     webFrame.setZoomLevel(direction ? webFrame.getZoomLevel() + Math.sign(direction) * 0.5 : 0),
   quit: () => ipcRenderer.invoke('app:quit'),
   version: () => ipcRenderer.invoke('app:version'),
+  latestClientRelease: () => ipcRenderer.invoke('release:latest'),
   releaseNotes: (version) => ipcRenderer.invoke('release:notes', version),
   device: () => ipcRenderer.invoke('device:get'),
   installUpdate: (version) => ipcRenderer.invoke('update:install', version),

@@ -44,6 +44,8 @@ declare global {
       openDevTools: () => Promise<void>;
       saveImage: (type: string, bytes: Uint8Array) => Promise<string>;
       // The branch a project's working tree is on, or null outside a repository.
+      gitBranches: (path: string) => Promise<string[]>;
+      switchGitBranch: (path: string, branch: string) => Promise<string | null>;
       gitBranch: (path: string) => Promise<string | null>;
       // The file panel's files (see electron/files.mjs): `local` is this computer, `server` the service, any
       // other target one of the user's computers by its ID. Paths are as the target names them.
@@ -156,6 +158,7 @@ declare global {
       quit: () => Promise<void>;
       version: () => Promise<string>;
       // The notes of a released version, read from its page on GitHub.
+      latestClientRelease: () => Promise<string>;
       releaseNotes: (version: string) => Promise<string>;
       // This computer as the service knows it.
       device: () => Promise<import('@cc-desk-tunnel/protocol').Device>;

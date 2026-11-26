@@ -4666,3 +4666,15 @@ dialog:has(.codex-terminal) {
   width: min(90vw, 72rem);
   max-width: 96vw;
 }
+
+.permission-menu.branch-menu {
+  max-height: min(45vh, 320px);
+  width: max-content;
+  max-width: min(360px, 80vw);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.branch-menu > small {
+  display: block;
+  padding: 6px 10px;
+}

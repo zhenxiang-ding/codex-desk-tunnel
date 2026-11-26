@@ -39,3 +39,29 @@ test('the server default selects Codex for an unmodified upstream terminal clien
   );
   assert.equal(environmentConfig({}, '/state').options.terminalRuntime, undefined);
 });
+
+test('Codex terminal applies the same named presets as a structured chat', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'cxdt-presets-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const cases = [
+    [undefined, 'workspace-write', 'on-request', 'auto_review'],
+    ['ask-for-approval', 'workspace-write', 'on-request', 'user'],
+    ['approve-for-me', 'workspace-write', 'on-request', 'auto_review'],
+    ['read-only', 'read-only', 'on-request', 'user'],
+    ['full-access', 'danger-full-access', 'never', 'user'],
+    ['untrusted', 'read-only', 'on-request', 'user'],
+  ] as const;
+  for (const [approval, sandbox, policy, reviewer] of cases) {
+    const { args } = codexTerminal(
+      root,
+      { id: 'test', projectPath: 'C:/repo', codex: { approval } },
+      { platform: 'win32', shells: ['pwsh'] },
+      '/ssh',
+      {},
+      {},
+    );
+    assert.equal(args[args.indexOf('--sandbox') + 1], sandbox);
+    assert.equal(args[args.indexOf('--ask-for-approval') + 1], policy);
+    assert.ok(args.includes('approvals_reviewer=' + JSON.stringify(reviewer)));
+  }
+});

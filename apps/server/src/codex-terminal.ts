@@ -1,4 +1,8 @@
-import type { CodexChoice, CodexConfig } from '@cc-desk-tunnel/protocol';
+import {
+  resolveCodexPermissions,
+  type CodexChoice,
+  type CodexConfig,
+} from '@cc-desk-tunnel/protocol';
 import { mkdirSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { deviceTerms } from './device-terms.ts';
@@ -24,6 +28,7 @@ export function codexTerminal(
     'If the device disconnects, report the interruption. Confirm the outcome before retrying changes.',
   ].join('\n');
   const path = [sshBin, inherited.PATH].filter(Boolean).join(delimiter);
+  const permissions = resolveCodexPermissions(terminalDefaults ?? {}, session.codex?.approval);
   return {
     file: 'codex',
     instructions,
@@ -33,18 +38,11 @@ export function codexTerminal(
       ...(terminalDefaults
         ? [
             '--sandbox',
-            terminalDefaults.sandbox_mode ?? 'workspace-write',
-            ...(session.codex?.approval
-              ? [
-                  '--ask-for-approval',
-                  session.codex.approval === 'auto_review' ? 'on-request' : session.codex.approval,
-                  '-c',
-                  'approvals_reviewer=' +
-                    JSON.stringify(
-                      session.codex.approval === 'auto_review' ? 'auto_review' : 'user',
-                    ),
-                ]
-              : []),
+            permissions.sandbox_mode,
+            '--ask-for-approval',
+            permissions.approval_policy,
+            '-c',
+            'approvals_reviewer=' + JSON.stringify(permissions.approvals_reviewer),
             ...(session.codex?.model ? ['--model', session.codex.model] : []),
             ...(session.codex?.effort
               ? ['-c', 'model_reasoning_effort=' + JSON.stringify(session.codex.effort)]

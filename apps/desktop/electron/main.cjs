@@ -30,7 +30,7 @@ const {
   writeSync,
 } = require('node:fs');
 const { copyFile, mkdtemp, readFile, stat, writeFile } = require('node:fs/promises');
-const { gitBranch } = require('./git-branch.cjs');
+const { gitBranch, localBranches, switchBranch } = require('./git-branch.cjs');
 const fileLinks = require('./file-links.cjs');
 const { asOnDisk } = require('./disk-path.cjs');
 const { openLog } = require('./client-log.cjs');
@@ -254,6 +254,8 @@ handle('devtools:open', (event) => {
   event.sender.openDevTools({ mode: 'detach' });
 });
 handle('git:branch', (_event, directory) => gitBranch(directory));
+handle('git:branches', (_event, directory) => localBranches(directory));
+handle('git:switch', (_event, directory, branch) => switchBranch(directory, branch));
 // The file panel: this computer's files, and over SFTP those of the service and of the user's other computers
 // (see files.mjs), through the connection this window has. A new connection is a new set of SFTP sessions.
 let panelFiles = null;
@@ -959,6 +961,17 @@ handle('schedules:save', (_event, text) => {
 handle('app:version', () => app.getVersion());
 // The notes of a release as its page on GitHub has them, for a version newer than this program, whose notes
 // it cannot carry itself.
+handle('release:latest', async () => {
+  const res = await net.fetch(
+    'https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest/download/release.json',
+    { signal: AbortSignal.timeout(15000) },
+  );
+  if (!res.ok) throw Error('无法读取 GitHub 发布清单。');
+  const { version } = await res.json();
+  if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version))
+    throw Error('发布清单版本无效。');
+  return version;
+});
 handle('release:notes', async (_event, version) => {
   if (!/^\d+\.\d+\.\d+$/.test(String(version))) throw new Error('Unexpected version');
   const response = await net.fetch(

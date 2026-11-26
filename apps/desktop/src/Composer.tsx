@@ -1,16 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import {
-  ArrowUp,
-  Folder,
-  GitBranch,
-  Play,
-  Plus,
-  RefreshCw,
-  Shrink,
-  Square,
-  SquareSlash,
-} from 'lucide-react';
+import { ArrowUp, Folder, Play, Plus, RefreshCw, Shrink, Square, SquareSlash } from 'lucide-react';
 import { isWindowsPath } from '@cc-desk-tunnel/protocol';
 import type {
   AccountQuota,
@@ -25,6 +15,7 @@ import { slashCommands } from './commands.ts';
 import { CodexToolbar } from './CodexToolbar.tsx';
 import type { ProxyClient } from './client.ts';
 import type { EventPayload } from '@cc-desk-tunnel/protocol';
+import ProjectBranch from './ProjectBranch.tsx';
 import ComposerControls from './ComposerControls.tsx';
 import MessageInput, { messageLimit } from './MessageInput.tsx';
 import type { MessageInputHandle } from './MessageInput.tsx';
@@ -36,32 +27,11 @@ export type Scenario = 'chat' | 'tool' | 'question' | 'plan' | 'error';
 // A draft that is only a slash and an optional command name opens the command menu.
 const slashDraft = /^[/\\][^ \n]*$/;
 
-// The branch the project's working tree is on, read from the project by the desktop; it is looked at again
-// whenever the window comes back to the front or a run ends, the moments it may have changed.
-function useBranch(path: string, running: boolean) {
-  const [branch, setBranch] = useState<string | null>(null);
-  useEffect(() => {
-    if (!window.desktop) return;
-    let current = true;
-    const read = () =>
-      void window.desktop!.gitBranch(path).then(
-        (value) => current && setBranch(value),
-        () => current && setBranch(null),
-      );
-    read();
-    window.addEventListener('focus', read);
-    return () => {
-      current = false;
-      window.removeEventListener('focus', read);
-    };
-  }, [path, running]);
-  return branch;
-}
-
 export default function Composer({
   session,
   projectName,
   chooseProject,
+  localProject,
   draft,
   setDraft,
   native,
@@ -96,6 +66,7 @@ export default function Composer({
   // Absent for a session that belongs to no project.
   projectName: string | null;
   // Opens the list of projects the session can be moved to; absent while it cannot be moved.
+  localProject: boolean;
   chooseProject?: (position: MenuPosition) => void;
   draft: string;
   setDraft: (text: string) => void;
@@ -156,7 +127,6 @@ export default function Composer({
     for (const child of bar.children) observer.observe(child);
     return () => observer.disconnect();
   }, [session, native, capabilities, nativeSession, !!resume, !!draft.trim()]);
-  const branch = useBranch(session.projectPath, !!session.activeRun);
   const [dropping, setDropping] = useState(false);
   // The command menu: this window's own actions, then Claude Code's commands that fit what follows the slash. Enter
   // runs the one picked; Tab or a click puts a command in the box, to be given its arguments.
@@ -300,11 +270,13 @@ export default function Composer({
           <Folder />
           <span>{projectName ?? '普通会话'}</span>
         </button>
-        {branch && (
-          <span className="chip quiet" title="项目当前所在的 git 分支">
-            <GitBranch />
-            <span>{branch}</span>
-          </span>
+        {localProject && window.desktop && (
+          <ProjectBranch
+            key={session.projectPath}
+            path={session.projectPath}
+            running={!!session.activeRun}
+            disabled={controlsDisabled}
+          />
         )}
       </div>
       <form

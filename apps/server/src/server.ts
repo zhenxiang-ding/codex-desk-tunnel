@@ -1980,11 +1980,13 @@ export function createProxyServer(options: ServerOptions) {
         });
         return undefined;
       case 'service.update.check':
-        if (!updates) throw new DomainError('updates_unavailable', '此服务未启用版本跟踪。');
+        if (!updates)
+          throw new DomainError('updates_unavailable', '此服务已关闭 GitHub 发布更新检查。');
         await updates.check();
         return undefined;
       case 'service.update.install': {
-        if (!updates) throw new DomainError('updates_unavailable', '此服务未启用版本跟踪。');
+        if (!updates)
+          throw new DomainError('updates_unavailable', '此服务已关闭 GitHub 发布更新检查。');
         // The restart at the end cuts off whatever goes on. What is at work holds it back unless the user forces it;
         // an open terminal at rest, and background tasks a finished turn left, only end.
         const held = upgradeHeld(store.list(), mutations.size > 0, !!login);

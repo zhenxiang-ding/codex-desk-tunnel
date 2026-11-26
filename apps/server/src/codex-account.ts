@@ -41,6 +41,23 @@ export function memoryPreference(read: {
     return null;
   return read.config.features?.memories ?? null;
 }
+// The CLI also returns built-in defaults. Only user/project/managed overrides should
+// take precedence over Desk Tunnel's default permission preset.
+export function configuredPermissions(read: {
+  config: Partial<CodexConfig>;
+  origins?: Record<string, unknown>;
+}) {
+  const { config, origins } = read;
+  const keys = ['sandbox_mode', 'approval_policy', 'approvals_reviewer'] as const;
+  if (
+    !origins ||
+    keys.some((k) => Object.hasOwn(origins, k)) ||
+    Object.hasOwn(origins, 'permissions') ||
+    Object.hasOwn(origins, 'default_permissions')
+  )
+    return config;
+  return { ...config, sandbox_mode: null, approval_policy: null, approvals_reviewer: null };
+}
 type Challenge = { loginId: string; url: string; deviceCode: string };
 
 type Flow = {
@@ -173,7 +190,7 @@ export class CodexAccount {
     }>('config/read', {
       includeLayers: false,
     });
-    const { config } = read;
+    const config = configuredPermissions(read);
     const flat: Record<string, unknown> = {};
     for (const [key, schema] of Object.entries(codexConfigSchema.shape)) {
       const value = key

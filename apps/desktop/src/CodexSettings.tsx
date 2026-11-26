@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { CodexConfig, CodexModel } from '@cc-desk-tunnel/protocol';
 import type { ProxyClient } from './client.ts';
+import { codexPermissions, codexPreset, type CodexPreset } from '@cc-desk-tunnel/protocol';
 import { Page, Row } from './ui.tsx';
 import IdleCompactionSettings from './IdleCompactionSettings.tsx';
-import { effortLabels } from './CodexToolbar.tsx';
+import { approvalLabels, effortLabels } from './CodexToolbar.tsx';
 
 type Field = {
   key: keyof CodexConfig;
@@ -77,32 +78,6 @@ const groups: { name: string; fields: Field[] }[] = [
       },
     ],
   },
-  {
-    name: '权限',
-    fields: [
-      {
-        key: 'approval_policy',
-        name: '审批规则',
-        options: { 'on-request': '按需询问', untrusted: '非受信命令先询问', never: '直接拒绝提权' },
-        detail: '会话工具栏可覆盖此默认值。',
-      },
-      {
-        key: 'approvals_reviewer',
-        name: '审批人',
-        options: { user: '由我审批', auto_review: 'Codex 自动审查' },
-      },
-      {
-        key: 'sandbox_mode',
-        name: 'VPS 沙箱',
-        options: {
-          'read-only': '只读',
-          'workspace-write': '允许写入工作区',
-          'danger-full-access': '完全访问',
-        },
-        detail: '限制 VPS 上运行的命令。本机文件访问由 SSH 登录用户的权限决定。',
-      },
-    ],
-  },
 ];
 export function CodexSettings({
   client,
@@ -113,19 +88,17 @@ export function CodexSettings({
   client: ProxyClient;
   section?: 'cli' | 'context' | 'permissions';
 }) {
-  const visible = groups
-    .map((group) => ({
-      ...group,
-      fields: group.fields.filter((f) =>
-        section === 'permissions'
-          ? group.name === '权限'
-          : section === 'context'
-            ? f.key === 'model_auto_compact_token_limit'
-            : true,
-      ),
-    }))
-    .filter((group) => group.fields.length);
-
+  const visible =
+    section === 'permissions'
+      ? []
+      : groups
+          .map((group) => ({
+            ...group,
+            fields: group.fields.filter(
+              (f) => section === 'cli' || f.key === 'model_auto_compact_token_limit',
+            ),
+          }))
+          .filter((group) => group.fields.length);
   const [current, setCurrent] = useState<CodexConfig | null>(null),
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false);
@@ -184,18 +157,57 @@ export function CodexSettings({
       setBusy(false);
     }
   }
+  const oldPermissions = /^0\.1\.[0-7]$/.test(client.state.service ?? '');
+  const currentPreset =
+    current &&
+    codexPreset(
+      oldPermissions && !current.approvals_reviewer
+        ? { ...current, approvals_reviewer: 'user' }
+        : current,
+    );
   const controls = (
     <>
       {current && (
         <>
+          {section !== 'context' && (
+            <section className="settings-section">
+              <h2 className="page-heading">权限</h2>
+              <div className="card">
+                <Row
+                  title="默认审批模式"
+                  detail="应用于使用服务端默认设置的会话。沙箱作用于 VPS，本机 SSH 使用设备账号的权限。"
+                >
+                  <select
+                    aria-label="默认审批模式"
+                    value={currentPreset ?? 'custom'}
+                    disabled={busy || oldPermissions}
+                    onChange={(e) => {
+                      const preset = e.target.value as CodexPreset;
+                      if (
+                        preset === 'full-access' &&
+                        !window.confirm(
+                          '启用 Full access 后，使用默认设置的会话将完全访问 VPS 服务账号可用的文件和网络。继续？',
+                        )
+                      )
+                        return;
+                      void save(codexPermissions[preset]);
+                    }}
+                  >
+                    {!currentPreset && <option value="custom">自定义权限</option>}
+                    {(Object.keys(approvalLabels) as CodexPreset[]).map((preset) => (
+                      <option key={preset} value={preset}>
+                        {approvalLabels[preset]}
+                      </option>
+                    ))}
+                  </select>
+                </Row>
+              </div>
+            </section>
+          )}
           {visible.map((group) => (
             <section className="settings-section" key={group.name}>
               <h2 className="page-heading">
-                {section === 'context'
-                  ? '按上下文用量压缩'
-                  : section === 'permissions'
-                    ? 'Codex 默认审批权限（VPS）'
-                    : group.name}
+                {section === 'context' ? '按上下文用量压缩' : group.name}
               </h2>
               <div className="settings-list card">
                 {group.fields.map((f) => {
@@ -214,13 +226,6 @@ export function CodexSettings({
                           ? { true: '开启', false: '关闭' }
                           : f.options;
                   const change = (raw: string) => {
-                    if (
-                      raw === 'danger-full-access' &&
-                      !window.confirm(
-                        '启用完全访问后，Codex 可以读写 VPS 上服务账号有权访问的文件。启用完全访问？',
-                      )
-                    )
-                      return;
                     if (raw === String(value ?? '')) return;
                     void save({
                       [f.key]:
@@ -249,7 +254,7 @@ export function CodexSettings({
                             <option value={String(value)}>{String(value)}</option>
                           )}
                           {Object.entries(opts)
-                            .filter(([key]) => !legacy || key !== 'danger-full-access')
+
                             .map(([key, label]) => (
                               <option key={key} value={key}>
                                 {label}

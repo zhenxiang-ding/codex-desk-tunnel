@@ -37,7 +37,12 @@ test(
     try {
       const catalog = await acc.models();
       assert.ok(catalog.length > 0 && catalog.some((m) => m.supportedReasoningEfforts.length));
+      const initial = await acc.configuration();
+      assert.equal(initial.approvals_reviewer, null);
       await acc.configuration({
+        approval_policy: 'on-request',
+        approvals_reviewer: 'user',
+        sandbox_mode: 'workspace-write',
         'features.memories': true,
         tool_output_token_limit: 5000,
         model_reasoning_summary: 'concise',
@@ -46,6 +51,9 @@ test(
         model_reasoning_effort: 'low',
       });
       const settings = await acc.configuration();
+      assert.equal(settings.approval_policy, 'on-request');
+      assert.equal(settings.approvals_reviewer, 'user');
+      assert.equal(settings.sandbox_mode, 'workspace-write');
       assert.equal(settings.model_auto_compact_token_limit, 43210);
       assert.equal(settings['features.memories'], true);
       assert.equal(settings.tool_output_token_limit, 5000);

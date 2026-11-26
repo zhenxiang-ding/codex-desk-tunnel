@@ -1,9 +1,10 @@
-import { memoryPreference } from './codex-account.ts';
+import { configuredPermissions, memoryPreference } from './codex-account.ts';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import {
   codexTokensSchema,
+  resolveCodexPermissions,
   type CodexConfig,
   type CodexChoice,
   type CodexTokens,
@@ -222,6 +223,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
         if (frame.error)
           throw new Error(sent.method + ' 请求失败：' + print(frame.error.message).slice(0, 600));
         const result = frame.result;
+        const permissions = resolveCodexPermissions(config, chat.choice?.approval);
         const open = () =>
           request(thread ? 'thread/resume' : 'thread/start', {
             ...(thread ? { threadId: thread, excludeTurns: true } : {}),
@@ -234,16 +236,9 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
                 model_auto_compact_token_limit: config.model_auto_compact_token_limit,
               }),
             },
-            sandbox: config.sandbox_mode ?? 'workspace-write',
-            approvalPolicy:
-              chat.choice?.approval === 'auto_review'
-                ? 'on-request'
-                : (chat.choice?.approval ?? config.approval_policy ?? 'on-request'),
-            approvalsReviewer: chat.choice?.approval
-              ? chat.choice.approval === 'auto_review'
-                ? 'auto_review'
-                : 'user'
-              : (config.approvals_reviewer ?? 'user'),
+            sandbox: permissions.sandbox_mode,
+            approvalPolicy: permissions.approval_policy,
+            approvalsReviewer: permissions.approvals_reviewer,
           });
         switch (sent.method) {
           case 'initialize':
@@ -251,7 +246,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             request('config/read', { includeLayers: false });
             break;
           case 'config/read':
-            config = result.config;
+            config = configuredPermissions(result);
             memoryDefault = memoryPreference(result) === null;
             if (thread) open();
             else

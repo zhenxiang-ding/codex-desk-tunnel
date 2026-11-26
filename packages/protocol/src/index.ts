@@ -4,7 +4,7 @@ import { webCertificateStateSchema } from './web-certificate.ts';
 export * from './web.ts';
 export * from './web-certificate.ts';
 
-export const PROTOCOL_VERSION = 34;
+export const PROTOCOL_VERSION = 35;
 // The release each protocol version began with, from 0.2.4 on: a client newer than its service signs in with
 // the service's number to have it upgrade (see the README). A new number adds its line here.
 export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
@@ -14,6 +14,7 @@ export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
   '0.1.3': 32,
   '0.1.6': 33,
   '0.1.7': 34,
+  '0.1.8': 35,
   '0.2.4': 10,
   '0.2.6': 11,
   '0.2.9': 12,
@@ -41,7 +42,13 @@ export const protocolForRelease = (version: string) =>
   )?.[1];
 // Ready, history and update frames from these Codex releases are compatible with this desktop.
 export const compatibleDesktopProtocol = (version?: string | null) =>
-  version === '0.1.6' ? 33 : version && /^0\.1\.[345]$/.test(version) ? 32 : undefined;
+  version === '0.1.7'
+    ? 34
+    : version === '0.1.6'
+      ? 33
+      : version && /^0\.1\.[345]$/.test(version)
+        ? 32
+        : undefined;
 export const MAX_FRAME_BYTES = 256 * 1024;
 // The longest global instructions edited here, in characters; it keeps a frame of them within MAX_FRAME_BYTES.
 export const INSTRUCTIONS_LIMIT = 64_000;
@@ -108,7 +115,19 @@ export const codexChoiceSchema = z
   .object({
     model: z.string().trim().min(1).max(160).nullable().optional(),
     effort: codexEffortSchema.nullable().optional(),
-    approval: z.enum(['on-request', 'untrusted', 'auto_review', 'never']).nullable().optional(),
+    approval: z
+      .enum([
+        'ask-for-approval',
+        'approve-for-me',
+        'full-access',
+        'read-only',
+        'on-request',
+        'untrusted',
+        'auto_review',
+        'never',
+      ])
+      .nullable()
+      .optional(),
   })
   .strict();
 export type CodexChoice = z.infer<typeof codexChoiceSchema>;
@@ -148,6 +167,69 @@ export const codexConfigSchema = z
   })
   .strict();
 export type CodexConfig = z.infer<typeof codexConfigSchema>;
+// Each native preset sets the sandbox, the escalation policy and the reviewer together.
+export const codexPermissions = {
+  'ask-for-approval': {
+    sandbox_mode: 'workspace-write',
+    approval_policy: 'on-request',
+    approvals_reviewer: 'user',
+  },
+  'approve-for-me': {
+    sandbox_mode: 'workspace-write',
+    approval_policy: 'on-request',
+    approvals_reviewer: 'auto_review',
+  },
+  'full-access': {
+    sandbox_mode: 'danger-full-access',
+    approval_policy: 'never',
+    approvals_reviewer: 'user',
+  },
+  'read-only': {
+    sandbox_mode: 'read-only',
+    approval_policy: 'on-request',
+    approvals_reviewer: 'user',
+  },
+} as const;
+export type CodexPreset = keyof typeof codexPermissions;
+export function resolveCodexPermissions(
+  config: Partial<CodexConfig>,
+  choice?: CodexChoice['approval'],
+) {
+  if (choice && Object.hasOwn(codexPermissions, choice))
+    return codexPermissions[choice as CodexPreset];
+  const sandbox = config.sandbox_mode ?? 'workspace-write';
+  const policy = config.approval_policy ?? 'on-request';
+  const reviewer =
+    config.approvals_reviewer ??
+    (sandbox === 'workspace-write' && policy === 'on-request' ? 'auto_review' : 'user');
+  // Preserve the sandbox of sessions saved before the four presets were introduced.
+  if (choice === 'untrusted' || (!choice && policy === 'untrusted'))
+    return codexPermissions['read-only'];
+  return {
+    sandbox_mode: sandbox,
+    approval_policy: choice === 'never' ? 'never' : choice ? 'on-request' : policy,
+    approvals_reviewer:
+      choice === 'auto_review'
+        ? 'auto_review'
+        : choice
+          ? 'user'
+          : reviewer === 'guardian_subagent'
+            ? 'auto_review'
+            : reviewer,
+  } as const;
+}
+export function codexPreset(config: Partial<CodexConfig>, choice?: CodexChoice['approval']) {
+  const values = resolveCodexPermissions(config, choice);
+  return (Object.keys(codexPermissions) as CodexPreset[]).find((key) => {
+    const preset = codexPermissions[key];
+    return (
+      preset.sandbox_mode === values.sandbox_mode &&
+      preset.approval_policy === values.approval_policy &&
+      (preset.approval_policy === 'never' ||
+        preset.approvals_reviewer === values.approvals_reviewer)
+    );
+  });
+}
 export const codexTokensSchema = z.object({
   cacheWriteInputTokens: z.number().int().nonnegative().optional(),
   inputTokens: z.number().int().nonnegative(),

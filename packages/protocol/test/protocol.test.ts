@@ -82,7 +82,8 @@ test('protocol validates UTF-8 text, IDs and bounded input', () => {
 test('Codex and upstream release numbers resolve to their own protocols', () => {
   assert.equal(protocolForRelease('0.1.3'), 32);
   assert.equal(protocolForRelease('0.1.6'), 33);
-  assert.equal(protocolForRelease('0.1.7'), PROTOCOL_VERSION);
+  assert.equal(protocolForRelease('0.1.7'), 34);
+  assert.equal(protocolForRelease('0.1.8'), PROTOCOL_VERSION);
   assert.equal(protocolForRelease('0.1.2'), 31);
   assert.equal(protocolForRelease('0.1.1'), 30);
   assert.equal(protocolForRelease('0.1.0'), 29);

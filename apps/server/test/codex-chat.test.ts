@@ -31,7 +31,7 @@ createInterface({input:process.stdin}).on('line',line=>{
  if(method==='thread/start'||method==='thread/resume'){
    resumed=method==='thread/resume';
    if(params.config?.['features.memories']!==true)return process.exit(9);
-   if(params.model!==(method==='thread/resume'?'second-model':'fixture-model')||params.approvalsReviewer!==(method==='thread/resume'?'auto_review':'user')||params.sandbox!=='workspace-write'||params.approvalPolicy!=='on-request'||(method==='thread/resume'&&params.threadId!==thread))return process.exit(7);
+   if(params.model!==(method==='thread/resume'?'second-model':'fixture-model')||params.approvalsReviewer!=='auto_review'||params.sandbox!=='workspace-write'||params.approvalPolicy!=='on-request'||(method==='thread/resume'&&params.threadId!==thread))return process.exit(7);
    return send({id,result:{thread:{id:thread}}});
  }
  if(method==='turn/start'){

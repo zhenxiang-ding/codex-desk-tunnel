@@ -579,69 +579,70 @@ export function App({
       .map((item) => `「${item.title}」`)
       .join('') + (sessions.length > 3 ? ` 等 ${sessions.length} 个会话` : '');
   const forcible = !!state.service && supportsForcedUpgrade(state.service);
-  const serviceUpdate = !nativeMode
-    ? null
-    : update?.state === 'available'
-      ? {
-          label: `升级服务端到 ${update.latest}${
-            working.length
-              ? `（${working.length} 个会话正在运行）`
-              : !forcible && resting.length
-                ? '（先关闭终端、等后台任务结束）'
-                : ''
-          }`,
-          icon: <Download />,
-          disabled: busy || (!forcible && (working.length > 0 || resting.length > 0)),
-          run: () => {
-            const force = working.length > 0;
-            const question = force
-              ? `${titles(working)}正在运行。\n\n升级会重启服务端：正在进行的回答、命令和等你确认的审批会被中断，可能需要重新开始。\n\n仍然强行升级到 ${update.latest}？`
-              : `服务端将升级到 ${update.latest} 并重启，需要几分钟，期间不能发送消息；重启后需重新连接。${
-                  resting.length
-                    ? `\n\n${titles(resting)}开着终端或在等后台任务，它们会被结束；会话本身保留，升级后可以继续。`
-                    : ''
-                }\n\n继续？`;
-            if (window.confirm(question))
-              void act(async () => {
-                asked.current = true;
-                await client.request({
-                  type: 'service.update.install',
-                  version: update.latest!,
-                  ...(force ? { force } : {}),
-                });
-              });
-          },
-        }
-      : update?.state === 'manual'
+  const serviceUpdate =
+    !nativeMode || !live
+      ? null
+      : update?.state === 'available'
         ? {
-            label: `服务端 ${update.latest} 需在服务器上升级`,
+            label: `升级服务端到 ${update.latest}${
+              working.length
+                ? `（${working.length} 个会话正在运行）`
+                : !forcible && resting.length
+                  ? '（先关闭终端、等后台任务结束）'
+                  : ''
+            }`,
             icon: <Download />,
-            disabled: true,
-            run: () => undefined,
+            disabled: busy || (!forcible && (working.length > 0 || resting.length > 0)),
+            run: () => {
+              const force = working.length > 0;
+              const question = force
+                ? `${titles(working)}正在运行。\n\n升级会重启服务端：正在进行的回答、命令和等你确认的审批会被中断，可能需要重新开始。\n\n仍然强行升级到 ${update.latest}？`
+                : `服务端将升级到 ${update.latest} 并重启，需要几分钟，期间不能发送消息；重启后需重新连接。${
+                    resting.length
+                      ? `\n\n${titles(resting)}开着终端或在等后台任务，它们会被结束；会话本身保留，升级后可以继续。`
+                      : ''
+                  }\n\n继续？`;
+              if (window.confirm(question))
+                void act(async () => {
+                  asked.current = true;
+                  await client.request({
+                    type: 'service.update.install',
+                    version: update.latest!,
+                    ...(force ? { force } : {}),
+                  });
+                });
+            },
           }
-        : update?.state === 'installing' || update?.state === 'restarting'
+        : update?.state === 'manual'
           ? {
-              label: `服务端升级中：${update.detail ?? '重启'}`,
-              icon: <RefreshCw />,
+              label: `服务端 ${update.latest} 需在服务器上升级`,
+              icon: <Download />,
               disabled: true,
               run: () => undefined,
             }
-          : {
-              label:
-                update?.state === 'checking'
-                  ? '正在检查更新…'
-                  : update?.state === 'idle' && update.checkedAt
-                    ? `服务端已是最新 ${state.service} · 再次检查`
-                    : '检查服务端更新',
-              icon: <RefreshCw />,
-              disabled: busy || update?.state === 'checking',
-              run: () => {
-                void act(async () => {
-                  asked.current = true;
-                  await client.request({ type: 'service.update.check' });
-                });
-              },
-            };
+          : update?.state === 'installing' || update?.state === 'restarting'
+            ? {
+                label: `服务端升级中：${update.detail ?? '重启'}`,
+                icon: <RefreshCw />,
+                disabled: true,
+                run: () => undefined,
+              }
+            : {
+                label:
+                  update?.state === 'checking'
+                    ? '正在检查更新…'
+                    : update?.state === 'idle' && update.checkedAt
+                      ? `服务端已是最新 ${state.service} · 再次检查`
+                      : '检查服务端更新',
+                icon: <RefreshCw />,
+                disabled: busy || update?.state === 'checking',
+                run: () => {
+                  void act(async () => {
+                    asked.current = true;
+                    await client.request({ type: 'service.update.check' });
+                  });
+                },
+              };
 
   // The sign-in handed over connects once the page is up. Until it has connected, the sign-in window hears how
   // it goes; once it has, the window is the connection's.
@@ -1505,10 +1506,12 @@ export function App({
     ? '未登录'
     : (state.account?.email ?? capabilities?.account.email ?? (nativeMode ? '账号' : '离线模拟'));
   // The client's upgrade, from the service or the release page; while one runs, how it goes and a way to stop it.
+  const [checkedClient, setCheckedClient] = useState<string | null>(null);
+  const published = [checkedClient, update?.latest]
+    .filter((v): v is string => !!v)
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0];
   const githubClient =
-    selfUpdating && version && update?.latest && isNewer(update.latest, version)
-      ? update.latest
-      : null;
+    selfUpdating && version && published && isNewer(published, version) ? published : null;
   const upgradeItems: MenuItem[] = upgrading.step
     ? [
         { label: upgrading.text!, icon: <Download />, disabled: true, run: () => undefined },
@@ -1541,25 +1544,32 @@ export function App({
         ]
       : []),
     ...upgradeItems,
-    ...(codexMode && selfUpdating && !upgradeItems.length && serviceUpdate
+    ...(codexMode && selfUpdating && !upgradeItems.length && connected
       ? [
           {
             label:
-              (update?.checkedAt && update.state === 'idle'
+              (checkedClient && version && !isNewer(checkedClient, version)
                 ? '客户端已是最新 · 再次检查'
                 : '检查客户端更新') + (version ? ' · ' + version : ''),
             icon: <RefreshCw />,
-            disabled: busy || !connected || update?.state === 'checking',
-            run: () => {
-              asked.current = true;
-              void act(async () => {
-                await client.request({ type: 'service.update.check' });
-              });
-            },
+            disabled: busy,
+            run: () =>
+              void act(async () => setCheckedClient(await window.desktop!.latestClientRelease())),
           },
         ]
       : []),
-    ...(serviceUpdate ? [serviceUpdate] : []),
+    ...(serviceUpdate
+      ? [serviceUpdate]
+      : nativeMode && connected && host.serviceManagement
+        ? [
+            {
+              label: '服务端自动更新已关闭',
+              icon: <RefreshCw />,
+              disabled: true,
+              run: () => undefined,
+            },
+          ]
+        : []),
   ];
   const pendingUpdate =
     upgrading.text ??
@@ -2194,6 +2204,7 @@ export function App({
             )}
             {selected && (!away || remote) && (
               <Composer
+                localProject={!away}
                 openAccount={() => open('settings', 'account')}
                 session={selected}
                 projectName={projectIn(selected) ? projectName(projectIn(selected)!) : null}
