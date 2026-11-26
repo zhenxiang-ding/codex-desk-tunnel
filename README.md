@@ -24,6 +24,8 @@ sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhenxiang-ding/code
 
 部署完成后保存**服务地址、证书指纹、服务凭据**，在云安全组和已启用的主机防火墙中放行部署汇总列出的端口。最后一个提示回车开始 Codex 登录，在浏览器完成设备码授权。跳过登录后可在 VPS 运行 `sudo codex-desk-tunnel login`。
 
+安装中断后可在 VPS 重跑同一条命令。如果安装目录里有本地改动，按回车保留原文件并从发布标签安装到旁边的 `/opt/codex-desk-tunnel.managed`。首次部署继续填写安装选项，已有部署沿用原配置和数据。以后重跑命令会复用这个托管目录。
+
 [GitHub Releases 下载页](https://github.com/zhenxiang-ding/codex-desk-tunnel/releases/latest) 提供 Windows 桌面安装包、命令行客户端、VPS 服务端包和 SHA-256 校验清单。手工部署时，解压服务端包到独立目录，进入该目录执行 `sudo bash deploy/install.sh`。
 
 ## 2. 在 Windows 本机安装客户端

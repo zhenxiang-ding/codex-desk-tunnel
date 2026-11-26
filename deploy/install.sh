@@ -11,6 +11,25 @@ confirm() {
   read -r -p "$1 [Y/n]: " answer
   [[ -z "$answer" || "$answer" =~ ^[Yy] ]]
 }
+clone_release() {
+  git clone --branch "${REF##*/}" --single-branch -- "$1" "$2"
+  if [[ -z "$(git -C "$2" branch --show-current)" ]]; then
+    git -C "$2" switch -c main
+  fi
+}
+# Keep local source edits in place. Both checkouts use the same private deployment configuration,
+# so the release's own management command can resume setup or update the existing Compose project.
+create_managed_checkout() (
+  local url="$1" original="$2" managed="$3" stage
+  stage="$(mktemp -d -- "$managed.tmp.XXXXXXXX")"
+  trap 'rm -rf -- "$stage"' EXIT
+  clone_release "$url" "$stage"
+  mkdir -p -m 700 -- "$original/.local"
+  ln -sT -- "$original/.local" "$stage/.local"
+  printf '\n/.local\n' >> "$stage/.git/info/exclude"
+  mv -Tn -- "$stage" "$managed"
+  [[ ! -d "$stage" ]] || fail "$managed 已被占用，保留原目录。"
+)
 main() {
   # Without arguments the installer asks its questions, gets the image, starts and prints a summary.
   (($#)) || set -- setup
@@ -56,30 +75,39 @@ main() {
     root="$(cd -- "$(dirname -- "$self")/.." && pwd)"
   else
     command -v git >/dev/null || fail "请先安装 Git：sudo apt-get install git"
-    local url="https://github.com/$REPO.git"
+    local url="https://github.com/$REPO.git" managed changes
     if [[ -d "$TARGET/.git" ]]; then
+      TARGET="$(cd -- "$TARGET" && pwd -P)"
+      managed="$TARGET.managed"
       [[ "$(git -C "$TARGET" config --get remote.origin.url)" = "$url" && "$(git -C "$TARGET" branch --show-current)" = main ]] \
         || fail "$TARGET 需要是 $REPO 的 main 分支。"
-      local changes
-      changes="$(git -C "$TARGET" status --porcelain=v1 --untracked-files=normal)" || fail "无法读取 $TARGET 的 Git 状态。"
-      if [[ -n "$changes" ]]; then
-        printf '安装目录 %s 中有以下本地改动：\n%s\n' "$TARGET" "$changes" >&2
-        fail "本次升级已停止。请先核对这些文件。若只需升级正在运行的服务，可在已连接的桌面端打开「设置 → 关于与更新」。"
+      if [[ -d "$managed/.git" && -L "$managed/.local" && "$managed/.local" -ef "$TARGET/.local" ]]; then
+        TARGET="$managed"
+        [[ "$(git -C "$TARGET" config --get remote.origin.url)" = "$url" && "$(git -C "$TARGET" branch --show-current)" = main ]] \
+          || fail "$TARGET 的仓库或分支已改变，请检查该托管目录。"
       fi
-      git -C "$TARGET" fetch origin "$REF"
-      git -C "$TARGET" merge-base --is-ancestor HEAD FETCH_HEAD || fail "本地有独立提交，请手动更新。"
-      confirm "更新 ${TARGET}，使用新源码重新部署？" || exit 0
-      git -C "$TARGET" merge --ff-only FETCH_HEAD
-      if [[ "$1" = setup && -f "${PROXY_DEPLOY_CONFIG:-$TARGET/.local/docker.env}" ]]; then set -- upgrade; fi
+      changes="$(git -C "$TARGET" status --porcelain=v1 --untracked-files=normal)" || fail "无法读取 $TARGET 的 Git 状态。"
+      if [[ -z "$changes" ]]; then
+        git -C "$TARGET" fetch origin "$REF"
+        git -C "$TARGET" merge-base --is-ancestor HEAD FETCH_HEAD || changes='本地提交与发布标签不同'
+      fi
+      if [[ -n "$changes" ]]; then
+        printf '保留 %s 中的本地改动：\n%s\n' "$TARGET" "$changes"
+        [[ "$TARGET" != "$managed" && ! -e "$managed" && ! -L "$managed" ]] || fail "托管目录 $managed 已有其他内容，请核对该目录。"
+        confirm "从发布标签安装到 $managed 并沿用此 VPS 的部署配置？" || exit 0
+        create_managed_checkout "$url" "$TARGET" "$managed"
+        TARGET="$managed"
+      else
+        confirm "在 ${TARGET} 使用发布版本继续部署？" || exit 0
+        git -C "$TARGET" merge --ff-only FETCH_HEAD
+      fi
     else
       echo "将从 $url 拉取 ${REF##*/} 到 ${TARGET}。连接期间，VPS 可通过 SSH 以你的用户身份操作本机项目。"
       confirm "继续安装？" || exit 0
-      git clone --branch "${REF##*/}" --single-branch -- "$url" "$TARGET"
-      if [[ -z "$(git -C "$TARGET" branch --show-current)" ]]; then
-        git -C "$TARGET" switch -c main
-      fi
+      clone_release "$url" "$TARGET"
     fi
     root="$TARGET"
+    if [[ "$1" = setup && -f "${PROXY_DEPLOY_CONFIG:-$root/.local/docker.env}" ]]; then set -- upgrade; fi
   fi
 
   bash "$root/deploy/manage.sh" "$@"

@@ -234,16 +234,32 @@ git -C "$source_repo" tag test-next
 export CC_DESK_TUNNEL_REF=refs/tags/test-next
 : > "$MOCK_LOG"
 printf 'private fixture content\n' > "$TEMP/installed/operator-note.txt"
-if bash "$TEMP/install.sh" < /dev/null > "$TEMP/dirty.log" 2>&1; then echo 'Installer accepted local changes.' >&2; exit 1; fi
+printf 'n\n' | bash "$TEMP/install.sh" > "$TEMP/dirty.log" 2>&1
 grep -Fq '?? operator-note.txt' "$TEMP/dirty.log"
 if grep -Fq 'private fixture content' "$TEMP/dirty.log"; then echo 'Installer printed private file contents.' >&2; exit 1; fi
-test "$(cat "$TEMP/installed/operator-note.txt")" = 'private fixture content'
-rm -- "$TEMP/installed/operator-note.txt"
+test ! -e "$TEMP/installed.managed"
 printf 'y\n' | bash "$TEMP/install.sh" > "$TEMP/reinstall.log"
-test "$(git -C "$TEMP/installed" rev-parse HEAD)" = "$(git -C "$source_repo" rev-parse HEAD)"
+test "$(cat "$TEMP/installed/operator-note.txt")" = 'private fixture content'
+test ! -e "$TEMP/installed.managed/operator-note.txt"
+test "$TEMP/installed.managed/.local/docker.env" -ef "$TEMP/installed/.local/docker.env"
+test "$(git -C "$TEMP/installed.managed" rev-parse HEAD)" = "$(git -C "$source_repo" rev-parse HEAD)"
+grep -Fq "$TEMP/installed.managed/deploy/manage.sh" "$CC_DESK_TUNNEL_COMMAND"
 grep -q "PROXY_IMAGE='codex-desk-tunnel:local'" "$TEMP/installed/.local/docker.env"
 grep -q ' build --pull' "$MOCK_LOG"
 ! grep -q '^pull ' "$MOCK_LOG"
 bash "$CC_DESK_TUNNEL_COMMAND" uninstall > /dev/null
 test ! -e "$CC_DESK_TUNNEL_COMMAND"
+# An interrupted first installation only has a checkout. Keep even edited tracked files and
+# initialize the deployment once, then continue from the same clean program directory on retry.
+export CC_DESK_TUNNEL_DIR="$TEMP/interrupted"
+git clone -q -- "$source_repo" "$CC_DESK_TUNNEL_DIR"
+git -C "$CC_DESK_TUNNEL_DIR" remote set-url origin "$GIT_CONFIG_VALUE_0"
+printf 'edited\n' >> "$CC_DESK_TUNNEL_DIR/deploy/manage.sh"
+printf '\n' | bash "$TEMP/install.sh" init --host box.example.com --mode nginx --data "$TEMP/interrupted-data" > /dev/null
+grep -Fxq edited "$CC_DESK_TUNNEL_DIR/deploy/manage.sh"
+grep -Fq "$TEMP/interrupted-data" "$CC_DESK_TUNNEL_DIR/.local/docker.env"
+project="$(grep '^PROJECT_NAME=' "$CC_DESK_TUNNEL_DIR/.local/docker.env")"
+printf '\n' | bash "$TEMP/install.sh" > /dev/null
+grep -Fxq "$project" "$CC_DESK_TUNNEL_DIR/.local/docker.env"
+test ! -e "$CC_DESK_TUNNEL_DIR.managed.managed"
 echo 'PASS: image choice, failures, release upgrade, backup and restore, installer, management command.'
