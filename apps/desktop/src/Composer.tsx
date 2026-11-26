@@ -216,14 +216,15 @@ export default function Composer({
       fill: `/${command.name} `,
     })),
   ];
-  const menuShown = native && !codex && slashOpen && items.length > 0;
+  const shownItems = codex ? items.filter((item) => item.key === 'compact') : items;
+  const menuShown = native && slashOpen && shownItems.length > 0;
   const at =
     pick === null
       ? Math.max(
           0,
-          items.findIndex((item) => !item.disabled),
+          shownItems.findIndex((item) => !item.disabled),
         )
-      : Math.min(pick, items.length - 1);
+      : Math.min(pick, shownItems.length - 1);
   useEffect(() => {
     menu.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [at, menuShown]);
@@ -262,7 +263,7 @@ export default function Composer({
     <div className="composer-area">
       {menuShown && (
         <div className="slash-menu" role="listbox" aria-label="会话命令" ref={menu}>
-          {items.map((item, index) => (
+          {shownItems.map((item, index) => (
             <button
               key={item.key}
               type="button"
@@ -361,12 +362,14 @@ export default function Composer({
             }
             if (menuShown && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
               event.preventDefault();
-              setPick((at + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length);
+              setPick(
+                (at + (event.key === 'ArrowDown' ? 1 : shownItems.length - 1)) % shownItems.length,
+              );
               return;
             }
             if (menuShown && event.key === 'Tab' && !event.shiftKey) {
               event.preventDefault();
-              const command = items[at].fill;
+              const command = shownItems[at].fill;
               if (command) fill(command);
               return;
             }
@@ -376,7 +379,7 @@ export default function Composer({
               event.preventDefault();
               if (!menuShown) {
                 if (!tooLong) send();
-              } else if (!items[at].disabled) items[at].run();
+              } else if (!shownItems[at].disabled) shownItems[at].run();
             }
           }}
         />
@@ -397,6 +400,8 @@ export default function Composer({
               session={session}
               disabled={controlsDisabled}
               usage={codexUsage}
+              quota={quota}
+              openAccount={openAccount}
               configure={(c) => configure({ codex: c })}
             />
           ) : !native ? (

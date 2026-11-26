@@ -60,7 +60,7 @@ export function TokenTrend({
   label: (at: string) => string;
   format: (value: number) => string;
 }) {
-  const kinds = codex ? allKinds.slice(0, 3) : allKinds;
+  const kinds = allKinds;
   const [hover, setHover] = useState<number | null>(null);
   const top = ceiling(Math.max(...buckets.flatMap((item) => kinds.map(([key]) => item[key])), 0));
   const rates = buckets.map(cacheHitRate);
@@ -214,7 +214,7 @@ export function ModelBreakdown({
             <th>请求数</th>
             <th>Token</th>
             <th>缓存命中率</th>
-            {!codex && <th>等价费用</th>}
+            <th>等价费用</th>
           </tr>
         </thead>
         <tbody>
@@ -232,7 +232,7 @@ export function ModelBreakdown({
                 <td>{item.requests.toLocaleString('zh-CN')}</td>
                 <td>{tokens(sum(item))}</td>
                 <td>{percent(cacheHitRate(item))}</td>
-                {!codex && <td>{dollars(item.costUsd)}</td>}
+                <td>{codex && !item.costUsd ? '—' : dollars(item.costUsd)}</td>
               </tr>
             );
           })}

@@ -6,7 +6,13 @@ import { Page } from './ui.tsx';
 // The instructions every session on this service starts with: the user CLAUDE.md of the official CLI on the cloud
 // host. A save goes through only over the version that was read, so a change made meanwhile in the terminal is not
 // lost; the text being edited stays for the user to compare after reloading.
-export default function GlobalInstructions({ client }: { client: ProxyClient }) {
+export default function GlobalInstructions({
+  client,
+  codex = false,
+}: {
+  client: ProxyClient;
+  codex?: boolean;
+}) {
   const [saved, setSaved] = useState<{ text: string; version: string } | null>(null);
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
@@ -49,7 +55,11 @@ export default function GlobalInstructions({ client }: { client: ProxyClient }) 
   return (
     <Page
       title="全局说明"
-      intro="云端 Claude Code 的用户级 CLAUDE.md，这个服务上的每个会话都会读取，下一次运行起生效。用户级不读 AGENTS.md；你电脑上项目里的 CLAUDE.md、AGENTS.md 也不会自动读取，需要时让 Claude 去读。"
+      intro={
+        codex
+          ? 'VPS 上 Codex CLI 的用户级 AGENTS.md。首次打开默认为空，保存后供新运行读取。'
+          : '云端 Claude Code 的用户级 CLAUDE.md，这个服务上的每个会话都会读取，下一次运行起生效。用户级不读 AGENTS.md；你电脑上项目里的 CLAUDE.md、AGENTS.md 也不会自动读取，需要时让 Claude 去读。'
+      }
     >
       <div className="card instructions-card">
         <textarea

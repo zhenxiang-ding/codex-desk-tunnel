@@ -1,4 +1,5 @@
 import {
+  compatibleDesktopProtocol,
   continues,
   isFragment,
   PROTOCOL_VERSION,
@@ -227,6 +228,7 @@ export class ProxyClient {
     device: Device | null;
     browser?: () => void;
     validate?: () => Promise<boolean>;
+    compatibility?: number;
     reconnect: boolean;
     // Remote mode: opens the bridge in the main process and resolves to its address. A bridge serves one
     // connection, so every attempt asks for a new one.
@@ -442,7 +444,7 @@ export class ProxyClient {
       socket.send(
         JSON.stringify({
           type: 'auth',
-          protocolVersion: PROTOCOL_VERSION,
+          protocolVersion: credentials.compatibility ?? PROTOCOL_VERSION,
           token: credentials.token,
           deviceName: credentials.device!.name,
         }),
@@ -518,6 +520,7 @@ export class ProxyClient {
       if (message.type === 'ready') {
         if (message.adapter === 'claude-code' && !credentials.bridge && !credentials.browser)
           credentials.reconnect = false;
+        delete credentials.compatibility;
         this.established = true;
         clearTimeout(timeout);
         this.retryAttempt = 0;
@@ -557,6 +560,16 @@ export class ProxyClient {
           request.reject(new Error(message.message ?? '请求失败。'));
         }
       } else if (message.type === 'connection.error') {
+        const compatible =
+          message.code === 'version_mismatch' && compatibleDesktopProtocol(message.service);
+        if (credentials.bridge && compatible && !credentials.compatibility) {
+          credentials.compatibility = compatible;
+          clearTimeout(timeout);
+          this.socket = null;
+          socket.close();
+          this.open();
+          return;
+        }
         this.update({ error: message.message });
         if (message.code === 'unauthorized' && credentials.browser) credentials.browser();
         if (message.code === 'version_mismatch')

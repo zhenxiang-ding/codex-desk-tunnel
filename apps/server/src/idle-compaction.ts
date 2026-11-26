@@ -128,6 +128,22 @@ export class IdleCompactions {
     timer.unref?.();
     this.timers.set(sessionId, timer);
   }
+  armCodex(sessionId: string, endedAt: number, tokens: number, now = Date.now()) {
+    this.cancel(sessionId);
+    if (!this.settings.enabled || tokens < this.settings.minTokens) return;
+    const due = endedAt + this.settings.afterMinutes * 60000;
+    // Do not spend quota on a backlog after downtime.
+    if (due < now - 60000) return;
+    const timer = setTimeout(
+      () => {
+        this.timers.delete(sessionId);
+        this.fire(sessionId);
+      },
+      Math.max(0, due - now),
+    );
+    timer.unref?.();
+    this.timers.set(sessionId, timer);
+  }
   armed(sessionId: string) {
     return this.timers.has(sessionId);
   }

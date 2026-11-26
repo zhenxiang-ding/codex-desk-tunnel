@@ -32,10 +32,14 @@ interface Item {
   query?: string;
   results?: unknown;
   contentItems?: unknown;
+  path?: string;
+  prompt?: string;
+  agentsStates?: unknown;
   success?: boolean;
 }
 interface Chat {
   runtime: Runtime;
+  compact?: boolean;
   choice?: CodexChoice;
   thread?: string;
   message: string;
@@ -66,6 +70,14 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
   let config: Partial<CodexConfig> & { features?: { memories?: boolean } } = {};
   let model: string | undefined;
   let memoryDefault = false;
+  // Time observed on the VPS between usage events, excluding tool execution and approval waits.
+  let startedAt: number | null = null,
+    elapsed = 0,
+    firstText: number | undefined;
+  let previousTotal: number | undefined;
+  const runningTools = new Set<string>();
+  const activeMs = () => elapsed + (startedAt === null ? 0 : performance.now() - startedAt);
+
   const pending = new Map<number, { method: string; timer: ReturnType<typeof setTimeout> }>();
   let seq = 0,
     thread = chat.thread,
@@ -118,7 +130,12 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
       return;
     }
     if (i.type === 'contextCompaction') {
-      if (done) emit({ type: 'native.compact', trigger: 'auto', previousTokens: null });
+      if (done)
+        emit({
+          type: 'native.compact',
+          trigger: chat.compact ? 'manual' : 'auto',
+          previousTokens: null,
+        });
       return;
     }
     const fields: Record<string, [string, unknown, unknown]> = {
@@ -131,9 +148,18 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
       ],
       dynamicToolCall: [i.tool ?? '工具', i.arguments, i.contentItems],
       webSearch: ['网页搜索', i.query, i.results],
+      imageView: ['查看图片', i.path, i.path],
+      imageGeneration: ['生成图片', i.prompt, i.status],
+      collabAgentToolCall: ['子代理 · ' + (i.tool ?? '任务'), i.prompt, i.agentsStates],
     };
     const entry = fields[i.type];
     if (!entry) return;
+    if (!done && !runningTools.size) {
+      elapsed = activeMs();
+      startedAt = null;
+    }
+    if (!done) runningTools.add(i.id);
+    if (done && runningTools.delete(i.id) && !runningTools.size) startedAt = performance.now();
     tool(i.id, entry[0], entry[1]);
     if (done)
       emit({
@@ -208,7 +234,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
                 model_auto_compact_token_limit: config.model_auto_compact_token_limit,
               }),
             },
-            sandbox: config.sandbox_mode === 'read-only' ? 'read-only' : 'workspace-write',
+            sandbox: config.sandbox_mode ?? 'workspace-write',
             approvalPolicy:
               chat.choice?.approval === 'auto_review'
                 ? 'on-request'
@@ -249,6 +275,11 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             if (!thread || !/^[a-f0-9-]{36}$/i.test(thread))
               throw new Error('Codex 返回的会话 ID 无效。');
             chat.bind(thread);
+            if (chat.compact) {
+              request('thread/compact/start', { threadId: thread });
+              break;
+            }
+            startedAt = performance.now();
             request('turn/start', {
               threadId: thread,
               effort:
@@ -260,6 +291,9 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
               input: [{ type: 'text', text: chat.message }],
               clientUserMessageId: chat.messageId,
             });
+            break;
+          case 'thread/compact/start':
+            emit({ type: 'message.delivery', messageId: chat.messageId, status: 'received' });
             break;
           case 'turn/start':
             turn = result.turn.id;
@@ -273,6 +307,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
         continue;
       switch (frame.method) {
         case 'turn/started':
+          startedAt ??= performance.now();
           turn = p.turn.id;
           break;
         case 'item/started':
@@ -282,6 +317,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
         case 'item/agentMessage/delta':
         case 'item/plan/delta':
         case 'item/reasoning/summaryTextDelta':
+          if (p.delta && startedAt !== null) firstText ??= Math.round(activeMs());
           streamed.add(p.itemId);
           text(
             p.itemId,
@@ -306,15 +342,23 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
           if (value.success) {
             chat.usage(value.data);
             const last = codexTokensSchema.safeParse(p.tokenUsage.last);
-            if (last.success)
+            if (last.success && previousTotal !== value.data.totalTokens) {
+              previousTotal = value.data.totalTokens;
               emit({
                 type: 'codex.usage',
+                promptId: chat.messageId,
+                durationMs: Math.round(activeMs()),
+                ttftMs: firstText,
                 model,
                 threadId: thread,
                 total: value.data,
                 last: last.data,
                 window: p.tokenUsage.modelContextWindow ?? null,
               });
+              elapsed = 0;
+              firstText = undefined;
+              startedAt = runningTools.size ? null : performance.now();
+            }
           }
           break;
         }

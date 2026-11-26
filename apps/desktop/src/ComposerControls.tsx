@@ -99,31 +99,9 @@ export default function ComposerControls({
     commitPending.current = false;
     dragging.current = false;
   }, [model]);
-  const quota = usePrefs().quota ? quotaFigures(account?.rateLimits) : [];
-  const fullest = Math.max(0, ...quota.map((figure) => figure.used));
   return (
     <div className="composer-controls" ref={container}>
-      {quota.length > 0 && (
-        <button
-          type="button"
-          className={`quota-note ${fullest >= 90 ? 'danger' : fullest >= 70 ? 'warn' : ''}`}
-          aria-label="额度已用"
-          title={[
-            ...quota.map(
-              (figure) =>
-                `${figure.label}额度已用 ${figure.used}%${
-                  figure.resetsAt
-                    ? `，${new Date(figure.resetsAt).toLocaleString('zh-CN')} 重置`
-                    : ''
-                }`,
-            ),
-            '点击查看账号与额度',
-          ].join('\n')}
-          onClick={openAccount}
-        >
-          {quota.map((figure) => `${figure.label} ${figure.used}%`).join(' · ')}
-        </button>
-      )}
+      <ComposerQuota account={account} openAccount={openAccount} />
       {!barShowsContext && <ContextMeter metrics={metrics} />}
       <div className="model-control">
         <button
@@ -301,5 +279,42 @@ export default function ComposerControls({
         )}
       </div>
     </div>
+  );
+}
+
+export function ComposerQuota({
+  account,
+  openAccount,
+}: {
+  account: AccountQuota | null;
+  openAccount: () => void;
+}) {
+  const quota = usePrefs().quota ? quotaFigures(account?.rateLimits) : [];
+  const fullest = Math.max(0, ...quota.map((figure) => figure.used));
+  return (
+    <>
+      {' '}
+      {quota.length > 0 && (
+        <button
+          type="button"
+          className={`quota-note ${fullest >= 90 ? 'danger' : fullest >= 70 ? 'warn' : ''}`}
+          aria-label="额度已用"
+          title={[
+            ...quota.map(
+              (figure) =>
+                `${figure.label}额度已用 ${figure.used}%${
+                  figure.resetsAt
+                    ? `，${new Date(figure.resetsAt).toLocaleString('zh-CN')} 重置`
+                    : ''
+                }`,
+            ),
+            '点击查看账号与额度',
+          ].join('\n')}
+          onClick={openAccount}
+        >
+          {quota.map((figure) => `${figure.label} ${figure.used}%`).join(' · ')}
+        </button>
+      )}
+    </>
   );
 }

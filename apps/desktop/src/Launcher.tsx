@@ -55,6 +55,11 @@ export default function Launcher({ signIns }: { signIns: SignIns }) {
   const touched = useRef(false);
   const change = useCallback((values: Partial<ConnectionForm>) => {
     touched.current = true;
+    if ('url' in values || 'fingerprint' in values || 'token' in values) {
+      setReport(null);
+      setError(null);
+      setRestarting(null);
+    }
     setForm((current) => ({ ...current, ...values }));
   }, []);
   const [connecting, setConnecting] = useState(false);
@@ -146,18 +151,23 @@ export default function Launcher({ signIns }: { signIns: SignIns }) {
     !connecting;
   useEffect(() => {
     if (!waitingForInstaller) return;
+    let active = true;
     const timer = setTimeout(
       () => {
         void probe().then((result) => {
-          if (result?.status === 'refused') setSince(result);
-          else if (result?.status === 'ready') void start(form);
+          if (active && result?.status === 'refused' && result.service === ended?.service)
+            setSince(result);
+          if (!active) return;
           setAsked((count) => count + 1);
         });
       },
       refused?.preparing !== null ? 3000 : 15000,
     );
-    return () => clearTimeout(timer);
-  }, [waitingForInstaller, refused?.preparing, asked]);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [waitingForInstaller, refused?.preparing, ended?.service, form.url, asked]);
   // A service that upgraded itself from `restarting` at this window's asking is waited for, and signed in to once
   // it answers as the new version. It is given a few minutes before the window says to connect later.
   const [restarting, setRestarting] = useState<string | null>(null);
@@ -245,6 +255,7 @@ export default function Launcher({ signIns }: { signIns: SignIns }) {
           go={setSettings}
           back={() => setSettings(null)}
           native={false}
+          codex
           account={null}
           form={form}
           changeForm={change}

@@ -573,11 +573,15 @@ function HistoryCacheCard({ client }: { client: ProxyClient }) {
 }
 
 function General({
+  legacy,
+  codex,
   client,
   browser,
   workspaceRoot,
   chooseWorkspace,
 }: {
+  codex: boolean;
+  legacy: boolean;
   client: ProxyClient;
   browser: boolean;
   workspaceRoot: string;
@@ -634,20 +638,27 @@ function General({
         </>
       )}
       <HistoryCacheCard client={client} />
-      <h2 className="page-heading">审批</h2>
-      <div className="card">
-        <Row
-          title="允许绕过权限"
-          detail="审批模式里多出“绕过权限”，什么都不再问。只建议在测试机上打开"
-          help="permissions#bypass"
-        >
-          <Switch
-            label="允许绕过权限"
-            checked={bypassPermissions}
-            onChange={(value) => setPrefs((prefs) => ({ ...prefs, bypassPermissions: value }))}
-          />
-        </Row>
-      </div>
+      {codex ? (
+        client.state.status === 'connected' &&
+        !browser && <CodexSettings legacy={legacy} section="permissions" client={client} />
+      ) : (
+        <>
+          <h2 className="page-heading">审批</h2>
+          <div className="card">
+            <Row
+              title="允许绕过权限"
+              detail="审批模式里多出“绕过权限”，什么都不再问。只建议在测试机上打开"
+              help="permissions#bypass"
+            >
+              <Switch
+                label="允许绕过权限"
+                checked={bypassPermissions}
+                onChange={(value) => setPrefs((prefs) => ({ ...prefs, bypassPermissions: value }))}
+              />
+            </Row>
+          </div>
+        </>
+      )}
     </Page>
   );
 }
@@ -968,6 +979,7 @@ export default function SettingsPage({
   const term = search.trim().toLowerCase();
   // Before a connection only this computer's; in a browser no computer's own nor Claude Code's files; the service's
   // where there is one to keep them. A page with nothing to set where it is shown is not listed.
+  const legacyCodex = codex && !!service && /^0\.1\.[0-6]$/.test(service);
   const shown = sections
     .map((item) =>
       browser && item.id === 'account'
@@ -985,7 +997,6 @@ export default function SettingsPage({
     .filter(
       (item) =>
         (!back || item.group === '本机') &&
-        (!codex || !['instructions', 'context'].includes(item.id)) &&
         (item.id !== 'connection' || window.desktop) &&
         (item.id !== 'install' ||
           (browser && /Android.*Mobile|iPhone|iPod/i.test(navigator.userAgent))) &&
@@ -994,9 +1005,7 @@ export default function SettingsPage({
         (item.id !== 'context' || native) &&
         (item.id !== 'shell' || (native && !browser && !!here && platformOf(here) === 'win32')) &&
         (item.id !== 'web' || native || browser) &&
-        `${codex && item.id === 'context' ? '自动压缩上下文' : item.name} ${item.words}`
-          .toLowerCase()
-          .includes(term),
+        `${item.name} ${item.words}`.toLowerCase().includes(term),
     );
   return (
     <>
@@ -1034,7 +1043,7 @@ export default function SettingsPage({
                 onClick={() => go(item.id)}
               >
                 <item.icon />
-                {codex && item.id === 'context' ? '自动压缩上下文' : item.name}
+                {item.name}
               </button>
             </div>
           ))}
@@ -1054,9 +1063,12 @@ export default function SettingsPage({
       <main className="workspace">
         <PageHelp.Provider value={back ? null : (pageHelp[section] ?? 'settings')}>
           {indexOnly ? null : codex && (section === 'claude' || section === 'context') ? (
-            <CodexSettings client={client} />
-          ) : section === 'account' ||
-            (codex && (section === 'instructions' || section === 'codexUsage')) ? (
+            <CodexSettings
+              client={client}
+              legacy={legacyCodex}
+              section={section === 'context' ? 'context' : 'cli'}
+            />
+          ) : section === 'account' || (codex && section === 'codexUsage') ? (
             account
           ) : section === 'claude' ? (
             native ? (
@@ -1069,7 +1081,14 @@ export default function SettingsPage({
             )
           ) : section === 'instructions' ? (
             native ? (
-              <GlobalInstructions client={client} />
+              legacyCodex ? (
+                <Page
+                  title="全局说明"
+                  intro="请先在关于与更新中升级服务端，以编辑 VPS 上的 AGENTS.md。"
+                />
+              ) : (
+                <GlobalInstructions client={client} codex={codex} />
+              )
             ) : (
               <Page title="全局说明" intro="离线模拟没有全局说明；连接远程代理后在这里修改。" />
             )
@@ -1089,6 +1108,8 @@ export default function SettingsPage({
             <InstallAppSettings />
           ) : section === 'general' ? (
             <General
+              codex={codex}
+              legacy={legacyCodex}
               client={client}
               browser={browser}
               workspaceRoot={workspaceRoot}

@@ -11,6 +11,9 @@ export function instructionsPath(configDirectory = process.env.CLAUDE_CONFIG_DIR
   return join(configDirectory ?? join(homedir(), '.claude'), 'CLAUDE.md');
 }
 
+export const codexInstructionsPath = () =>
+  join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'AGENTS.md');
+
 // The text, and a version that tells whether the file has changed since it was read.
 export function readInstructions(path = instructionsPath()) {
   let text = '';
@@ -22,7 +25,7 @@ export function readInstructions(path = instructionsPath()) {
   if (text.length > INSTRUCTIONS_LIMIT)
     throw new DomainError(
       'instructions_too_long',
-      `全局说明超过 ${INSTRUCTIONS_LIMIT} 字，请在 cxdt 里用 /memory 编辑。`,
+      `全局说明超过 ${INSTRUCTIONS_LIMIT} 字，请在 VPS 上直接编辑文件。`,
     );
   return { text, version: createHash('sha256').update(text).digest('hex') };
 }

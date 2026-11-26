@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CodexConfig, CodexModel } from '@cc-desk-tunnel/protocol';
 import type { ProxyClient } from './client.ts';
 import { Page, Row } from './ui.tsx';
+import IdleCompactionSettings from './IdleCompactionSettings.tsx';
 import { effortLabels } from './CodexToolbar.tsx';
 
 type Field = {
@@ -93,19 +94,45 @@ const groups: { name: string; fields: Field[] }[] = [
       {
         key: 'sandbox_mode',
         name: 'VPS 沙箱',
-        options: { 'read-only': '只读', 'workspace-write': '允许写入工作区' },
+        options: {
+          'read-only': '只读',
+          'workspace-write': '允许写入工作区',
+          'danger-full-access': '完全访问',
+        },
         detail: '限制 VPS 上运行的命令。本机文件访问由 SSH 登录用户的权限决定。',
       },
     ],
   },
 ];
-export function CodexSettings({ client }: { client: ProxyClient }) {
+export function CodexSettings({
+  client,
+  section = 'cli',
+  legacy = false,
+}: {
+  legacy?: boolean;
+  client: ProxyClient;
+  section?: 'cli' | 'context' | 'permissions';
+}) {
+  const visible = groups
+    .map((group) => ({
+      ...group,
+      fields: group.fields.filter((f) =>
+        section === 'permissions'
+          ? group.name === '权限'
+          : section === 'context'
+            ? f.key === 'model_auto_compact_token_limit'
+            : true,
+      ),
+    }))
+    .filter((group) => group.fields.length);
+
   const [current, setCurrent] = useState<CodexConfig | null>(null),
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false);
   const [models, setModels] = useState<CodexModel[]>([]);
   useEffect(() => {
     let active = true;
+    if (section !== 'cli') return;
     client.fetch({ type: 'codex.models.get' }).then(
       (r) => {
         if (active) setModels(r.models);
@@ -117,7 +144,7 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
     return () => {
       active = false;
     };
-  }, [client]);
+  }, [client, section]);
   const selectedModel = current?.model;
   const model = selectedModel
     ? models.find((m) => m.model === selectedModel)
@@ -144,7 +171,7 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
     return () => {
       active = false;
     };
-  }, [client]);
+  }, [client, section]);
   async function save(values: Partial<CodexConfig>) {
     setBusy(true);
     setMessage('');
@@ -157,16 +184,19 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
       setBusy(false);
     }
   }
-  return (
-    <Page
-      title="CLI 设置"
-      intro="VPS 上 Codex CLI 的默认配置。修改后自动保存，下次启动对话时生效。"
-    >
+  const controls = (
+    <>
       {current && (
         <>
-          {groups.map((group) => (
+          {visible.map((group) => (
             <section className="settings-section" key={group.name}>
-              <h2 className="page-heading">{group.name}</h2>
+              <h2 className="page-heading">
+                {section === 'context'
+                  ? '按上下文用量压缩'
+                  : section === 'permissions'
+                    ? 'Codex 默认审批权限（VPS）'
+                    : group.name}
+              </h2>
               <div className="settings-list card">
                 {group.fields.map((f) => {
                   const value = current[f.key];
@@ -184,6 +214,13 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
                           ? { true: '开启', false: '关闭' }
                           : f.options;
                   const change = (raw: string) => {
+                    if (
+                      raw === 'danger-full-access' &&
+                      !window.confirm(
+                        '启用完全访问后，Codex 可以读写 VPS 上服务账号有权访问的文件。启用完全访问？',
+                      )
+                    )
+                      return;
                     if (raw === String(value ?? '')) return;
                     void save({
                       [f.key]:
@@ -211,11 +248,13 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
                           {value != null && !(String(value) in opts) && (
                             <option value={String(value)}>{String(value)}</option>
                           )}
-                          {Object.entries(opts).map(([key, label]) => (
-                            <option key={key} value={key}>
-                              {label}
-                            </option>
-                          ))}
+                          {Object.entries(opts)
+                            .filter(([key]) => !legacy || key !== 'danger-full-access')
+                            .map(([key, label]) => (
+                              <option key={key} value={key}>
+                                {label}
+                              </option>
+                            ))}
                         </select>
                       ) : (
                         <input
@@ -262,6 +301,21 @@ export function CodexSettings({ client }: { client: ProxyClient }) {
         </>
       )}
       {message && <p role="status">{message}</p>}
+    </>
+  );
+  if (section === 'permissions') return controls;
+  return (
+    <Page
+      title={section === 'context' ? '上下文与缓存' : 'CLI 设置'}
+      intro="配置保存在 VPS。修改后自动保存，后续运行会使用新设置。"
+    >
+      {controls}
+      {section === 'context' &&
+        (legacy ? (
+          <p>请升级服务端以启用空闲压缩。</p>
+        ) : (
+          <IdleCompactionSettings client={client} codex />
+        ))}
     </Page>
   );
 }

@@ -472,7 +472,9 @@ export class SessionStore {
       .prepare('SELECT usage FROM codex_threads WHERE usage IS NOT NULL')
       .iterate()) {
       const values: CodexTokens = JSON.parse(String(row.usage));
-      for (const key of Object.keys(totals) as (keyof CodexTokens)[]) totals[key] += values[key];
+      if (values.cacheWriteInputTokens !== undefined) totals.cacheWriteInputTokens ??= 0;
+      for (const key of Object.keys(totals) as (keyof CodexTokens)[])
+        totals[key] = (totals[key] ?? 0) + (values[key] ?? 0);
       sessions++;
     }
     return { totals, sessions };
@@ -548,6 +550,30 @@ export class SessionStore {
   }
   // The figures of the last turn that wrote a prompt cache, and when it ended; none once the session was compacted
   // after it, as a terminal's CLI does by itself while it is idle.
+  lastCodexTurn(sessionId: string) {
+    const latest = this.database
+      .prepare(
+        `SELECT data FROM events WHERE session_id=? AND
+      data ->> '$.payload.type'='run.status' ORDER BY sequence DESC LIMIT 1`,
+      )
+      .get(sessionId);
+    if (!latest) return null;
+    const end = JSON.parse(String(latest.data)) as SessionEvent;
+    if (end.payload.type !== 'run.status' || end.payload.status !== 'completed') return null;
+    const row = this.database
+      .prepare(
+        `SELECT data FROM events WHERE session_id=? AND
+      data ->> '$.runId'=? AND data ->> '$.payload.type'='codex.usage'
+      AND NOT EXISTS (SELECT 1 FROM events WHERE session_id=? AND data ->> '$.runId'=?
+        AND data ->> '$.payload.type'='message.user' AND data ->> '$.payload.text'='/compact')
+      ORDER BY sequence DESC LIMIT 1`,
+      )
+      .get(sessionId, end.runId, sessionId, end.runId);
+    const usage = row && (JSON.parse(String(row.data)) as SessionEvent).payload;
+    return usage?.type === 'codex.usage'
+      ? { tokens: usage.last.totalTokens, endedAt: Date.parse(end.createdAt) }
+      : null;
+  }
   lastCachedTurn(sessionId: string) {
     const row = this.database
       .prepare(

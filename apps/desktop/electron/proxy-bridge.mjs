@@ -7,7 +7,12 @@ import { connect } from 'node:tls';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { WebSocket, WebSocketServer, createWebSocketStream } from 'ws';
-import { serverMessageSchema, MAX_FRAME_BYTES } from '@cc-desk-tunnel/protocol';
+import {
+  compatibleDesktopProtocol,
+  PROTOCOL_VERSION,
+  serverMessageSchema,
+  MAX_FRAME_BYTES,
+} from '@cc-desk-tunnel/protocol';
 import { startWindowsSsh } from './windows-ssh.mjs';
 import { startPosixSsh } from './posix-ssh.mjs';
 import { openChannels } from './tunnel-channels.mjs';
@@ -169,6 +174,7 @@ export async function openProxyBridge(
     const queue = [];
     let verified = false;
     let nativeReady;
+    let requestedProtocol;
     let offerReceived = false;
     const target = `${address.hostname}:${address.port || 443}`;
     const began = Date.now();
@@ -278,6 +284,7 @@ export async function openProxyBridge(
         }
         // A connection whose computer has its execution channel by another, `cxdt online`, asks for none.
         if (message.type === 'auth') {
+          requestedProtocol = message.protocolVersion;
           message.tunnel = config.tunnel !== false;
           token = String(message.token);
         }
@@ -298,6 +305,15 @@ export async function openProxyBridge(
       try {
         const decoded = JSON.parse(raw.toString('utf8'));
         rawType = decoded?.type;
+        if (
+          rawType === 'ready' &&
+          decoded.accountProvider === 'codex' &&
+          requestedProtocol !== PROTOCOL_VERSION &&
+          decoded.protocolVersion === requestedProtocol &&
+          compatibleDesktopProtocol(decoded.version) === requestedProtocol
+        ) {
+          decoded.protocolVersion = PROTOCOL_VERSION;
+        }
         message = serverMessageSchema.parse(decoded);
       } catch (error) {
         // Include the protocol field only. Session contents and credentials stay out of diagnostics.
@@ -311,7 +327,7 @@ export async function openProxyBridge(
           '服务端的消息无法识别（' +
             type +
             (path ? ' / ' + path : '') +
-            '）。可在登录页点“检查服务端更新”。',
+            '）。请核对当前连接的服务地址和两端版本。',
         );
         return;
       }
@@ -366,7 +382,7 @@ export async function openProxyBridge(
         if (local.readyState === WebSocket.OPEN) local.send(JSON.stringify(nativeReady));
       } else if (local.readyState === WebSocket.OPEN) {
         if (message.type === 'ready') clearTimeout(timer);
-        local.send(raw.toString('utf8'));
+        local.send(message.type === 'ready' ? JSON.stringify(message) : raw.toString('utf8'));
       }
     });
     for (const socket of [local, remote]) {

@@ -502,12 +502,17 @@ handle('web:open', async (_event, target) => {
 // Sessions without a project still need a working directory on this computer; they get one under Documents, grouped by
 // day, unless the user chose another folder. Folders used before are remembered: their sessions are still
 // sessions without a project.
-const defaultRoot = () => path.join(app.getPath('documents'), 'CC Desk Tunnel');
+const defaultRoot = () => path.join(app.getPath('documents'), 'Codex Desk Tunnel');
 function workspaceRoots() {
   const saved = readComputer().workspaceRoots;
-  const roots = [...(Array.isArray(saved) ? saved : []), defaultRoot()].filter(
-    (root) => typeof root === 'string' && root,
-  );
+  const legacy = path.join(app.getPath('documents'), 'CC Desk Tunnel');
+  const stored = Array.isArray(saved) ? saved : [];
+  const roots = [
+    ...(stored[0] === legacy ? [defaultRoot()] : []),
+    ...stored,
+    defaultRoot(),
+    legacy,
+  ].filter((root) => typeof root === 'string' && root);
   // Windows and macOS take a path in any case; Linux tells the cases apart.
   const key = (root) => (process.platform === 'linux' ? root : root.toLowerCase());
   return roots.filter(

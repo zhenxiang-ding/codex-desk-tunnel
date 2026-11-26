@@ -47,6 +47,7 @@ import { supportsForcedUpgrade, platformOf, projectOf, runWorking } from '@cc-de
 import { browserSession, browserSocket, watchActivity } from './browser-api.ts';
 import { CertificateWarning } from './WebGate.tsx';
 import { hostCapabilities } from './host-capabilities.ts';
+import { codexContext } from './CodexToolbar.tsx';
 import CodexAccountPanel from './CodexAccountPanel.tsx';
 import AccountPanel from './AccountPanel.tsx';
 import { QuotaSummary } from './QuotaSummary.tsx';
@@ -465,8 +466,14 @@ export function App({
     [events],
   );
   const capabilities = latest(events, 'native.capabilities') ?? state.capabilities;
-  const metrics = latest(events, 'native.metrics');
-  const canCompact = !!latest(events, 'native.context')?.persisted;
+  const codexReading =
+    usageEvent?.payload.type === 'codex.usage'
+      ? { ...usageEvent.payload, measuredAt: usageEvent.createdAt }
+      : null;
+  const metrics = codexMode ? codexContext(codexReading) : latest(events, 'native.metrics');
+  const canCompact = codexMode
+    ? !!codexReading && !/^0\.1\.[0-6]$/.test(state.service ?? '')
+    : !!latest(events, 'native.context')?.persisted;
   // A chat run holds the CLI's state while it goes; a terminal holds only its own session.
   const anyChat = state.sessions.some(
     (session) => session.activeRun && session.activeRun.surface !== 'terminal',
@@ -2199,11 +2206,7 @@ export function App({
                 setDraft={(text) => setDraft(selected.id, text)}
                 codex={codexMode}
                 client={client}
-                codexUsage={
-                  usageEvent?.payload.type === 'codex.usage'
-                    ? { ...usageEvent.payload, measuredAt: usageEvent.createdAt }
-                    : null
-                }
+                codexUsage={codexReading}
                 native={nativeMode}
                 connected={connected}
                 busy={busy}
@@ -2237,7 +2240,7 @@ export function App({
             )}
             {selected && (!away || (browser && remote)) && (
               <SessionBar
-                codex={codexMode ? (latest(events, 'codex.usage') ?? null) : undefined}
+                codex={codexMode}
                 client={client}
                 sessionId={selected.id}
                 refresh={turnReports}

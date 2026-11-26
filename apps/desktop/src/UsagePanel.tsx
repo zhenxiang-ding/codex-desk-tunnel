@@ -61,7 +61,7 @@ export default function UsagePanel({
   const [customFrom, setCustomFrom] = useState(() => localInput(new Date(Date.now() - 24 * hour)));
   const [customTo, setCustomTo] = useState(() => localInput(new Date()));
   const [model, setModel] = useState('');
-  const [measure, setMeasure] = useState<Measure>(codex ? 'tokens' : 'costUsd');
+  const [measure, setMeasure] = useState<Measure>('costUsd');
   const [page, setPage] = useState<UsagePage | null>(null);
   // Which page of the records is shown, from the newest.
   const [index, setIndex] = useState(0);
@@ -183,7 +183,8 @@ export default function UsagePanel({
       <div className="account-body usage-body">
         {codex && (
           <p className="account-updated">
-            统计此 VPS 的桌面对话，每条记录对应一次有 token 用量的模型调用。输入与缓存读取分开计数。
+            统计此 VPS 的桌面对话，每条记录对应一次有 token 用量的模型调用。首字和速度按 VPS
+            收到的流式事件估算，扣除工具运行时间。旧记录缺少计时和缓存写入明细。
           </p>
         )}
         <div className="usage-filters">
@@ -269,27 +270,30 @@ export default function UsagePanel({
             <strong>{percent(totals ? cacheHitRate(totals) : null)}</strong>
             <small>{totals ? `读取 ${tokens(totals.cacheReadTokens)}` : ''}</small>
           </div>
-          {!codex && (
-            <>
-              <div>
-                <span>等价 API 费用</span>
-                <strong>{totals ? dollars(totals.costUsd) : '—'}</strong>
-                <small>官方 CLI 按 API 价格估算，非订阅账单</small>
-              </div>
-              <div>
-                <span>平均首字延迟</span>
-                <strong>{seconds(totals?.ttftMs ?? null)}</strong>
-              </div>
-              <div>
-                <span>平均输出速度</span>
-                <strong>
-                  {totals?.outputPerSecond != null
-                    ? `${totals.outputPerSecond.toFixed(1)} tok/s`
-                    : '—'}
-                </strong>
-              </div>
-            </>
-          )}
+
+          <div>
+            <span>等价 API 费用</span>
+            <strong>
+              {totals && !(codex && totals.requests && !totals.costUsd)
+                ? dollars(totals.costUsd)
+                : '—'}
+            </strong>
+            <small>
+              {codex
+                ? '标准短上下文价估算，缓存写入按 30 分钟计，仅合计有价格的模型'
+                : '官方 CLI 按 API 价格估算，非订阅账单'}
+            </small>
+          </div>
+          <div>
+            <span>平均首字延迟</span>
+            <strong>{seconds(totals?.ttftMs ?? null)}</strong>
+          </div>
+          <div>
+            <span>平均输出速度</span>
+            <strong>
+              {totals?.outputPerSecond != null ? `${totals.outputPerSecond.toFixed(1)} tok/s` : '—'}
+            </strong>
+          </div>
         </div>
         <figure className="usage-chart">
           <figcaption>
@@ -302,18 +306,16 @@ export default function UsagePanel({
               {measures[measure]}
             </span>
             <div className="segmented" role="group" aria-label="图表指标">
-              {(Object.keys(measures) as Measure[])
-                .filter((key) => !codex || key !== 'costUsd')
-                .map((key) => (
-                  <button
-                    type="button"
-                    key={key}
-                    aria-pressed={measure === key}
-                    onClick={() => setMeasure(key)}
-                  >
-                    {measures[key]}
-                  </button>
-                ))}
+              {(Object.keys(measures) as Measure[]).map((key) => (
+                <button
+                  type="button"
+                  key={key}
+                  aria-pressed={measure === key}
+                  onClick={() => setMeasure(key)}
+                >
+                  {measures[key]}
+                </button>
+              ))}
             </div>
           </figcaption>
           <div className="usage-plot" onMouseLeave={() => setHover(null)}>
@@ -347,7 +349,7 @@ export default function UsagePanel({
                 <strong>{bucketLabel(bars[hover].at)}</strong>
                 <span>{bars[hover].requests.toLocaleString('zh-CN')} 次请求</span>
                 <span>{tokens(bars[hover].tokens)} tokens</span>
-                {!codex && <span>{dollars(bars[hover].costUsd)}</span>}
+                <span>{dollars(bars[hover].costUsd)}</span>
               </div>
             )}
           </div>
@@ -371,15 +373,12 @@ export default function UsagePanel({
                 <th>输入</th>
                 <th>输出</th>
                 <th>缓存读取</th>
-                {!codex && (
-                  <>
-                    <th>缓存写入</th>
-                    <th>等价费用</th>
-                    <th>首字</th>
-                    <th>总用时</th>
-                    <th>速度</th>
-                  </>
-                )}
+
+                <th>缓存写入</th>
+                <th>等价费用</th>
+                <th>首字</th>
+                <th>总用时</th>
+                <th>速度</th>
               </tr>
             </thead>
             <tbody>
@@ -406,19 +405,16 @@ export default function UsagePanel({
                     <td>{row.inputTokens.toLocaleString()}</td>
                     <td>{row.outputTokens.toLocaleString()}</td>
                     <td>{row.cacheReadTokens.toLocaleString()}</td>
-                    {!codex && (
-                      <>
-                        <td>{row.cacheCreationTokens.toLocaleString()}</td>
-                        <td>{dollars(row.costUsd)}</td>
-                        <td>{seconds(row.ttftMs)}</td>
-                        <td>{seconds(row.durationMs)}</td>
-                        <td>
-                          {streaming
-                            ? `${(row.outputTokens / (streaming / 1000)).toFixed(1)} tok/s`
-                            : '—'}
-                        </td>
-                      </>
-                    )}
+
+                    <td>{row.cacheCreationTokens.toLocaleString()}</td>
+                    <td>{codex && !row.costUsd ? '—' : dollars(row.costUsd)}</td>
+                    <td>{seconds(row.ttftMs)}</td>
+                    <td>{seconds(row.durationMs || null)}</td>
+                    <td>
+                      {streaming
+                        ? `${(row.outputTokens / (streaming / 1000)).toFixed(1)} tok/s`
+                        : '—'}
+                    </td>
                   </tr>
                 );
               })}

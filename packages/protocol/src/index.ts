@@ -4,7 +4,7 @@ import { webCertificateStateSchema } from './web-certificate.ts';
 export * from './web.ts';
 export * from './web-certificate.ts';
 
-export const PROTOCOL_VERSION = 33;
+export const PROTOCOL_VERSION = 34;
 // The release each protocol version began with, from 0.2.4 on: a client newer than its service signs in with
 // the service's number to have it upgrade (see the README). A new number adds its line here.
 export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
@@ -13,6 +13,7 @@ export const PROTOCOL_HISTORY: Readonly<Record<string, number>> = {
   '0.1.2': 31,
   '0.1.3': 32,
   '0.1.6': 33,
+  '0.1.7': 34,
   '0.2.4': 10,
   '0.2.6': 11,
   '0.2.9': 12,
@@ -38,6 +39,9 @@ export const protocolForRelease = (version: string) =>
   Object.entries(PROTOCOL_HISTORY).findLast(
     ([release]) => release.localeCompare(version, undefined, { numeric: true }) <= 0,
   )?.[1];
+// Ready, history and update frames from these Codex releases are compatible with this desktop.
+export const compatibleDesktopProtocol = (version?: string | null) =>
+  version === '0.1.6' ? 33 : version && /^0\.1\.[345]$/.test(version) ? 32 : undefined;
 export const MAX_FRAME_BYTES = 256 * 1024;
 // The longest global instructions edited here, in characters; it keeps a frame of them within MAX_FRAME_BYTES.
 export const INSTRUCTIONS_LIMIT = 64_000;
@@ -134,7 +138,7 @@ export const codexConfigSchema = z
     service_tier: z.string().max(80).nullish(),
     approval_policy: z.enum(['untrusted', 'on-request', 'never', 'on-failure']).nullish(),
     approvals_reviewer: z.enum(['user', 'auto_review', 'guardian_subagent']).nullish(),
-    sandbox_mode: z.enum(['workspace-write', 'read-only']).nullish(),
+    sandbox_mode: z.enum(['workspace-write', 'read-only', 'danger-full-access']).nullish(),
     model_auto_compact_token_limit: z
       .number()
       .int()
@@ -145,6 +149,7 @@ export const codexConfigSchema = z
   .strict();
 export type CodexConfig = z.infer<typeof codexConfigSchema>;
 export const codexTokensSchema = z.object({
+  cacheWriteInputTokens: z.number().int().nonnegative().optional(),
   inputTokens: z.number().int().nonnegative(),
   cachedInputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
@@ -441,6 +446,9 @@ export const eventPayloadSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('codex.usage'),
+    promptId: id.optional(),
+    durationMs: z.number().nonnegative().optional(),
+    ttftMs: z.number().nonnegative().optional(),
     model: z.string().optional(),
     threadId: z.string().optional(),
     total: codexTokensSchema,

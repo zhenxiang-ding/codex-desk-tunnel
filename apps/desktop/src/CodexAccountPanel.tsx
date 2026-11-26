@@ -1,4 +1,3 @@
-import { SshKeySetup } from './SshKeySetup.tsx';
 import { useState, useEffect } from 'react';
 import type { AccountState, Command } from '@cc-desk-tunnel/protocol';
 import type { ProxyClient } from './client.ts';
@@ -6,7 +5,7 @@ import { CopyButton } from './copy.tsx';
 import { UserRound, ListOrdered, LogOut, RefreshCw } from 'lucide-react';
 import { usePrefs, setPrefs } from './prefs.ts';
 import type { UsageSummary } from '@cc-desk-tunnel/protocol';
-import UsagePanel, { tokens } from './UsagePanel.tsx';
+import UsagePanel, { dollars, tokens } from './UsagePanel.tsx';
 import { Page, Row, Switch } from './ui.tsx';
 
 export default function CodexAccountPanel({
@@ -265,9 +264,12 @@ export default function CodexAccountPanel({
                           <small>
                             本期桌面对话 {period.requests} 次调用 ·{' '}
                             {tokens(
-                              period.inputTokens + period.cacheReadTokens + period.outputTokens,
+                              period.inputTokens +
+                                period.cacheReadTokens +
+                                period.cacheCreationTokens +
+                                period.outputTokens,
                             )}{' '}
-                            tokens
+                            tokens{period.costUsd > 0 && ` · 等价 ${dollars(period.costUsd)}`}
                           </small>
                         )}
                       </div>
@@ -289,7 +291,6 @@ export default function CodexAccountPanel({
               </div>
             </>
           )}
-          <SshKeySetup />
         </>
       )}
     </Page>

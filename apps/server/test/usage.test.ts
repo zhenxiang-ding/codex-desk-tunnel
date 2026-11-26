@@ -514,21 +514,35 @@ test('Codex backfills retained calls, deduplicates token notifications and resto
         payload: {
           type: 'codex.usage',
           model,
+          ...(model && { promptId: 'fixture-prompt', durationMs: 1500, ttftMs: 500 }),
           total: { totalTokens: total },
-          last: { inputTokens: 10, cachedInputTokens: 6, outputTokens: 2, totalTokens: 12 },
+          last: {
+            inputTokens: 10,
+            cachedInputTokens: 6,
+            ...(model && { cacheWriteInputTokens: 2 }),
+            outputTokens: 2,
+            totalTokens: 12,
+          },
         },
       });
     add.run('s', event(12));
     const log = new UsageLog(db, 35, 200000, true);
     add.run('s', event(12));
-    add.run('s', event(24, 'new-model'));
+    add.run('s', event(24, 'gpt-6.2-sol'));
     const query = { limit: 50, bucketMinutes: 60, offsetMinutes: 0 };
     const page = log.query(query, () => 'Project');
     assert.equal(page.totals.requests, 2);
     assert.equal(page.series[0].tokens, 24);
     assert.equal(page.totals.cacheReadTokens, 12);
-    assert.equal(page.totals.inputTokens, 8);
-    assert.equal(log.query({ ...query, model: 'new-model' }, () => null).rows.length, 1);
+    assert.equal(page.totals.inputTokens, 6);
+    assert.equal(page.totals.cacheCreationTokens, 2);
+    assert.equal(page.totals.costUsd, (2 * 2 + 2 * 10 + 6 * 0.1 + 2 * 2.5) / 1e6);
+    assert.equal(page.series[0].costUsd, page.totals.costUsd);
+    assert.equal(page.totals.ttftMs, 500);
+    assert.equal(page.totals.outputPerSecond, 2);
+    assert.equal(page.byModel.length, 2);
+    assert.equal(log.turnStats('s', { promptIds: ['fixture-prompt'] }).mainRequests, 1);
+    assert.equal(log.query({ ...query, model: 'gpt-6.2-sol' }, () => null).rows.length, 1);
     const account = {
       loggedIn: true,
       login: null,

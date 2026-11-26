@@ -31,13 +31,43 @@ const totals = `COUNT(*) AS requests, COALESCE(SUM(input_tokens), 0) AS inputTok
   COALESCE(SUM(cache_read_tokens), 0) AS cacheReadTokens, COALESCE(SUM(cache_creation_tokens), 0) AS cacheCreationTokens,
   COALESCE(SUM(cost_usd), 0) AS costUsd`;
 
+// Standard short-context USD per million tokens (input, output, cache read, 30-minute write).
+// https://developers.openai.com/api/docs/pricing.md . Use one published reference tariff across plans.
+const standardRates: Record<string, [number, number, number, number]> = {
+  'gpt-6.2-astra': [8, 40, 0.4, 10],
+  'gpt-6.2-sol': [2, 10, 0.1, 2.5],
+  'gpt-6-astra': [10, 50, 1, 12.5],
+  'gpt-6.1-sol': [2, 10, 0.1, 2.5],
+  'gpt-6.1-terra': [1, 5, 0.05, 1.25],
+  'gpt-6-luna': [0.1, 0.5, 0.01, 0.125],
+  'gpt-6-sol': [2, 10, 0.2, 2.5],
+  'gpt-5.6-sol': [4, 20, 0.4, 5],
+  'gpt-5.6-terra': [2, 12, 0.2, 2.5],
+  'gpt-5.6-luna': [0.2, 1.2, 0.02, 0.25],
+  'gpt-5.5': [5, 30, 0.5, 5],
+  'gpt-5.4': [2.5, 15, 0.25, 2.5],
+  'gpt-5.4-mini': [0.75, 4.5, 0.075, 0.75],
+  'gpt-5.3-codex': [1.75, 14, 0.175, 1.75],
+  'gpt-5.2': [1.75, 14, 0.175, 1.75],
+};
+const estimate =
+  'CASE model ' +
+  Object.entries(standardRates)
+    .map(
+      ([model, [input, output, read, write]]) =>
+        `WHEN '${model}' THEN (input_tokens * ${input} + output_tokens * ${output} + cache_read_tokens * ${read} + cache_creation_tokens * ${write}) / 1000000.0`,
+    )
+    .join(' ') +
+  ' ELSE 0 END';
+
 // Codex includes cache reads in inputTokens and reasoning in outputTokens.
 const codexInsert = (events: string) => `INSERT OR IGNORE INTO api_requests
   (at, session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
-   cost_usd, duration_ms, source, request_id)
+   cost_usd, duration_ms, ttft_ms, prompt_id, source, request_id)
   SELECT ROUND(unixepoch(at, 'subsec') * 1000), session_id, COALESCE(payload ->> 'model','未记录'),
-    MAX(0, (last ->> 'inputTokens') - (last ->> 'cachedInputTokens')), last ->> 'outputTokens',
-    last ->> 'cachedInputTokens', 0, 0, 0, 'codex',
+    MAX(0, (last ->> 'inputTokens') - (last ->> 'cachedInputTokens') - COALESCE(last ->> 'cacheWriteInputTokens',0)), last ->> 'outputTokens',
+    last ->> 'cachedInputTokens', COALESCE(last ->> 'cacheWriteInputTokens',0), 0,
+    COALESCE(payload ->> 'durationMs',0), payload ->> 'ttftMs', payload ->> 'promptId', 'codex',
     'codex:' || COALESCE(payload ->> 'threadId',session_id) || ':' || (payload ->> '$.total.totalTokens')
   FROM (SELECT session_id, data ->> 'createdAt' AS at, data -> 'payload' AS payload,
     data -> '$.payload.last' AS last FROM ${events})
@@ -95,10 +125,13 @@ export class UsageLog {
     if (codex) {
       database.exec(`
         CREATE TABLE IF NOT EXISTS codex_limits(account TEXT, mins INTEGER, percent REAL, reset INTEGER, observed INTEGER, PRIMARY KEY(account, mins));
-        CREATE TRIGGER IF NOT EXISTS log_codex_usage AFTER INSERT ON events
+        BEGIN;
+        DROP TRIGGER IF EXISTS log_codex_usage;
+        CREATE TRIGGER log_codex_usage AFTER INSERT ON events
         WHEN NEW.data ->> '$.payload.type' = 'codex.usage' BEGIN
           ${codexInsert('(SELECT NEW.data AS data, NEW.session_id AS session_id)')};
-        END;`);
+          UPDATE api_requests SET cost_usd = ${estimate} WHERE changes() > 0 AND id = last_insert_rowid();
+        END; COMMIT;`);
       if (!database.prepare("SELECT 1 FROM migrations WHERE name='codex-call-log'").get()) {
         database.exec('BEGIN');
         try {
@@ -108,6 +141,12 @@ export class UsageLog {
           database.exec('ROLLBACK');
           throw error;
         }
+      }
+      if (
+        !database.prepare("SELECT 1 FROM migrations WHERE name='codex-reference-prices-v1'").get()
+      ) {
+        database.exec(`BEGIN; UPDATE api_requests SET cost_usd = ${estimate} WHERE source='codex';
+          INSERT INTO migrations VALUES ('codex-reference-prices-v1'); COMMIT;`);
       }
     }
     this.restoreStarts();
@@ -332,6 +371,9 @@ export class UsageLog {
       });
     }
   }
+  currentCodexWindows(now = Date.now()) {
+    return this.codexWindows.filter((w) => w.resetsAt && Date.parse(w.resetsAt) > now);
+  }
   summary(now = Date.now()): Summary {
     if (this.codex) {
       const counts = this.database.prepare(
@@ -343,15 +385,13 @@ export class UsageLog {
       return {
         retentionDays: this.retentionDays,
         firstRecordAt: first ? new Date(first).toISOString() : null,
-        windows: this.codexWindows
-          .filter((w) => w.resetsAt && Date.parse(w.resetsAt) > now)
-          .map((w) => ({
-            ...w,
-            ...(counts.get(Date.parse(w.startedAt), now) as Omit<
-              Summary['windows'][number],
-              keyof Period
-            >),
-          })),
+        windows: this.currentCodexWindows(now).map((w) => ({
+          ...w,
+          ...(counts.get(Date.parse(w.startedAt), now) as Omit<
+            Summary['windows'][number],
+            keyof Period
+          >),
+        })),
       };
     }
     const windows = this.database
@@ -472,17 +512,20 @@ export class UsageLog {
   // One question's model requests, summed with the figures the call log shows: the requests of its prompts, which
   // include a subagent's long after the turn, and those inside its time window, which include the ones made under a
   // prompt the CLI never told us of.
-  turnStats(sessionId: string, turn: { promptIds: string[]; startedAt: number; endedAt: number }) {
+  turnStats(
+    sessionId: string,
+    turn: { promptIds: string[]; startedAt?: number; endedAt?: number },
+  ) {
     const { streamedTokens, streamedMs, costUsd, ...sums } = this.database
       .prepare(
-        `SELECT ${totals}, COALESCE(SUM(duration_ms), 0) AS modelMs, COALESCE(SUM(source = 'sdk'), 0) AS mainRequests, ${streaming}
+        `SELECT ${totals}, COALESCE(SUM(duration_ms), 0) AS modelMs, COALESCE(SUM(source IN ('sdk', 'codex')), 0) AS mainRequests, ${streaming}
       FROM api_requests WHERE session_id = ? AND (at >= ? AND at <= ?${
         turn.promptIds.length > 0
           ? ` OR prompt_id IN (${turn.promptIds.map(() => '?').join(',')})`
           : ''
       })`,
       )
-      .get(sessionId, turn.startedAt, turn.endedAt, ...turn.promptIds) as Record<
+      .get(sessionId, turn.startedAt ?? null, turn.endedAt ?? null, ...turn.promptIds) as Record<
       string,
       number | null
     > & {

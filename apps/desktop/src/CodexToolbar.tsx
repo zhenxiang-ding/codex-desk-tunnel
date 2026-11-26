@@ -8,6 +8,8 @@ import type {
   EventPayload,
 } from '@cc-desk-tunnel/protocol';
 import type { ProxyClient } from './client.ts';
+import { ComposerQuota } from './ComposerControls.tsx';
+import { usePrefs } from './prefs.ts';
 import ContextMeter from './ContextMeter.tsx';
 import { IconButton } from './ui.tsx';
 
@@ -33,13 +35,18 @@ export function CodexToolbar({
   disabled,
   usage,
   configure,
+  quota,
+  openAccount,
 }: {
   client: ProxyClient;
   session: Session;
   disabled: boolean;
   usage?: (Extract<EventPayload, { type: 'codex.usage' }> & { measuredAt: string }) | null;
+  quota: import('@cc-desk-tunnel/protocol').AccountQuota | null;
+  openAccount: () => void;
   configure: (choice: CodexChoice) => Promise<void>;
 }) {
+  const { sessionBar } = usePrefs();
   const [menu, open] = useState<'approval' | 'model' | 'effort' | null>(null);
   const [models, setModels] = useState<CodexModel[]>([]),
     [defaults, setDefaults] = useState<CodexConfig | null>(null);
@@ -106,20 +113,7 @@ export function CodexToolbar({
   const inherited =
     defaults?.approvals_reviewer === 'auto_review' ? 'auto_review' : defaults?.approval_policy;
   const approval = choice.approval ?? inherited;
-  const metrics = usage?.window
-    ? {
-        type: 'native.metrics' as const,
-        usage: null,
-        context: {
-          model: modelLabel,
-          usedTokens: usage.last.totalTokens,
-          windowTokens: usage.window,
-          percentage: Math.min(100, Math.round((100 * usage.last.totalTokens) / usage.window)),
-          measuredAt: usage.measuredAt,
-          categories: [],
-        },
-      }
-    : null;
+  const metrics = codexContext(usage);
   function save(c: CodexChoice) {
     open(null);
     setPreview(null);
@@ -164,7 +158,8 @@ export function CodexToolbar({
       </div>
       <span className="toolbar-space" />
       <div className="composer-controls" ref={right}>
-        <ContextMeter metrics={metrics} source="Codex 最近一次用量" />
+        <ComposerQuota account={quota} openAccount={openAccount} />
+        {!sessionBar.enabled && <ContextMeter metrics={metrics} source="Codex 最近一次用量" />}
         <div className="model-control">
           <button
             type="button"
@@ -302,3 +297,22 @@ export function CodexToolbar({
     </>
   );
 }
+
+export const codexContext = (
+  usage:
+    (Extract<EventPayload, { type: 'codex.usage' }> & { measuredAt: string }) | null | undefined,
+) =>
+  usage?.window
+    ? {
+        type: 'native.metrics' as const,
+        usage: null,
+        context: {
+          model: usage.model ?? 'Codex',
+          usedTokens: usage.last.totalTokens,
+          windowTokens: usage.window,
+          percentage: Math.min(100, Math.round((100 * usage.last.totalTokens) / usage.window)),
+          measuredAt: usage.measuredAt,
+          categories: [],
+        },
+      }
+    : null;

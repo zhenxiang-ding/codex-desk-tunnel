@@ -33,7 +33,7 @@ export function codexTerminal(
       ...(terminalDefaults
         ? [
             '--sandbox',
-            terminalDefaults.sandbox_mode === 'read-only' ? 'read-only' : 'workspace-write',
+            terminalDefaults.sandbox_mode ?? 'workspace-write',
             ...(session.codex?.approval
               ? [
                   '--ask-for-approval',

@@ -1,13 +1,4 @@
-import { SshKeySetup } from './SshKeySetup.tsx';
-import {
-  ChevronDown,
-  Download,
-  RefreshCw,
-  Settings,
-  SquareTerminal,
-  Unplug,
-  X,
-} from 'lucide-react';
+import { ChevronDown, Download, Settings, SquareTerminal, Unplug, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { supportsForcedUpgrade } from '@cc-desk-tunnel/protocol';
 import type { ClientUpgrade } from './client-upgrade.ts';
@@ -135,7 +126,7 @@ export default function LoginPage({
     }, failed);
   }
   const [serviceUpgrade, setServiceUpgrade] = useState<{
-    phase: 'running' | 'done' | 'failed' | 'current';
+    phase: 'running' | 'done' | 'failed';
     text: string;
     // Refused for sessions at work, by a service that can be forced past them.
     forcible?: boolean;
@@ -144,46 +135,6 @@ export default function LoginPage({
   useEffect(() => {
     if (connecting) setServiceUpgrade(null);
   }, [connecting]);
-  const [found, setFound] = useState<{ service: string; latest: string } | null>(null);
-  const checking = useRef(0);
-  useEffect(() => {
-    checking.current++;
-    setFound(null);
-    setServiceUpgrade(null);
-  }, [form.url, form.fingerprint, form.token]);
-  async function checkServer() {
-    const id = ++checking.current;
-    setFound(null);
-    setListError(null);
-    setServiceUpgrade({ phase: 'running', text: '正在检查服务端更新…' });
-    try {
-      const config = {
-        url: form.url.trim(),
-        fingerprint: form.fingerprint.trim(),
-        token: form.token.trim(),
-        deviceName: (await thisDevice()).name,
-      };
-      const result = await window.desktop!.probeService(config);
-      if (id !== checking.current) return;
-      if (result.status === 'failed') throw Error(result.error);
-      if (result.status === 'unreachable' || !result.service)
-        throw Error('未取得服务端版本，请核对地址、SSH 隧道服务状态和证书指纹。');
-      const service = result.service;
-      const update = await window.desktop!.upgradeService({ ...config, service, checkOnly: true });
-      if (id !== checking.current) return;
-      if (update.code === 'current') {
-        setServiceUpgrade({ phase: 'current', text: '服务端 ' + service + ' 已是最新版本。' });
-        return;
-      }
-      if (!update.version) throw Error(update.error ?? '未取得可用版本。');
-      setFound({ service, latest: update.version });
-      setServiceUpgrade(null);
-    } catch (e) {
-      if (id === checking.current)
-        setServiceUpgrade({ phase: 'failed', text: e instanceof Error ? e.message : '检查失败。' });
-    }
-  }
-  const source = found?.service ?? older;
   function upgradeService(service: string, force = false) {
     if (
       !window.confirm(
@@ -207,13 +158,11 @@ export default function LoginPage({
           token: form.token.trim(),
           deviceName: device.name,
           service,
-          ...(found ? { expectedVersion: found.latest } : {}),
           ...(force ? { force } : {}),
         }),
       )
       .then(({ version, error, code }) => {
         if (version) serviceUpgraded(service);
-        else if (code !== 'busy') setFound(null);
         setServiceUpgrade(
           version
             ? { phase: 'done', text: `服务端已升级到 ${version}，正在重启，好了就自动连接…` }
@@ -224,11 +173,8 @@ export default function LoginPage({
               },
         );
       })
-      .catch((e) =>
-        setServiceUpgrade({
-          phase: 'failed',
-          text: e instanceof Error ? e.message : '升级请求未完成。',
-        }),
+      .catch((error) =>
+        setServiceUpgrade({ phase: 'failed', text: String(error.message ?? error) }),
       )
       .finally(stop);
   }
@@ -395,10 +341,7 @@ export default function LoginPage({
             </div>
           )}
           {shownError && (
-            <p
-              className={serviceUpgrade?.phase === 'current' ? 'field-hint' : 'error-text'}
-              role={serviceUpgrade?.phase === 'current' ? 'status' : 'alert'}
-            >
+            <p className="error-text" role="alert">
               {shownError}
             </p>
           )}
@@ -414,46 +357,23 @@ export default function LoginPage({
               升级客户端到 {upgrade}
             </button>
           )}
-          {window.desktop &&
-            form.mode === 'remote' &&
-            !source &&
-            serviceUpgrade?.phase !== 'done' && (
-              <button
-                className="button login-submit"
-                type="button"
-                disabled={
-                  connecting ||
-                  serviceUpgrade?.phase === 'running' ||
-                  !form.url.trim() ||
-                  (!remembered && !form.token.trim())
-                }
-                onClick={() => void checkServer()}
-              >
-                <RefreshCw />
-                {serviceUpgrade?.phase === 'running' ? serviceUpgrade.text : '检查服务端更新'}
-              </button>
-            )}
-          {source && serviceUpgrade?.phase !== 'done' && (
+          {older && serviceUpgrade?.phase !== 'done' && (
             <button
               className="button login-submit"
               type="button"
               disabled={connecting || serviceUpgrade?.phase === 'running'}
-              onClick={() => upgradeService(source)}
+              onClick={() => upgradeService(older)}
             >
               <Download />
-              {serviceUpgrade?.phase === 'running'
-                ? serviceUpgrade.text
-                : found
-                  ? '升级服务端到 ' + found.latest
-                  : '升级服务端'}
+              {serviceUpgrade?.phase === 'running' ? serviceUpgrade.text : '升级服务端'}
             </button>
           )}
-          {source && serviceUpgrade?.forcible && (
+          {older && serviceUpgrade?.forcible && (
             <button
               className="button login-submit"
               type="button"
               disabled={connecting}
-              onClick={() => upgradeService(source, true)}
+              onClick={() => upgradeService(older, true)}
             >
               <Download />
               强行升级服务端
@@ -490,7 +410,6 @@ export default function LoginPage({
             </button>
           )}
         </form>
-        <SshKeySetup />
         <div className="login-links">
           {openSettings && (
             <button className="project-link" type="button" onClick={openSettings}>

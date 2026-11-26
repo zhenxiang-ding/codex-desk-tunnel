@@ -76,7 +76,11 @@ import { NativeInput } from './native-input.ts';
 import { statusLineQuota } from './native-controls.ts';
 import { completeOnboarding } from './native-onboarding.ts';
 import { readNativeSettings, updateNativeSettings } from './native-settings.ts';
-import { readInstructions, writeInstructions } from './native-instructions.ts';
+import {
+  codexInstructionsPath,
+  readInstructions,
+  writeInstructions,
+} from './native-instructions.ts';
 import type { NativeTerminal } from './native-terminal.ts';
 import {
   statusLineContext,
@@ -314,7 +318,6 @@ export function createProxyServer(options: ServerOptions) {
   // The file panel's connections of each control connection, which end with it.
   const fileConnections = new Map<string, Set<WebSocket>>();
   const compactions = new IdleCompactions(store.directory, compactIdle);
-  armCompactions();
   const graceMs = options.graceMs ?? (options.claude ? 300_000 : 0);
   let login: Login | undefined;
   const codexAccount =
@@ -323,6 +326,7 @@ export function createProxyServer(options: ServerOptions) {
           if (!closing) track(publishAccount(undefined, notice).catch(() => {}));
         })
       : undefined;
+  armCompactions();
   // Each run or terminal is a CLI process that keeps some 250 MB; more of them than the memory holds would
   // take the machine down, and every one of them with it.
   const capacity =
@@ -636,10 +640,15 @@ export function createProxyServer(options: ServerOptions) {
   }
   // Each session's last turn sets when it is compacted while idle, as after the service starts or the setting changes.
   function armCompactions() {
-    if (options.terminalRuntime === 'codex' || !compactions.settings.enabled) return;
+    if (!compactions.settings.enabled) return;
     for (const session of store.list()) if (!session.activeRun) armCompaction(session.id);
   }
   function armCompaction(sessionId: string) {
+    if (codexAccount) {
+      const turn = store.lastCodexTurn(sessionId);
+      if (turn) compactions.armCodex(sessionId, turn.endedAt, turn.tokens);
+      return;
+    }
     const turn = store.lastCachedTurn(sessionId);
     if (turn) compactions.arm(sessionId, turn.endedAt, turn.metrics);
   }
@@ -649,7 +658,13 @@ export function createProxyServer(options: ServerOptions) {
   // terminal ends first, its last turn is looked at again. An account known to be out of quota would only refuse it,
   // leaving the session a /compact and an error: it is not sent, and the cache lapses as it would have.
   function compactIdle(sessionId: string) {
-    if (closing || !options.claude || quotas.exhausted()) return;
+    if (
+      closing ||
+      !options.claude ||
+      quotas.exhausted() ||
+      (codexAccount && usage.currentCodexWindows().some((w) => (w.utilization ?? 0) >= 100))
+    )
+      return;
     try {
       const { session } = store.get(sessionId);
       if (session.activeRun || terminals.has(sessionId) || !session.device) return;
@@ -658,7 +673,9 @@ export function createProxyServer(options: ServerOptions) {
       if (run)
         emit(run, {
           type: 'native.notice',
-          text: `上一轮结束已 ${compactions.settings.afterMinutes} 分钟，提示缓存即将过期：按设置自动压缩上下文，压缩读取的是缓存。`,
+          text: codexAccount
+            ? `会话空闲已达 ${compactions.settings.afterMinutes} 分钟，正在压缩 Codex 线程。`
+            : `上一轮结束已 ${compactions.settings.afterMinutes} 分钟，提示缓存即将过期：按设置自动压缩上下文，压缩读取的是缓存。`,
         });
     } catch {
       // As many runs as the service holds are going, or the session's native record is gone: left as it is.
@@ -771,18 +788,27 @@ export function createProxyServer(options: ServerOptions) {
     for (const decide of run.approvals.values()) decide(false);
     run.approvals.clear();
   }
-  async function codexChat(run: Run, session: Session, text: string, messageId: string) {
+  async function codexChat(
+    run: Run,
+    session: Session,
+    text: string,
+    messageId: string,
+    compact: boolean,
+  ) {
     try {
       const door = seats.get(run.device)?.door?.ssh;
-      if (!door) throw new Error('项目设备的 SSH 通道未连接。');
-      const ssh = sessionSsh(store.directory, session.id, door, run.device);
+      if (!door && !compact) throw new Error('项目设备的 SSH 通道未连接。');
+      const bin = door
+        ? sessionSsh(store.directory, session.id, door, run.device).bin!
+        : join(sessionSshPath(store.directory, session.id), 'bin');
       const runtime = codexTerminal(
         store.directory,
         session,
         store.execution(session.device?.id, platformOf(session.device)),
-        ssh.bin!,
+        bin,
       );
       const status = await runCodexChat({
+        compact,
         runtime,
         choice: session.codex,
         thread: store.codexThread(session.id),
@@ -809,7 +835,11 @@ export function createProxyServer(options: ServerOptions) {
             });
           }),
       });
+      const { mainRequests, ...figures } = usage.turnStats(session.id, { promptIds: [messageId] });
+      if (figures.requests)
+        emit(run, { type: 'turn.stats', messageId, ...figures, partial: status !== 'completed' });
       finish(run, status, run.cancelReason);
+      if (!compact && status === 'completed') armCompaction(session.id);
     } catch (error) {
       if (!run.controller.signal.aborted)
         emit(run, {
@@ -905,6 +935,17 @@ export function createProxyServer(options: ServerOptions) {
       const state = await codexAccount.state(target, true, automatic);
       if (closing) return;
       usage.codexAccount(state);
+      const quota = {
+        type: 'quota' as const,
+        rateLimits: {
+          available: state.loggedIn && state.authMethod === 'chatgpt',
+          windows: usage
+            .currentCodexWindows()
+            .map(({ name, resetsAt, utilization }) => ({ name, resetsAt, utilization })),
+        },
+      };
+      if (target) send(target, quota);
+      else broadcast(quota);
       const message = { type: 'account.state', ...state, notice } as const;
       if (target) send(target, message);
       else for (const peer of peers) if (peer.authenticated && !peer.browser) send(peer, message);
@@ -1619,7 +1660,12 @@ export function createProxyServer(options: ServerOptions) {
   ) {
     if (command.type === 'session.compact' && !options.claude)
       throw new DomainError('native_unavailable', '离线模拟不提供原生上下文压缩。');
-    if (command.type === 'session.compact' && !store.hasNativeContext(command.sessionId))
+    if (
+      command.type === 'session.compact' &&
+      !(codexAccount
+        ? store.codexThread(command.sessionId)
+        : store.hasNativeContext(command.sessionId))
+    )
       throw new DomainError('native_context_missing', '先建立原生会话再压缩上下文。');
     const continued = command.type === 'run.continue';
     if (continued && session.activeRun) throw new DomainError('run_active', '当前会话正在运行。');
@@ -1682,7 +1728,7 @@ export function createProxyServer(options: ServerOptions) {
     // user's own text.
     if (codexAccount) {
       emit(run, { type: 'message.delivery', messageId: command.requestId, status: 'submitted' });
-      track(codexChat(run, session, text, command.requestId));
+      track(codexChat(run, session, text, command.requestId, command.type === 'session.compact'));
       return;
     }
     run.input?.submit(command.requestId, store.notice(command.sessionId) + text);
@@ -1904,10 +1950,11 @@ export function createProxyServer(options: ServerOptions) {
       case 'instructions.update': {
         if (!options.claude) throw new DomainError('native_unavailable', '离线模拟没有全局说明。');
         try {
+          const path = codexAccount ? codexInstructionsPath() : undefined;
           const state =
             command.type === 'instructions.get'
-              ? readInstructions()
-              : writeInstructions(command.text, command.version);
+              ? readInstructions(path)
+              : writeInstructions(command.text, command.version, path);
           send(peer, { type: 'instructions.state', requestId: command.requestId, ...state });
         } catch (error) {
           if (error instanceof DomainError) throw error;

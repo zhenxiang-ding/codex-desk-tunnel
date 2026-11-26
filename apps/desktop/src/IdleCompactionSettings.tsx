@@ -6,7 +6,13 @@ import { Row, SettingText, SettingsHeading, Switch } from './ui.tsx';
 
 // The service's own setting, kept with its sessions and not in the CLI's file: before an idle session's one-hour prompt
 // cache lapses, the service compacts it as the compact button does. Each change is saved at once.
-export default function IdleCompactionSettings({ client }: { client: ProxyClient }) {
+export default function IdleCompactionSettings({
+  client,
+  codex = false,
+}: {
+  client: ProxyClient;
+  codex?: boolean;
+}) {
   const [values, setValues] = useState<IdleCompaction | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -33,9 +39,13 @@ export default function IdleCompactionSettings({ client }: { client: ProxyClient
   }
   return (
     <>
-      <SettingsHeading help="context#idle">缓存过期前自动压缩</SettingsHeading>
+      <SettingsHeading help="context#idle">
+        {codex ? '空闲时压缩 Codex 线程' : '缓存过期前自动压缩'}
+      </SettingsHeading>
       <p className="muted page-section-note">
-        会话空闲到设定时间，服务端趁缓存还在替你压缩，回来时不用全价重读。电脑不用在线；压缩计入额度。
+        {codex
+          ? 'VPS 会在空闲时间和上下文用量同时达到阈值时调用 Codex 压缩线程。压缩计入额度，缓存命中由模型服务决定。'
+          : '会话空闲到设定时间，服务端趁缓存还在替你压缩，回来时不用全价重读。电脑不用在线；压缩计入额度。'}
       </p>
       {failure && (
         <p className="error-text" role="alert">
@@ -44,7 +54,10 @@ export default function IdleCompactionSettings({ client }: { client: ProxyClient
       )}
       {values && (
         <div className="settings-list card">
-          <Row title={fields.enabled.title} detail={fields.enabled.detail}>
+          <Row
+            title={fields.enabled.title}
+            detail={codex ? '适用于此服务上的结构化 Codex 对话' : fields.enabled.detail}
+          >
             <Switch
               label={fields.enabled.title}
               checked={values.enabled}
@@ -53,7 +66,10 @@ export default function IdleCompactionSettings({ client }: { client: ProxyClient
             />
           </Row>
           <label>
-            <SettingText title={fields.afterMinutes.title} detail={fields.afterMinutes.detail} />
+            <SettingText
+              title={fields.afterMinutes.title}
+              detail={codex ? '从最后一轮完成时开始计算' : fields.afterMinutes.detail}
+            />
             <select
               aria-label={fields.afterMinutes.title}
               disabled={saving}
@@ -70,7 +86,10 @@ export default function IdleCompactionSettings({ client }: { client: ProxyClient
             </select>
           </label>
           <label>
-            <SettingText title={fields.minTokens.title} detail={fields.minTokens.detail} />
+            <SettingText
+              title={fields.minTokens.title}
+              detail={codex ? '按最后一次模型调用的上下文用量判断' : fields.minTokens.detail}
+            />
             <select
               aria-label={fields.minTokens.title}
               disabled={saving}

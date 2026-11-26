@@ -13,7 +13,10 @@ import {
 } from 'lucide-react';
 import type { Article, Block } from './help-content.ts';
 const p = (text: string): Block => ({ kind: 'p', text });
-const link = (section: 'account' | 'claude' | 'connection' | 'about', label: string): Block => ({
+const link = (
+  section: 'context' | 'instructions' | 'web' | 'account' | 'claude' | 'connection' | 'about',
+  label: string,
+): Block => ({
   kind: 'actions',
   items: [{ label, target: { settings: section } }],
 });
@@ -46,25 +49,7 @@ export const codexArticles: Article[] = [
         '连接时客户端会在本机生成临时 Ed25519 密钥并启动回环 SSH 服务，断开时清理。会话里的 ssh device hostname 可用于核对设备。',
       ),
       p(
-        '从 OpenAI 桌面端直连 VPS 宿主机时，使用 Windows 上单独生成的 VPS 登录私钥。生成和登记步骤可在隧道客户端连接页展开查看。',
-      ),
-    ],
-  },
-  {
-    id: 'ssh-login',
-    group: 'start',
-    icon: Cable,
-    title: '从本机直接 SSH 登录 VPS',
-    lead: '需要用 OpenAI 桌面端或系统终端登录 VPS 时，可使用单独的本机密钥。',
-    blocks: [
-      p(
-        '在 Windows 登录页展开“在本机生成 SSH 密钥”，复制 PowerShell 命令，生成 codex_vps。将 .pub 文件中的公钥追加到 VPS 登录用户的 ~/.ssh/authorized_keys。',
-      ),
-      p(
-        '在 OpenAI 桌面端添加 SSH 连接，显示名称可自定。主机名填 VPS 用户名@主机地址，SSH 端口填 VPS 的 SSH 端口（通常为 22）。选择“身份文件”，填写本机 codex_vps 私钥的完整路径并保存。',
-      ),
-      p(
-        'Desk Tunnel 连接页使用安装脚本输出的 WSS 服务地址；每次连接时会单独建立用于访问本机项目的 SSH 通道。',
+        '从 OpenAI 桌面端直连 VPS 宿主机时，使用 Windows 上单独生成的 VPS 登录私钥。生成和登记步骤见项目 README。',
       ),
     ],
   },
@@ -106,6 +91,11 @@ export const codexArticles: Article[] = [
       p(
         '选择“跟随 CLI 设置”可恢复 VPS 的默认规则。沙箱限制作用于 VPS；通过 SSH 操作本机时，文件权限由本机登录用户决定。',
       ),
+      p(
+        '在全局说明中编辑服务账号的 AGENTS.md。浏览器访问页显示此服务的 HTTPS 地址和已配置的入口路径。',
+      ),
+      link('instructions', '打开全局说明'),
+      link('web', '打开浏览器访问'),
       link('claude', '打开 CLI 设置'),
     ],
   },
@@ -133,7 +123,8 @@ export const codexArticles: Article[] = [
     blocks: [
       p('将鼠标移到圆环上可查看读数和剩余比例。首轮返回用量前，窗口暂时没有读数。'),
       p('在 CLI 设置的“上下文与记忆”中可调整自动压缩窗口，留空使用模型默认值。'),
-      link('claude', '打开上下文与记忆设置'),
+      p('在“上下文与缓存”可单独设置空闲多久后压缩，以及触发压缩所需的最小上下文。'),
+      link('context', '打开上下文与缓存'),
     ],
   },
   {
@@ -178,6 +169,11 @@ export const codexArticles: Article[] = [
       p(
         '桌面对话默认开启自动记忆，VPS 已配置的开关优先。记忆生成和读取可以分别设置。网页搜索、推理摘要和服务档位的可用性取决于模型及账号。',
       ),
+      p(
+        '在全局说明中编辑服务账号的 AGENTS.md。浏览器访问页显示此服务的 HTTPS 地址和已配置的入口路径。',
+      ),
+      link('instructions', '打开全局说明'),
+      link('web', '打开浏览器访问'),
       link('claude', '打开 CLI 设置'),
     ],
   },
@@ -197,7 +193,7 @@ export const codexArticles: Article[] = [
     lead: 'Windows 客户端与 VPS 服务端应使用配套版本。',
     blocks: [
       p(
-        '在设置的“关于与更新”检查并升级服务端。如果无法进入会话，在登录页填写服务地址、指纹和凭据，点“检查服务端更新”，再确认升级。提示需要更新镜像时，在 VPS 运行 README 的一键安装命令。',
+        '在设置的“关于与更新”检查并升级服务端。协议不兼容时，连接被拒后会显示对应的升级操作。提示需要更新镜像时，在 VPS 运行 README 的一键安装命令。',
       ),
       p(
         '如果 VPS 能连接但项目无法访问，先检查项目所在电脑是否在线，再核对服务地址、证书指纹和 SSH 通道状态。',

@@ -164,6 +164,21 @@ test(
         );
       }
       assert.ok(usage?.totalTokens > 0);
+      const compactEvents = [];
+      const compacted = await runCodexChat({
+        runtime: { cwd, env, file: cli, args },
+        thread,
+        compact: true,
+        message: '/compact',
+        messageId: randomUUID(),
+        signal: AbortSignal.timeout(40000),
+        bind: (id) => assert.equal(id, thread),
+        usage: () => {},
+        approve: async () => false,
+        emit: (e) => compactEvents.push(e),
+      });
+      assert.equal(compacted, 'completed');
+      assert.ok(compactEvents.some((e) => e.type === 'native.compact'));
     } finally {
       server.closeAllConnections();
       server.close();
