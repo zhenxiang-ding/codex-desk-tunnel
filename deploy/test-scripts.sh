@@ -65,7 +65,7 @@ deployment() {
   rm -rf "$DEPLOYED"
   program "$DEPLOYED" "$1"
   cat > "$PROXY_DEPLOY_CONFIG" <<CONFIG
-PROJECT_NAME='fixture'
+PROJECT_NAME='cc-desk-tunnel-deadbeef'
 DATA_DIR='$TEMP/data'
 PROXY_IMAGE='${2:-cc-desk-tunnel:local}'
 MODE='nginx'
@@ -94,6 +94,8 @@ FAIL_PULL=1 CC_DESK_TUNNEL_UNPACKED=1 manage upgrade > /dev/null
 test "$(image)" = codex-desk-tunnel:local
 grep -q ' build --pull' "$MOCK_LOG"
 grep -q ' up -d --no-build' "$MOCK_LOG"
+grep -Fq "PROJECT_NAME='cc-desk-tunnel-deadbeef'" "$PROXY_DEPLOY_CONFIG"
+grep -q ' -p cc-desk-tunnel-deadbeef ' "$MOCK_LOG"
 # Neither: the deployment stays as it was and nothing restarts.
 for failure in 'FAIL_PULL=1 FAIL_BUILD=1' 'FAIL_PULL=1 CC_DESK_TUNNEL_BUILD=0'; do
   deployment 1.2.3 old:1
@@ -162,8 +164,9 @@ printf "PROXY_TOKEN='from-backup'\nPROXY_TLS_MODE='direct'\nPROXY_CERT_NAME='old
 echo kept > "$data/home/marker"; echo moment > "$data/state/connections/key"; echo old > "$data/tls/control.crt"
 (cd "$backups" && manage backup > /dev/null)
 archive="$(ls "$backups"/cc-desk-tunnel-backup-*.tar.gz)"
-tar -tzf "$archive" | grep -Fxq ./home/marker
-! tar -tzf "$archive" | grep -q 'connections/key'
+tar -tzf "$archive" > "$TEMP/backup-files"
+grep -Fxq ./home/marker "$TEMP/backup-files"
+! grep -q 'connections/key' "$TEMP/backup-files"
 tar -xzOf "$archive" cc-desk-tunnel-backup.txt | grep -qx 'version=1.2.3'
 if manage backup "$data/home/inside.tar.gz" > /dev/null 2>&1; then echo 'A backup inside the data was accepted.' >&2; exit 1; fi
 printf "PROXY_TOKEN='here'\nPROXY_TLS_MODE='reverse-proxy'\nPROXY_CERT_NAME='new.example'\n" > "$data/config/service.env"
@@ -195,7 +198,7 @@ for tool in id chown uname openssl; do
     id) body='echo 0' ;;
     chown) body='exit 0' ;;
     uname) body='if [[ "$1" = -s ]]; then echo Linux; else echo x86_64; fi' ;;
-    openssl) body='printf "%064d\n" 0' ;;
+    openssl) body='printf "%0*d\n" "$(($3 * 2))" 0' ;;
   esac
   printf '#!/usr/bin/env bash\n%s\n' "$body" > "$TEMP/bin/$tool"
   chmod +x "$TEMP/bin/$tool"
@@ -212,7 +215,7 @@ commit_source() {
   git -C "$source_repo" -c user.name=fixture -c user.email=fixture@example.org commit -qm fixture
 }
 commit_source
-git -C "$source_repo" tag v0.1.9
+git -C "$source_repo" tag v0.1.10
 # Use a real clone and fast-forward, with an isolated URL rewrite in place of the network.
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.file://$source_repo.insteadOf"
 export GIT_CONFIG_VALUE_0=https://github.com/zhenxiang-ding/codex-desk-tunnel.git
@@ -221,6 +224,7 @@ tr -d '\r' < "$ROOT/deploy/install.sh" > "$TEMP/install.sh"
 printf 'y\n' | bash "$TEMP/install.sh" init --host my_box.example.com --mode nginx --data "$TEMP/installed-data" > "$TEMP/install.log"
 grep -q '"version": "1.3.0"' "$TEMP/installed/apps/desktop/package.json"
 grep -q "CONNECTION_URL='wss://my_box.example.com/ws'" "$TEMP/installed/.local/docker.env"
+grep -Eq "^PROJECT_NAME='codex-desk-tunnel-[0-9a-f]{8}'$" "$TEMP/installed/.local/docker.env"
 grep -q "deploy/manage.sh" "$CC_DESK_TUNNEL_COMMAND"
 MISSING_IMAGE=1 bash "$CC_DESK_TUNNEL_COMMAND" up > /dev/null
 grep -q "PROXY_IMAGE='codex-desk-tunnel:local'" "$TEMP/installed/.local/docker.env"

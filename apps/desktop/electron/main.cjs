@@ -1383,9 +1383,9 @@ function attend(window) {
   const tray = new Tray(
     process.platform === 'darwin'
       ? require('./tray-icon.cjs').terminalTemplate(nativeImage)
-      : nativeImage
-          .createFromPath(path.join(__dirname, 'icon.png'))
-          .resize({ width: 32, height: 32 }),
+      : process.platform === 'win32'
+        ? path.join(__dirname, 'icon.ico')
+        : nativeImage.createFromPath(path.join(__dirname, 'icon.png')).resize({ width: 32 }),
   );
   const buildMenu = () =>
     tray.setContextMenu(

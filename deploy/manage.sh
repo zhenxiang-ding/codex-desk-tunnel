@@ -384,7 +384,7 @@ case "$command" in
       write_var CLAUDE_SETTINGS_PATH /data/config/provider.json
     } > "$DATA_DIR/config/service.env"
     printf '{}\n' > "$DATA_DIR/config/provider.json"
-    PROJECT_NAME="cc-desk-tunnel-$(openssl rand -hex 4)"
+    PROJECT_NAME="codex-desk-tunnel-$(openssl rand -hex 4)"
     {
       write_var PROJECT_NAME "$PROJECT_NAME"
       write_var DATA_DIR "$DATA_DIR"

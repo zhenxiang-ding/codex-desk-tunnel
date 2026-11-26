@@ -71,7 +71,7 @@ const results = await electronBuild({
     win: {
       target: 'nsis',
       signExecutable: false,
-      icon: join(root, 'apps/desktop/electron/icon.png'),
+      icon: join(root, 'apps/desktop/electron/icon.ico'),
     },
     nsis: {
       oneClick: false,

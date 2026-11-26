@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO="${CC_DESK_TUNNEL_REPO:-zhenxiang-ding/codex-desk-tunnel}"
-REF="${CC_DESK_TUNNEL_REF:-refs/tags/v0.1.9}"
+REF="${CC_DESK_TUNNEL_REF:-refs/tags/v0.1.10}"
 TARGET="${CC_DESK_TUNNEL_DIR:-/opt/codex-desk-tunnel}"
 fail() { echo "错误：$*" >&2; exit 1; }
 confirm() {

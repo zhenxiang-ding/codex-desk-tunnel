@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: ${PROXY_IMAGE:-cc-desk-tunnel:local}
+    image: ${PROXY_IMAGE:-codex-desk-tunnel:local}
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
