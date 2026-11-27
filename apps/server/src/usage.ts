@@ -71,7 +71,7 @@ const codexInsert = (events: string) => `INSERT OR IGNORE INTO api_requests
     'codex:' || COALESCE(payload ->> 'threadId',session_id) || ':' || (payload ->> '$.total.totalTokens')
   FROM (SELECT session_id, data ->> 'createdAt' AS at, data -> 'payload' AS payload,
     data -> '$.payload.last' AS last FROM ${events})
-  WHERE payload ->> 'type' = 'codex.usage' AND last ->> 'totalTokens' > 0`;
+  WHERE payload ->> 'type' = 'codex.usage' AND COALESCE(payload ->> 'contextOnly', 0) = 0 AND last ->> 'totalTokens' > 0`;
 
 // Averages over the requests that report a first-token time; the speed counts only the time spent streaming.
 const streaming = `AVG(ttft_ms) AS ttftMs,

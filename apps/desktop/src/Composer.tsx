@@ -19,7 +19,6 @@ import { Modal } from './ui.tsx';
 import { slashCommands } from './commands.ts';
 import { CodexToolbar } from './CodexToolbar.tsx';
 import type { ProxyClient } from './client.ts';
-import type { EventPayload } from '@cc-desk-tunnel/protocol';
 import ProjectBranch from './ProjectBranch.tsx';
 import ComposerControls from './ComposerControls.tsx';
 import MessageInput, { messageLimit } from './MessageInput.tsx';
@@ -44,7 +43,6 @@ export default function Composer({
   native,
   codex = false,
   client,
-  codexUsage,
   connected,
   busy,
   refreshing,
@@ -82,7 +80,6 @@ export default function Composer({
   native: boolean;
   codex?: boolean;
   client: ProxyClient;
-  codexUsage?: (Extract<EventPayload, { type: 'codex.usage' }> & { measuredAt: string }) | null;
   connected: boolean;
   busy: boolean;
   refreshing: boolean;
@@ -503,7 +500,7 @@ export default function Composer({
               disabled={controlsDisabled}
               commandMenu={commandMenu}
               setServiceTiers={setServiceTiers}
-              usage={codexUsage}
+              metrics={metrics}
               quota={quota}
               openAccount={openAccount}
               configure={(c) => configure({ codex: c })}

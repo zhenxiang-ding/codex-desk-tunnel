@@ -1,4 +1,5 @@
 import { configuredPermissions, memoryPreference } from './codex-account.ts';
+import { codexTitle, compactedCodexUsage, titlePrompt } from './codex-session-info.ts';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
@@ -41,6 +42,8 @@ interface Item {
 interface Chat {
   runtime: Runtime;
   compact?: boolean;
+  generateTitle?: boolean;
+  previousReading?: Extract<EventPayload, { type: 'codex.usage' }>;
   choice?: CodexChoice;
   thread?: string;
   message: string;
@@ -76,7 +79,21 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
   let startedAt: number | null = null,
     elapsed = 0,
     firstText: number | undefined;
-  let previousTotal: number | undefined;
+  let previousTotal: number | undefined,
+    previousContext: number | undefined,
+    previousWindow: number | null | undefined;
+  let rolloutPath: string | undefined,
+    sawCompact = false,
+    contextAfterCompact = false;
+  let title = '',
+    completed = false;
+  function publishTitle(raw: unknown) {
+    const next = codexTitle(raw);
+    if (next && next !== title) {
+      title = next;
+      emit({ type: 'native.title', title });
+    }
+  }
   const runningTools = new Set<string>();
   const activeMs = () => elapsed + (startedAt === null ? 0 : performance.now() - startedAt);
 
@@ -95,12 +112,19 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
     const id = ++seq;
     pending.set(id, {
       method,
-      timer: setTimeout(() => abortWith(new Error('Codex CLI 没有响应 ' + method)), 30000),
+      timer: setTimeout(
+        () => abortWith(new Error('Codex CLI 没有响应 ' + method)),
+        method === 'thread/sample' ? 12000 : 30000,
+      ),
     });
     write({ id, method, params });
   };
   let stopTimer: ReturnType<typeof setTimeout> | undefined;
   const stop = () => {
+    if (completed) {
+      child.kill();
+      return;
+    }
     if (thread && turn) {
       request('turn/interrupt', { threadId: thread, turnId: turn });
       stopTimer = setTimeout(() => child.kill(), 2000);
@@ -132,12 +156,15 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
       return;
     }
     if (i.type === 'contextCompaction') {
-      if (done)
+      if (done) {
+        sawCompact = true;
+        contextAfterCompact = false;
         emit({
           type: 'native.compact',
           trigger: chat.compact ? 'manual' : 'auto',
           previousTokens: null,
         });
+      }
       return;
     }
     const fields: Record<string, [string, unknown, unknown]> = {
@@ -179,7 +206,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
   };
   request('initialize', {
     clientInfo: { name: 'codex_desk_tunnel', version: '1' },
-    capabilities: {},
+    capabilities: { experimentalApi: !!chat.generateTitle },
   });
   try {
     for await (const line of lines) {
@@ -221,6 +248,10 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
         if (!sent) continue;
         clearTimeout(sent.timer);
         pending.delete(frame.id);
+        if (sent.method === 'thread/sample') {
+          if (!frame.error && frame.result?.sourceTurnId === turn) publishTitle(frame.result.text);
+          return 'completed';
+        }
         if (frame.error)
           throw new Error(sent.method + ' 请求失败：' + print(frame.error.message).slice(0, 600));
         const result = frame.result;
@@ -272,6 +303,13 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             if (!thread || !/^[a-f0-9-]{36}$/i.test(thread))
               throw new Error('Codex 返回的会话 ID 无效。');
             chat.bind(thread);
+            rolloutPath = result.thread.path;
+            publishTitle(result.thread.name);
+            if (chat.previousReading?.threadId === thread) {
+              previousTotal = chat.previousReading.total.totalTokens;
+              previousContext = chat.previousReading.last.totalTokens;
+              previousWindow = chat.previousReading.window;
+            }
             if (chat.compact) {
               request('thread/compact/start', { threadId: thread });
               break;
@@ -307,6 +345,9 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
       if (!p || !thread || p.threadId !== thread || (turn && p.turnId && p.turnId !== turn))
         continue;
       switch (frame.method) {
+        case 'thread/name/updated':
+          publishTitle(p.threadName);
+          break;
         case 'turn/started':
           startedAt ??= performance.now();
           turn = p.turn.id;
@@ -343,22 +384,39 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
           if (value.success) {
             chat.usage(value.data);
             const last = codexTokensSchema.safeParse(p.tokenUsage.last);
-            if (last.success && previousTotal !== value.data.totalTokens) {
-              previousTotal = value.data.totalTokens;
+            const window = p.tokenUsage.modelContextWindow ?? null;
+            const contextOnly = previousTotal === value.data.totalTokens;
+            if (
+              last.success &&
+              (!contextOnly ||
+                (sawCompact && !contextAfterCompact) ||
+                previousContext !== last.data.totalTokens ||
+                previousWindow !== window)
+            ) {
               emit({
                 type: 'codex.usage',
-                promptId: chat.messageId,
-                durationMs: Math.round(activeMs()),
-                ttftMs: firstText,
+                ...(contextOnly
+                  ? { contextOnly: true as const }
+                  : {
+                      promptId: chat.messageId,
+                      durationMs: Math.round(activeMs()),
+                      ttftMs: firstText,
+                    }),
                 model,
                 threadId: thread,
                 total: value.data,
                 last: last.data,
-                window: p.tokenUsage.modelContextWindow ?? null,
+                window,
               });
-              elapsed = 0;
-              firstText = undefined;
-              startedAt = runningTools.size ? null : performance.now();
+              previousTotal = value.data.totalTokens;
+              previousContext = last.data.totalTokens;
+              previousWindow = window;
+              if (sawCompact) contextAfterCompact = true;
+              if (!contextOnly) {
+                elapsed = 0;
+                firstText = undefined;
+                startedAt = runningTools.size ? null : performance.now();
+              }
             }
           }
           break;
@@ -370,9 +428,29 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             throw new Error(
               print(p.turn.error?.message || 'Codex 未能完成本轮对话。').slice(0, 600),
             );
+          completed = true;
+          if (sawCompact && !contextAfterCompact) {
+            const reading = await compactedCodexUsage(rolloutPath);
+            if (
+              reading &&
+              (previousTotal === undefined || reading.total.totalTokens === previousTotal)
+            )
+              emit({ type: 'codex.usage', threadId: thread, model, contextOnly: true, ...reading });
+          }
+          if (chat.generateTitle && !chat.compact && !title && !signal.aborted) {
+            turn = p.turn.id;
+            request('thread/sample', {
+              threadId: thread,
+              expectedTurnId: turn,
+              disableMcp: true,
+              prompt: titlePrompt,
+            });
+            break;
+          }
           return 'completed';
       }
     }
+    if (completed) return 'completed';
     if (signal.aborted) return 'cancelled';
     throw failure ?? new Error('Codex 在本轮完成前断开了连接。');
   } finally {

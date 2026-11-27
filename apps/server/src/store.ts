@@ -444,10 +444,25 @@ export class SessionStore {
       .prepare('UPDATE codex_threads SET usage=? WHERE session_id=?')
       .run(JSON.stringify(usage), sessionId);
   }
+  lastCodexEvent(sessionId: string, kind: 'native.title' | 'native.compact' | 'codex.usage') {
+    const row = this.database
+      .prepare(
+        "SELECT data FROM events WHERE session_id=? AND data ->> '$.payload.type'=? ORDER BY sequence DESC LIMIT 1",
+      )
+      .get(sessionId, kind);
+    return row ? (JSON.parse(String(row.data)) as SessionEvent) : undefined;
+  }
+  firstCodexPrompt(sessionId: string) {
+    return this.database
+      .prepare(
+        "SELECT data ->> '$.payload.text' AS text FROM events WHERE session_id=? AND data ->> '$.payload.type'='message.user' AND COALESCE(data ->> '$.payload.continued',0)=0 AND trim(data ->> '$.payload.text') NOT IN ('','/compact') ORDER BY sequence LIMIT 1",
+      )
+      .get(sessionId)?.text as string | undefined;
+  }
   recentCodexUsage() {
     const rows = this.database
       .prepare(
-        "SELECT session_id,data FROM events WHERE json_extract(data,'$.payload.type')='codex.usage' ORDER BY rowid DESC LIMIT 50",
+        "SELECT session_id,data FROM events WHERE json_extract(data,'$.payload.type')='codex.usage' AND COALESCE(data ->> '$.payload.contextOnly',0)=0 ORDER BY rowid DESC LIMIT 50",
       )
       .all();
     return rows.map((r) => {
@@ -832,7 +847,11 @@ export class SessionStore {
       createdAt,
       payload,
     };
-    if (!stateReadings.has(payload.type)) session.updatedAt = event.createdAt;
+    if (
+      !stateReadings.has(payload.type) &&
+      !(payload.type === 'codex.usage' && payload.contextOnly)
+    )
+      session.updatedAt = event.createdAt;
     if (payload.type === 'run.status')
       session.activeRun = terminalStatuses.has(payload.status)
         ? null

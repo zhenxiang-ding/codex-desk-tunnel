@@ -459,7 +459,9 @@ export function App({
     // What is shown changes with these two.
     [selected?.id, recorded, unfinished],
   );
-  const usageEvent = events.findLast((e) => e.payload.type === 'codex.usage');
+  const usageEvent = events.findLast(
+    (e) => e.payload.type === 'codex.usage' || e.payload.type === 'native.compact',
+  );
   const history = selected ? state.history[selected.id] : undefined;
   const nativeSession = latest(events, 'native.session');
   // Each turn's report is a reason to ask for the session's figures again.
@@ -468,13 +470,9 @@ export function App({
     [events],
   );
   const capabilities = latest(events, 'native.capabilities') ?? state.capabilities;
-  const codexReading =
-    usageEvent?.payload.type === 'codex.usage'
-      ? { ...usageEvent.payload, measuredAt: usageEvent.createdAt }
-      : null;
-  const metrics = codexMode ? codexContext(codexReading) : latest(events, 'native.metrics');
+  const metrics = codexMode ? codexContext(usageEvent) : latest(events, 'native.metrics');
   const canCompact = codexMode
-    ? !!codexReading && !/^0\.1\.[0-6]$/.test(state.service ?? '')
+    ? !!usageEvent && !/^0\.1\.[0-6]$/.test(state.service ?? '')
     : !!latest(events, 'native.context')?.persisted;
   // A chat run holds the CLI's state while it goes; a terminal holds only its own session.
   const anyChat = state.sessions.some(
@@ -2237,7 +2235,6 @@ export function App({
                 setDraft={(text) => setDraft(selected.id, text)}
                 codex={codexMode}
                 client={client}
-                codexUsage={codexReading}
                 native={nativeMode}
                 connected={connected}
                 busy={busy}

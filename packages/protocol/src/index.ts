@@ -544,6 +544,7 @@ export const eventPayloadSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('codex.usage'),
+    contextOnly: z.literal(true).optional(),
     promptId: id.optional(),
     durationMs: z.number().nonnegative().optional(),
     ttftMs: z.number().nonnegative().optional(),

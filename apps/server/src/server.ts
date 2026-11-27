@@ -1,6 +1,7 @@
 import { randomUUID, createHash, timingSafeEqual } from 'node:crypto';
 import { CodexAccount } from './codex-account.ts';
 import { runCodexChat } from './codex-chat.ts';
+import { codexTitle, restoreCodexSessionInfo } from './codex-session-info.ts';
 import { skillMention } from '@cc-desk-tunnel/protocol';
 import { codexTerminal } from './codex-terminal.ts';
 import {
@@ -628,7 +629,6 @@ export function createProxyServer(options: ServerOptions) {
   function updated(sessionId: string) {
     broadcast({ type: 'session.updated', session: store.get(sessionId).session });
   }
-
   // Stores an event and sends it to the session's subscribers.
   function record(sessionId: string, runId: string, payload: EventPayload, createdAt?: string) {
     const event = store.append(sessionId, runId, payload, createdAt);
@@ -808,7 +808,11 @@ export function createProxyServer(options: ServerOptions) {
         store.execution(session.device?.id, platformOf(session.device)),
         bin,
       );
+      const previousReading = store.lastCodexEvent(session.id, 'codex.usage')?.payload;
       const status = await runCodexChat({
+        previousReading: previousReading?.type === 'codex.usage' ? previousReading : undefined,
+        generateTitle:
+          session.autoTitle && !compact && !store.lastCodexEvent(session.id, 'native.title'),
         compact,
         runtime,
         choice: session.codex,
@@ -1734,6 +1738,16 @@ export function createProxyServer(options: ServerOptions) {
     // What Claude's system prompt no longer has right is told to it with this message; the transcript shows the
     // user's own text.
     if (codexAccount) {
+      if (
+        session.autoTitle &&
+        session.title === '新会话' &&
+        !continued &&
+        command.type === 'message.send'
+      ) {
+        const title = codexTitle(text);
+        if (title)
+          broadcast({ type: 'session.updated', session: store.renameNative(session.id, title) });
+      }
       emit(run, { type: 'message.delivery', messageId: command.requestId, status: 'submitted' });
       track(codexChat(run, session, text, command.requestId, command.type === 'session.compact'));
       return;
@@ -2753,6 +2767,8 @@ export function createProxyServer(options: ServerOptions) {
     store,
     async listen(port = 8787): Promise<string> {
       await releases.refresh();
+      if (codexAccount)
+        track(restoreCodexSessionInfo(store, codexAccount, updated, record, () => closing));
       await files?.start();
       updates?.start();
       if (usageReceiver)

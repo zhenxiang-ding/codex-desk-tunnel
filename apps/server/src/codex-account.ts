@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessByStdio } from 'node:child_process';
 import { createInterface } from 'node:readline';
+import { titlePrompt } from './codex-session-info.ts';
 import type { Readable, Writable } from 'node:stream';
 import {
   codexModelSchema,
@@ -127,7 +128,7 @@ export class CodexAccount {
     });
     this.ready = this.rpc('initialize', {
       clientInfo: { name: 'codex_desk_tunnel', version: '1' },
-      capabilities: {},
+      capabilities: { experimentalApi: true },
     })
       .then(() => child.stdin.write(JSON.stringify({ method: 'initialized' }) + '\n'))
       .catch((error) => {
@@ -154,6 +155,42 @@ export class CodexAccount {
       this.pending.set(id, finish);
       this.child!.stdin.write(JSON.stringify({ id, method, params }) + '\n');
     });
+  }
+  async threadInfo(threadId: string) {
+    await this.start();
+    const { thread } = await this.rpc<{
+      thread: { id: string; name?: string; preview?: string; path?: string };
+    }>('thread/read', { threadId, includeTurns: false });
+    return thread.id === threadId ? thread : undefined;
+  }
+  async summarizeThread(threadId: string) {
+    await this.start();
+    await this.rpc('thread/resume', { threadId, excludeTurns: true });
+    try {
+      const { data } = await this.rpc<{ data: { id: string; status: string }[] }>(
+        'thread/turns/list',
+        {
+          threadId,
+          limit: 1,
+          sortDirection: 'desc',
+          itemsView: 'notLoaded',
+        },
+      );
+      const turn = data[0];
+      if (turn?.status !== 'completed') return;
+      const result = await this.rpc<{ text: string | null; sourceTurnId: string }>(
+        'thread/sample',
+        {
+          threadId,
+          expectedTurnId: turn.id,
+          disableMcp: true,
+          prompt: titlePrompt,
+        },
+      );
+      return result.sourceTurnId === turn.id ? result.text : undefined;
+    } finally {
+      await this.rpc('thread/unsubscribe', { threadId }).catch(() => {});
+    }
   }
   async skills(cwd: string) {
     await this.start();

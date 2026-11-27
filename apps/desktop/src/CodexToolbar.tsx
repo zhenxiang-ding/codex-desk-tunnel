@@ -13,7 +13,8 @@ import type {
   CodexModel,
   CodexConfig,
   Session,
-  EventPayload,
+  NativeMetrics,
+  SessionEvent,
 } from '@cc-desk-tunnel/protocol';
 import type { ProxyClient } from './client.ts';
 import { ComposerQuota } from './ComposerControls.tsx';
@@ -42,7 +43,7 @@ export function CodexToolbar({
   client,
   session,
   disabled,
-  usage,
+  metrics,
   configure,
   commandMenu,
   setServiceTiers,
@@ -52,7 +53,7 @@ export function CodexToolbar({
   client: ProxyClient;
   session: Session;
   disabled: boolean;
-  usage?: (Extract<EventPayload, { type: 'codex.usage' }> & { measuredAt: string }) | null;
+  metrics: NativeMetrics | null;
   quota: import('@cc-desk-tunnel/protocol').AccountQuota | null;
   openAccount: () => void;
   setServiceTiers: (tiers: NonNullable<CodexModel['serviceTiers']>) => void;
@@ -154,7 +155,6 @@ export function CodexToolbar({
     legacy && !choice.approval && !defaults?.approvals_reviewer
       ? codexPreset({ ...defaults, approvals_reviewer: 'user' })
       : codexPreset(defaults ?? {}, choice.approval);
-  const metrics = codexContext(usage);
   function save(c: CodexChoice) {
     open(null);
     setPreview(null);
@@ -395,21 +395,27 @@ export function CodexToolbar({
   );
 }
 
-export const codexContext = (
-  usage:
-    (Extract<EventPayload, { type: 'codex.usage' }> & { measuredAt: string }) | null | undefined,
-) =>
-  usage?.window
-    ? {
-        type: 'native.metrics' as const,
-        usage: null,
-        context: {
-          model: usage.model ?? 'Codex',
-          usedTokens: usage.last.totalTokens,
-          windowTokens: usage.window,
-          percentage: Math.min(100, Math.round((100 * usage.last.totalTokens) / usage.window)),
-          measuredAt: usage.measuredAt,
-          categories: [],
-        },
-      }
-    : null;
+export function codexContext(event?: SessionEvent): NativeMetrics | null {
+  if (!event) return null;
+  const usage = event.payload;
+  if (usage.type === 'native.compact')
+    return {
+      type: 'native.metrics',
+      usage: null,
+      context: null,
+      errors: { context: '已压缩，等待 Codex 上报当前上下文占用。' },
+    };
+  if (usage.type !== 'codex.usage' || !usage.window) return null;
+  return {
+    type: 'native.metrics' as const,
+    usage: null,
+    context: {
+      model: usage.model ?? 'Codex',
+      usedTokens: usage.last.totalTokens,
+      windowTokens: usage.window,
+      percentage: Math.min(100, Math.round((100 * usage.last.totalTokens) / usage.window)),
+      measuredAt: event.createdAt,
+      categories: [],
+    },
+  };
+}
