@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
-import { ArrowLeft, ChevronDown, ChevronRight, Check, RotateCcw, ShieldCheck } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronRight,
+  Check,
+  RotateCcw,
+  ShieldCheck,
+  Zap,
+} from 'lucide-react';
 import type {
   CodexChoice,
   CodexModel,
@@ -59,6 +67,7 @@ export function CodexToolbar({
     [error, setError] = useState(''),
     [refresh, reload] = useState(0);
   const [preview, setPreview] = useState<number | null>(null);
+  const [supportsSessionServiceTier, setSupportsSessionServiceTier] = useState(false);
   const left = useRef<HTMLDivElement>(null),
     right = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -72,6 +81,7 @@ export function CodexToolbar({
           if (active) {
             setModels(r.models);
             setDefaults(r.defaults);
+            setSupportsSessionServiceTier(r.supportsSessionServiceTier === true);
           }
         },
         (e) => {
@@ -115,6 +125,24 @@ export function CodexToolbar({
     setServiceTiers(current?.serviceTiers ?? []);
   }, [current, setServiceTiers]);
   const modelLabel = current?.displayName || choice.model || defaults?.model || 'CLI 默认模型';
+  const fastTier = current?.serviceTiers?.find(
+    (tier) => tier.name.toLowerCase() === 'fast' || ['fast', 'priority'].includes(tier.id),
+  );
+  const tier = choice.serviceTier ?? defaults?.service_tier ?? current?.defaultServiceTier;
+  const fast =
+    !!fastTier &&
+    (tier === fastTier.id || (tier === 'fast' && fastTier.name.toLowerCase() === 'fast'));
+  const fastHint = loading
+    ? '正在读取服务档位'
+    : error
+      ? '无法读取服务档位'
+      : !fastTier
+        ? '当前模型未提供 Fast 模式'
+        : !supportsSessionServiceTier
+          ? '升级服务端后可切换 Fast 模式'
+          : fast
+            ? 'Fast 已开启，点击切换到标准速度'
+            : 'Fast 已关闭，点击开启';
   const levels = current?.supportedReasoningEfforts ?? [];
   const actual =
     choice.effort ??
@@ -134,6 +162,16 @@ export function CodexToolbar({
   }
   function level(index: number) {
     if (levels[index]) save({ effort: levels[index].reasoningEffort });
+  }
+  function selectModel(model: string | null) {
+    const nextModel =
+      models.find((m) => m.model === (model ?? defaults?.model)) ??
+      (!model && !defaults?.model ? models.find((m) => m.isDefault) : undefined);
+    const resetTier =
+      choice.serviceTier &&
+      choice.serviceTier !== 'default' &&
+      !nextModel?.serviceTiers?.some((t) => t.id === choice.serviceTier);
+    save({ model, effort: null, ...(resetTier && { serviceTier: null }) });
   }
   return (
     <>
@@ -212,6 +250,9 @@ export function CodexToolbar({
               open(menu === 'effort' || menu === 'model' ? null : 'effort');
             }}
           >
+            {!loading && !error && fast && (
+              <Zap className="fast-indicator" aria-label="Fast 已开启" />
+            )}
             <span>{modelLabel}</span>
             <small>{actual ? (effortLabels[actual] ?? actual) : '默认'}</small>
             <ChevronDown />
@@ -225,6 +266,22 @@ export function CodexToolbar({
               {menu === 'effort' ? (
                 <div className="effort-view">
                   <div className="effort-heading">
+                    <button
+                      type="button"
+                      className="fast-toggle"
+                      aria-label="Fast 模式"
+                      aria-pressed={fast}
+                      title={fastHint}
+                      disabled={
+                        disabled || loading || !!error || !supportsSessionServiceTier || !fastTier
+                      }
+                      onClick={() =>
+                        fastTier && save({ serviceTier: fast ? 'default' : fastTier.id })
+                      }
+                    >
+                      <Zap aria-hidden="true" />
+                      Fast
+                    </button>
                     <strong>{shown ? (effortLabels[shown] ?? shown) : '原生默认'}</strong>
                     <IconButton title="恢复默认推理强度" onClick={() => save({ effort: null })}>
                       <RotateCcw />
@@ -300,7 +357,7 @@ export function CodexToolbar({
                       type="button"
                       role="option"
                       aria-selected={!choice.model}
-                      onClick={() => save({ model: null, effort: null })}
+                      onClick={() => selectModel(null)}
                     >
                       默认模型{!choice.model && <Check />}
                     </button>
@@ -311,7 +368,7 @@ export function CodexToolbar({
                         role="option"
                         aria-selected={choice.model === m.model}
                         title={m.description}
-                        onClick={() => save({ model: m.model, effort: null })}
+                        onClick={() => selectModel(m.model)}
                       >
                         {m.displayName || m.model}
                         {choice.model === m.model && <Check />}

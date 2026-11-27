@@ -279,6 +279,7 @@ export async function runCodexChat(chat: Chat): Promise<'completed' | 'cancelled
             startedAt = performance.now();
             request('turn/start', {
               threadId: thread,
+              serviceTierForTurn: chat.choice?.serviceTier ?? undefined,
               effort:
                 chat.choice?.effort ??
                 (chat.choice?.model && chat.choice.model !== config.model

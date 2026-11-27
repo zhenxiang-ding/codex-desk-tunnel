@@ -2823,6 +2823,36 @@ div.message-input:not([aria-disabled]) .path-chip:hover .path-chip-remove {
   width: 15px;
   height: 15px;
 }
+.fast-toggle {
+  position: absolute;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 12px;
+}
+.fast-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+.fast-toggle:hover:enabled {
+  background: var(--hover);
+}
+.fast-toggle[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: currentColor;
+}
+.fast-toggle[aria-pressed='true'] svg,
+.model-trigger .fast-indicator {
+  color: var(--accent);
+  fill: currentColor;
+}
 .model-current,
 .model-back {
   display: flex;

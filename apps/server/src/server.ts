@@ -1899,7 +1899,13 @@ export function createProxyServer(options: ServerOptions) {
           codexAccount.models(),
           codexAccount.configuration(),
         ]);
-        send(peer, { type: 'codex.models.state', requestId: command.requestId, models, defaults });
+        send(peer, {
+          type: 'codex.models.state',
+          requestId: command.requestId,
+          models,
+          defaults,
+          supportsSessionServiceTier: true,
+        });
         return undefined;
       }
       case 'codex.settings.get':

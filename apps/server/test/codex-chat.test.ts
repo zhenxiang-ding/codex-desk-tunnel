@@ -37,13 +37,19 @@ createInterface({input:process.stdin}).on('line',line=>{
  if(method==='turn/start'){
   if(params.input[1]?.type!=='skill'||params.input[1].name!=='fixture-skill')return process.exit(6);
   if(params.effort!==(resumed?'high':'low'))return process.exit(8);
+  if(params.serviceTierForTurn!==process.env.EXPECT_TIER)return process.exit(10);
   send({id,result:{turn:{id:turn}}});
   note('item/started',{item:{id:'shell',type:'commandExecution',command:'ssh device hostname'}});
   send({method:'item/commandExecution/requestApproval',id:'approval',params:{threadId:thread,turnId:turn,itemId:'shell',reason:'test approval',command:'ssh device hostname'}});
  }
  if(method==='turn/interrupt'){send({id,result:{}});note('turn/completed',{turn:{id:turn,status:'interrupted'}});}
 });`;
-function fixture(signal: AbortSignal, approve: () => Promise<boolean>, thread?: string) {
+function fixture(
+  signal: AbortSignal,
+  approve: () => Promise<boolean>,
+  thread?: string,
+  serviceTier?: string,
+) {
   const events: EventPayload[] = [];
   let bound = '';
   const done = runCodexChat({
@@ -51,10 +57,16 @@ function fixture(signal: AbortSignal, approve: () => Promise<boolean>, thread?: 
       file: process.execPath,
       args: ['--input-type=module', '-e', script, '--'],
       cwd: process.cwd(),
-      env: { PATH: process.env.PATH ?? '', TERM: 'xterm-256color' },
+      env: {
+        PATH: process.env.PATH ?? '',
+        TERM: 'xterm-256color',
+        ...(serviceTier && { EXPECT_TIER: serviceTier }),
+      },
     },
     thread,
-    choice: thread ? { model: 'second-model', effort: 'high' } : { approval: 'approve-for-me' },
+    choice: thread
+      ? { model: 'second-model', effort: 'high', serviceTier }
+      : { approval: 'approve-for-me', serviceTier },
     skills: [{ name: 'fixture-skill', path: '/tmp/fixture-skill/SKILL.md' }],
     message: 'test',
     messageId: randomUUID(),
@@ -71,7 +83,12 @@ function fixture(signal: AbortSignal, approve: () => Promise<boolean>, thread?: 
 test('structured Codex turns resume, keep tool decisions and deliver streamed text once', async () => {
   let thread: string | undefined;
   for (const allowed of [true, false]) {
-    const chat = fixture(AbortSignal.timeout(5000), async () => allowed, thread);
+    const chat = fixture(
+      AbortSignal.timeout(5000),
+      async () => allowed,
+      thread,
+      allowed ? 'priority' : 'default',
+    );
     assert.equal(await chat.done, 'completed');
     thread = chat.bound();
     assert.ok(
@@ -120,6 +137,7 @@ test('Codex thread bindings and cumulative usage survive restart without countin
   store.configure(first.id, first.permissionMode, undefined, undefined, {
     model: 'm',
     effort: 'high',
+    serviceTier: 'priority',
   });
   store.configure(first.id, first.permissionMode, undefined, undefined, { approval: 'on-request' });
   store.codexUsage(first.id, tokens);
@@ -132,6 +150,7 @@ test('Codex thread bindings and cumulative usage survive restart without countin
     model: 'm',
     effort: 'high',
     approval: 'on-request',
+    serviceTier: 'priority',
   });
   assert.equal(store.codexThread(first.id), id);
   assert.deepEqual(store.codexUsageSummary(), { sessions: 1, totals: tokens });
