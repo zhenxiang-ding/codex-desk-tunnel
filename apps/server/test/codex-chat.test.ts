@@ -171,6 +171,18 @@ test('restore the real post-compaction count without billing a model request or 
   assert.deepEqual(store.recentCodexUsage(), []);
   const run = randomUUID(),
     thread = randomUUID();
+  const other = store.create(randomUUID(), '新会话', 'C:/other', session.device!);
+  store.append(
+    other.id,
+    randomUUID(),
+    {
+      type: 'message.user',
+      messageId: randomUUID(),
+      text: '另一段历史会话',
+      scenario: 'chat',
+    },
+    '2020-01-01T00:00:00.000Z',
+  );
   store.bindCodexThread(session.id, thread);
   store.append(session.id, run, {
     type: 'message.user',
@@ -194,6 +206,7 @@ test('restore the real post-compaction count without billing a model request or 
   const account = {
     threadInfo: async (id: string) => ({ id, path: file }),
     summarizeThread: async () => {
+      assert.equal(store.get(other.id).session.title, '另一段历史会话');
       summaries++;
       return '修复压缩后的上下文圆环';
     },

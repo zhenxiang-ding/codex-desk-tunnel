@@ -87,7 +87,19 @@ export async function restoreCodexSessionInfo(
   record: (id: string, runId: string, event: EventPayload, createdAt?: string) => void,
   closing: () => boolean,
 ) {
-  for (const session of store.list()) {
+  const sessions = store.list();
+  // Populate every sidebar row from local history before awaiting the first model response.
+  const fallbackTitles = new Map<string, string>();
+  for (const session of sessions) {
+    if (!session.autoTitle || session.title !== '新会话') continue;
+    const fallback = codexTitle(store.firstCodexPrompt(session.id));
+    if (fallback && !closing()) {
+      fallbackTitles.set(session.id, fallback);
+      store.renameNative(session.id, fallback);
+      updated(session.id);
+    }
+  }
+  for (const session of sessions) {
     if (closing()) return;
     if (session.activeRun) continue;
     const id = session.id;
@@ -96,11 +108,7 @@ export async function restoreCodexSessionInfo(
     const usage = store.lastCodexEvent(id, 'codex.usage');
     const stale = compact && usage && usage.sequence < compact.sequence;
     if (!unnamed && !stale) continue;
-    const fallback = unnamed && codexTitle(store.firstCodexPrompt(id));
-    if (fallback) {
-      store.renameNative(id, fallback);
-      updated(id);
-    }
+    const fallback = fallbackTitles.get(id);
     const thread = store.codexThread(id);
     if (!thread) continue;
     try {

@@ -215,7 +215,7 @@ commit_source() {
   git -C "$source_repo" -c user.name=fixture -c user.email=fixture@example.org commit -qm fixture
 }
 commit_source
-git -C "$source_repo" tag v0.1.11
+git -C "$source_repo" tag v0.1.12
 # Use a real clone and fast-forward, with an isolated URL rewrite in place of the network.
 export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0="url.file://$source_repo.insteadOf"
 export GIT_CONFIG_VALUE_0=https://github.com/zhenxiang-ding/codex-desk-tunnel.git
